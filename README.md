@@ -1,4 +1,4 @@
-# Welcome to the University Library System Metadata and Discovery Unit GitHub
+### Welcome to the University Library System Metadata and Discovery Unit GitHub
 
 We'll be using this site to track and maintain metadata and metadata documentation.
 
