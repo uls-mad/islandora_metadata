@@ -3,7 +3,7 @@
 We'll be using this site to track and maintain metadata and metadata documentation.
 
 Some features include:
-- The MAD Wiki
-	- Controlled Vocabulary lists for topical, geographic, and authoritative names.
-
-More later!
+- [The MAD Wiki](https://github.com/uls-mad/islandora_metadata/wiki)
+	- Controlled Vocabulary lists for [geographic](https://github.com/uls-mad/islandora_metadata/wiki/geographic-headings), [genre](https://github.com/uls-mad/islandora_metadata/wiki/Genre-Terms-for-DRL-Digital-Objects), and [authoritative names](https://github.com/uls-mad/islandora_metadata/wiki/name-authorities).
+	- [Historic Pittsburgh Documentation](https://github.com/uls-mad/islandora_metadata/wiki/Historic-Pittsburgh-Documentation)
+		- [Historic Pittsburgh Digital Images Metadata](https://github.com/uls-mad/islandora_metadata/wiki/Digital-Images)
