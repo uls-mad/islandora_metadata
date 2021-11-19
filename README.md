@@ -7,3 +7,6 @@ Some features include:
 	- Controlled Vocabulary lists for [geographic](https://github.com/uls-mad/islandora_metadata/wiki/geographic-headings), [genre](https://github.com/uls-mad/islandora_metadata/wiki/Genre-Terms-for-Historic-Pittsburgh-Digital-Objects), and [authoritative names](https://github.com/uls-mad/islandora_metadata/wiki/name-authorities).
 	- [Historic Pittsburgh Documentation](https://github.com/uls-mad/islandora_metadata/wiki/Historic-Pittsburgh-Documentation)
 		- [Historic Pittsburgh Digital Images Metadata](https://github.com/uls-mad/islandora_metadata/wiki/Digital-Images)
+		- Historic Pittsburgh Digital Manuscript Metadata
+		- Historic Pittsburgh Oral History Metadata
+		- Historic Pittsburgh Audio-Visual Metadata
