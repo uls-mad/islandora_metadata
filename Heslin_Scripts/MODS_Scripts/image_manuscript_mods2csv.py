@@ -28,12 +28,11 @@ class ModsElement:
             return elementname
 
     def get_complex_element(self):
-        value_list = []
-        #if 'text' in self.additional_args.keys():
-        for element in root.findall(self.xpath, self.namespace):
-            if element is not None and element.text == self.additional_args['text']:
-                value_list.append(element.getparent().getprevious().text)
-                return value_list
+        if 'text' in self.additional_args.keys():
+            for element in root.iterfind(self.xpath, self.namespace):
+                if element is not None and element.text == self.additional_args['text']:
+                    elementname = element.getparent().getprevious().text
+                    return elementname
 
     def get_element_attrib(self):
         if root.find(self.xpath, namespaces) is not None:
@@ -54,6 +53,7 @@ for file in list_of_files:
     root = xmlObject.getroot()  # get the root of that object
     namespaces = {'mods': 'http://www.loc.gov/mods/v3'}  # define your namespace
     copyright_ns = {'copyrightMD': 'http://www.cdlib.org/inside/diglib/copyrightMD'}
+
 
     xml_dictionary = {}
 
@@ -78,9 +78,9 @@ for file in list_of_files:
             for key in dict2:
                 if key != '\n      ' and key != '\n         ':
                     if dict2[key] != []:
-                        xml_dictionary.setdefault(i.replace('{http://www.loc.gov/mods/v3}', '') + '/' + dict2[key][-1] , []).append(key.replace('\r', ' '))
+                        xml_dictionary.setdefault(i.replace('{http://www.loc.gov/mods/v3}', '') + '/' + dict2[key][-1] , []).append(key)
                     else:
-                        xml_dictionary.setdefault(i.replace('{http://www.loc.gov/mods/v3}', ''), []).append(key.replace('\r', ' '))
+                        xml_dictionary.setdefault(i.replace('{http://www.loc.gov/mods/v3}', ''), []).append(key)
     #print(xml_dictionary)
 
     xml_dict2 = {}
@@ -105,47 +105,28 @@ for file in list_of_files:
 
 
     for subject in root.iterfind('mods:subject', namespaces):
-        # print([child.text for child in subject.getchildren()])
+        #print([child.text for child in subject.getchildren()])
         if subject.getchildren() != []:
             xml_dict2.setdefault(['subject_' + subject_type.tag.replace('{http://www.loc.gov/mods/v3}', '') for subject_type in subject.getchildren()][0], []).append(
                 '--'.join([child.text for child in subject.getchildren() if child.text != '\n      ' and child.text is not None]))
-
+                
     for key in xml_dict2: #get subjects for manuscripts and images
         if type(xml_dict2[key]) is list:
             xml_dict2[key] = '; '.join(xml_dict2[key])
         else:
             xml_dict2[key] = xml_dict2[key]
 
-    creator_value_list = []
-    contributor_value_list = []
-    depositor_value_list = []
-    for e in root.findall('.//mods:namePart', namespaces):
-        try:
-            if e.getnext().getchildren()[0].text == 'creator':
-                creator_value_list.append(e.text)
-        except AttributeError:
-            pass
-        try:
-            if e.getnext().getchildren()[0].text == 'contributor':
-                contributor_value_list.append(e.text)
-        except AttributeError:
-            pass
-        try:
-            if e.getnext().getchildren()[0].text == 'depositor':
-                depositor_value_list.append(e.text)
-        except AttributeError:
-            pass
 
-    creator = '; '.join(creator_value_list)
-    contributor = '; '.join(contributor_value_list)
-    depositor = '; '.join(depositor_value_list)
+    contributor = ModsElement('.//mods:roleTerm', namespaces, 'contributor', text='contributor')
+    creator = ModsElement('.//mods:roleTerm', namespaces, 'creator', text='creator')
+    depositor = ModsElement('.//mods:roleTerm', namespaces, 'depositor', text='depositor')
     date_qualifier = ModsElement(".//mods:dateCreated[@qualifier='approximate'][@encoding='iso8601'][@keyDate='yes']", namespaces, 'date_qualifier')
 
     xml_dict2.setdefault('copyright_status', copyright_status)
     xml_dict2.setdefault('publication_status', publication_status)
-    xml_dict2.setdefault('contributor', contributor)
-    xml_dict2.setdefault('creator', creator)
-    xml_dict2.setdefault('depositor', depositor)
+    xml_dict2.setdefault('contributor', contributor.get_complex_element())
+    xml_dict2.setdefault('creator', creator.get_complex_element())
+    xml_dict2.setdefault('depositor', depositor.get_complex_element())
     xml_dict2.setdefault('normalized_date_qualifier', date_qualifier.get_element_attrib())
 
     master_dict.append(xml_dict2)
@@ -177,10 +158,10 @@ correct_df2.rename(columns={'title/titleInfo': 'title', 'typeOfResource': 'type_
 'languageTerm/code/language': 'language', 'form/physicalDescription': 'format', 'extent/physicalDescription': 'extent', 'identifier/pitt' : 'identifier',
 'title/relatedItem': 'source_collection', 'dateCreated/originInfo': 'normalized_date', 'note/prefercite/relatedItem': 'source_citation', 'identifier/relatedItem': 'source_collection_id', 'note/container/relatedItem': 'source_container',
 'note/series/relatedItem': 'source_series', 'note/subseries/relatedItem': 'source_subseries', 'placeTerm/text/originInfo': 'pub_place',
-'abstract': 'description', 'namePart/subject': 'subject_name', '{http://www.cdlib.org/inside/diglib/copyrightMD}name/accessCondition' : 'rights_holder'}, inplace=True)
+'abstract': 'description', 'namePart/subject': 'subject_name', '{http://www.cdlib.org/inside/diglib/copyrightMD}name/accessCondition' : 'rights_holder','note/address' : 'address'}, inplace=True)
 
 #data cleaning
 nan_value = float("NaN")
-correct_df2.replace({'': nan_value, '; ': nan_value, '; ; ': nan_value}, inplace=True)
+correct_df2.replace({'': nan_value, '; ': nan_value}, inplace=True)
 correct_df2.dropna(how='all', axis=1, inplace=True)
 correct_df2.to_csv(new_csv, index=False, header=True, encoding='utf-8')
