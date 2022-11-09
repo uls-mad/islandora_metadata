@@ -103,12 +103,13 @@ for file in list_of_files:
             publication_status = copyrights.attrib['publication.status']
             copyright_status = copyrights.attrib['copyright.status']
 
-
+    
     for subject in root.iterfind('mods:subject', namespaces):
-        #print([child.text for child in subject.getchildren()])
-        if subject.getchildren() != []:
-            xml_dict2.setdefault(['subject_' + subject_type.tag.replace('{http://www.loc.gov/mods/v3}', '') for subject_type in subject.getchildren()][0], []).append(
-                '--'.join([child.text for child in subject.getchildren() if child.text != '\n      ' and child.text is not None]))
+        #print([child.text for child in list(subject)])
+        if list(subject) != []:
+            xml_dict2.setdefault(['subject_' + subject_type.tag.replace('{http://www.loc.gov/mods/v3}', '') 
+                for subject_type in list(subject)][0], []).append(
+                '--'.join([child.text for child in list(subject) if child.text != '\n      ' and child.text is not None]))
                 
     for key in xml_dict2: #get subjects for manuscripts and images
         if type(xml_dict2[key]) is list:
