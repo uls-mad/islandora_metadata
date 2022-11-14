@@ -105,13 +105,14 @@ for file in list_of_files:
 
     
     for subject in root.iterfind('mods:subject', namespaces):
-        print([child for child in list(subject)])
         #print([child.text for child in list(subject)])
+        #print(list(subject))
         if list(subject) != []:
             xml_dict2.setdefault(['subject_' + subject_type.tag.replace('{http://www.loc.gov/mods/v3}', '') 
-                for subject_type in list(subject)][0], []).append(
+            #if subject_type.tag.replace('{http://www.loc.gov/mods/v3}', '') != 'name':        
+            for subject_type in list(subject)][0], []).append(
                 '--'.join([child.text for child in list(subject) if child.text != '\n      ' and child.text is not None]))
-                
+ 
     for key in xml_dict2: #get subjects for manuscripts and images
         if type(xml_dict2[key]) is list:
             xml_dict2[key] = '; '.join(xml_dict2[key])
@@ -145,10 +146,11 @@ fieldnames = ['title/titleInfo', 'creator', 'subject_geographic', 'subject_topic
 
 df = pd.read_csv(csv_name) #===> Include the headers
 correct_df = df.copy()
-#print(df.columns.values)
+print(df.columns.values)
 for i in correct_df.columns.values:
     if i not in fieldnames:
-        fieldnames.append(i)
+        if i != 'subject_name':
+            fieldnames.append(i)
     else:
         pass
 df_reorder = correct_df.reindex(columns=fieldnames)
