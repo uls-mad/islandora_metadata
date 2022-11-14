@@ -146,7 +146,7 @@ fieldnames = ['title/titleInfo', 'creator', 'subject_geographic', 'subject_topic
 
 df = pd.read_csv(csv_name) #===> Include the headers
 correct_df = df.copy()
-print(df.columns.values)
+#print(df.columns.values)
 for i in correct_df.columns.values:
     if i not in fieldnames:
         if i != 'subject_name':
