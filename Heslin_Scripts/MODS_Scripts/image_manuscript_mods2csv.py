@@ -105,7 +105,7 @@ for file in list_of_files:
 
     
     for subject in root.iterfind('mods:subject', namespaces):
-        #print([child.text for child in list(subject)])
+        print([child.text for child in list(subject)])
         if list(subject) != []:
             xml_dict2.setdefault(['subject_' + subject_type.tag.replace('{http://www.loc.gov/mods/v3}', '') 
                 for subject_type in list(subject)][0], []).append(
