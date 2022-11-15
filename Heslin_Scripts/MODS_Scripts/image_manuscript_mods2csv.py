@@ -139,8 +139,8 @@ df.to_csv (csv_name, index = False, header=True, encoding='utf-8')
 
 new_csv = input('CSV has been created but headers need to be renamed and reindexed. Provide full pathname for new csv:')
 
-fieldnames = ['title/titleInfo', 'creator', 'subject_geographic', 'subject_topic', 'namePart/subject', 'abstract', 'dateCreated/originInfo', 'normalized_date_qualifier','dateOther/display/originInfo',
-             'dateOther/sort/originInfo', 'identifier/pitt', 'publication_status', 'copyright_status', '{http://www.cdlib.org/inside/diglib/copyrightMD}name/accessCondition','typeOfResource', 'languageTerm/code/language', 'title/relatedItem',
+fieldnames = ['identifier/pitt', 'title/titleInfo', 'creator', 'subject_geographic', 'subject_topic', 'namePart/subject', 'abstract', 'dateCreated/originInfo', 'normalized_date_qualifier','dateOther/display/originInfo',
+             'dateOther/sort/originInfo', 'publication_status', 'copyright_status', '{http://www.cdlib.org/inside/diglib/copyrightMD}name/accessCondition','typeOfResource', 'languageTerm/code/language', 'title/relatedItem',
               'identifier/relatedItem', 'depositor', 'contributor', 'genre', 'form/physicalDescription', 'extent/physicalDescription', 'publisher/originInfo', 'note/prefercite/relatedItem', 'placeTerm/text/originInfo',
               'note/series/relatedItem', 'note/subseries/relatedItem', 'note/container/relatedItem', 'dateCreated/relatedItem', 'identifier/local-asc/relatedItem', 'note/ownership/relatedItem']
 
