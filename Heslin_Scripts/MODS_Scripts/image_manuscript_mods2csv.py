@@ -162,7 +162,7 @@ correct_df2.rename(columns={'title/titleInfo': 'title', 'typeOfResource': 'type_
 'languageTerm/code/language': 'language', 'form/physicalDescription': 'format', 'extent/physicalDescription': 'extent', 'identifier/pitt' : 'identifier',
 'title/relatedItem': 'source_collection', 'dateCreated/originInfo': 'normalized_date', 'note/prefercite/relatedItem': 'source_citation', 'identifier/relatedItem': 'source_collection_id', 'note/container/relatedItem': 'source_container',
 'note/series/relatedItem': 'source_series', 'note/subseries/relatedItem': 'source_subseries', 'placeTerm/text/originInfo': 'pub_place',
-'abstract': 'description', 'namePart/subject': 'subject_name', '{http://www.cdlib.org/inside/diglib/copyrightMD}name/accessCondition' : 'rights_holder','note/address' : 'address', 'dateCreated/relatedItem' : "source_collection_date", 'identifier/local-asc/relatedItem' : 'source_collection_id', 'note/ownership/relatedItem', 'ource_ownership'}, inplace=True)
+'abstract': 'description', 'namePart/subject': 'subject_name', '{http://www.cdlib.org/inside/diglib/copyrightMD}name/accessCondition' : 'rights_holder','note/address' : 'address', 'dateCreated/relatedItem' : "source_collection_date", 'identifier/local-asc/relatedItem' : 'source_collection_id', 'note/ownership/relatedItem' : 'source_ownership'}, inplace=True)
 
 #data cleaning
 nan_value = float("NaN")
