@@ -177,7 +177,7 @@ df_reorder.to_csv(new_csv, index=False, header=True, encoding='utf-8')
 
 new_df = pd.read_csv(new_csv)
 correct_df2 = new_df.copy()
-correct_df2.rename(columns={'title/titleInfo': 'title', 'typeOfResource': 'type_of_resource','publisher/originInfo': 'publisher','dateOther/display/originInfo': '[DELETE} display_date', 'dateOther/sort/originInfo': '[DELETE} sort_date',
+correct_df2.rename(columns={'title/titleInfo': 'title', 'typeOfResource': 'type_of_resource','publisher/originInfo': 'publisher','dateOther/display/originInfo': '[DELETE] display_date', 'dateOther/sort/originInfo': '[DELETE] sort_date',
 'languageTerm/code/language': 'language', 'form/physicalDescription': 'format', 'extent/physicalDescription': 'extent', 'identifier/pitt' : 'identifier',
 'title/relatedItem': 'source_collection', 'dateCreated/originInfo': 'normalized_date', 'note/prefercite/relatedItem': 'source_citation', 'identifier/relatedItem': 'source_collection_id', 'note/container/relatedItem': 'source_container',
 'note/series/relatedItem': 'source_series', 'note/subseries/relatedItem': 'source_subseries', 'placeTerm/text/originInfo': 'pub_place',
