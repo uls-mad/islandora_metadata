@@ -104,9 +104,9 @@ for file in list_of_files:
             copyright_status = copyrights.attrib['copyright.status']
 
     
- for subject in root.iterfind('mods:subject', namespaces):
+    for subject in root.iterfind('mods:subject', namespaces):
         # print([child.text for child in subject.getchildren()])
-                             
+                            
         if subject.getchildren() != []:
                                                                                                             
             xml_dict2.setdefault(['subject_' + subject_type.tag.replace('{http://www.loc.gov/mods/v3}', '') for subject_type in subject.getchildren()][0], []).append(
