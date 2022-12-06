@@ -28,11 +28,12 @@ class ModsElement:
             return elementname
 
     def get_complex_element(self):
-        if 'text' in self.additional_args.keys():
-            for element in root.iterfind(self.xpath, self.namespace):
-                if element is not None and element.text == self.additional_args['text']:
-                    elementname = element.getparent().getprevious().text
-                    return elementname
+        value_list = []
+        #if 'text' in self.additional_args.keys():
+        for element in root.findall(self.xpath, self.namespace):
+            if element is not None and element.text == self.additional_args['text']:
+                value_list.append(element.getparent().getprevious().text)
+                return value_list
 
     def get_element_attrib(self):
         if root.find(self.xpath, namespaces) is not None:
@@ -53,7 +54,6 @@ for file in list_of_files:
     root = xmlObject.getroot()  # get the root of that object
     namespaces = {'mods': 'http://www.loc.gov/mods/v3'}  # define your namespace
     copyright_ns = {'copyrightMD': 'http://www.cdlib.org/inside/diglib/copyrightMD'}
-
 
     xml_dictionary = {}
 
