@@ -156,6 +156,7 @@ for file in list_of_files:
 df = pd.DataFrame.from_dict(master_dict)
 df.to_csv (csv_name, index = False, header=True, encoding='utf-8')
 
+
 new_csv = input('CSV has been created but headers need to be renamed and reindexed. Provide full pathname for new csv:')
 
 fieldnames = ['identifier/pitt', 'title/titleInfo', 'creator', 'subject_geographic', 'subject_topic', 'namePart/subject', 'abstract', 'dateCreated/originInfo', 'normalized_date_qualifier','dateOther/display/originInfo',
