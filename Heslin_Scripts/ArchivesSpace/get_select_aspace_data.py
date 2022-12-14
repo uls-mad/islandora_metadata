@@ -142,7 +142,7 @@ csv_mode = input(
 heirarchy = input('Is their heirarchy to this collection? y/n?:').lower()
 
 ##Nested archival objects
-with open(path + '/{}.csv'.format(csv_path), mode=csv_mode) as csv_file:
+with open(path + '/{}.csv'.format(csv_path), mode=csv_mode, encoding='utf-8', newline='') as csv_file:
     fieldnames = ['ref_id', 'ao_uri', 'title', 'identifier', 'normalized_date', 'normalized_date_qualifier',
                   'subject', 'subject_name', 'subject_geographic', 'description', 'type_of_resource', 'genre', 'creator', 'copyright_status',
                   'publication_status', 'source_collection_title', 'source_collection_id', 'source_series',
