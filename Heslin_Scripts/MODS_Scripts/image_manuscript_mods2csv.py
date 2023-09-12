@@ -123,7 +123,7 @@ def get_source(dialog_box=DialogBox, source_type=str):
     # Set source
     global source
     
-    if source_type == 'file':
+    if source_type == 'Zip file':
         file = filedialog.askopenfilename(title='Select Input File')
         source = extract_files(file)
     else:
@@ -144,7 +144,7 @@ def run_source_dialog():
     # Create button frame and add buttons
     source_box.create_button_frame()
     source_box.add_button(text="Zip file", side=LEFT, padx=5,
-                          command=lambda: get_source(source_box, 'file'))
+                          command=lambda: get_source(source_box, 'Zip file'))
     source_box.add_button(text="Folder", side=RIGHT, padx=5,
                           command=lambda: get_source(source_box, 'folder'))
 
@@ -290,6 +290,7 @@ if __name__ == "__main__":
         depositor_value_list = []
         for e in root.findall('.//mods:namePart', namespaces):
             try:
+                # below throws IndexError: list index out of range
                 if e.getnext().getchildren()[0].text == 'creator':
                     creator_value_list.append(e.text)
             except AttributeError:
@@ -301,6 +302,7 @@ if __name__ == "__main__":
             except AttributeError:
                 pass
             try:
+                # below throws IndexError: list index out of range
                 if e.getnext().getchildren()[0].text == 'depositor':
                     depositor_value_list.append(e.text)
             except AttributeError:
