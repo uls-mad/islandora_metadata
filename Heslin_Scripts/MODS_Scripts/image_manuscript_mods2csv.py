@@ -115,7 +115,7 @@ def extract_files(filepath=str):
 # Define on-click functions to get source for import
 def get_source(dialog_box=DialogBox, source_type=str):
     # Update dialog box content
-    dialog_box.parent.geometry("150x50")
+    dialog_box.parent.geometry("150x65")
     dialog_box.reset_text_frame()
     dialog_box.add_label(f"Select a {source_type}.")
     dialog_box.reset_button_frame()
@@ -293,19 +293,19 @@ if __name__ == "__main__":
                 # below throws IndexError: list index out of range
                 if e.getnext().getchildren()[0].text == 'creator':
                     creator_value_list.append(e.text)
-            except AttributeError:
+            except:
                 pass
             try:
                 # below throws IndexError: list index out of range
                 if e.getnext().getchildren()[0].text == 'contributor':
                     contributor_value_list.append(e.text)
-            except AttributeError:
+            except:
                 pass
             try:
                 # below throws IndexError: list index out of range
                 if e.getnext().getchildren()[0].text == 'depositor':
                     depositor_value_list.append(e.text)
-            except AttributeError:
+            except:
                 pass
 
         creator = '; '.join(creator_value_list)
