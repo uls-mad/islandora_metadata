@@ -7,6 +7,7 @@ import glob
 import csv
 import pandas as pd
 import os
+import zipfile
 
 
 """ Classes """
@@ -86,6 +87,31 @@ class ModsElement:
 
 """ Helper functions """
 
+# Show a given error and exit program
+def show_error(title=str, message=str):
+    messagebox.showerror(title=title, message=message)
+    sys.exit(0)
+
+# Extract files from compressed file (Zip) into a directory
+def extract_files(filepath=str):
+    output_dir = ""
+    
+    # confirm that file is zip file
+    if zipfile.is_zipfile(filepath):
+        directory = os.path.dirname(filepath)
+        filename = os.path.basename(filepath)
+        output_dir = '%s\\%s' % (directory, os.path.splitext(filename)[0])
+
+        # extract files to output_dir
+        with zipfile.ZipFile(filepath, 'r') as zip_archive:
+            zip_archive.extractall(output_dir)
+    else:
+        show_error(title="Invalid File Format", 
+                   message="Input file must be a ZIP file (*.zip). Run the program and try again.")
+    
+    return output_dir
+
+
 # Define on-click functions to get source for import
 def get_source(dialog_box=DialogBox, source_type=str):
     # Update dialog box content
@@ -96,8 +122,10 @@ def get_source(dialog_box=DialogBox, source_type=str):
     
     # Set source
     global source
+    
     if source_type == 'file':
-        source = filedialog.askopenfilenames(title='Select Input File')
+        file = filedialog.askopenfilename(title='Select Input File')
+        source = extract_files(file)
     else:
         source = filedialog.askdirectory(title='Select Input Folder')
 
@@ -132,7 +160,6 @@ def get_destination():
         #('Text Document', '*.txt')
         ]
     destination = filedialog.asksaveasfilename(filetypes = files, defaultextension = files)
-    print(destination)
 
 
 def your_while_generator(e):
@@ -158,8 +185,8 @@ if __name__ == "__main__":
     destination = None
 
     # Start dialog to get source type and input file/folder 
-    #run_source_dialog()
-    source = filedialog.askdirectory(title='Select Input Folder')
+    run_source_dialog()
+    #source = filedialog.askdirectory(title='Select Input Folder')
 
     # Check if a source was selected
     # TO DO: Try a while loop that will ask if you want to close program or retry
@@ -190,7 +217,8 @@ if __name__ == "__main__":
         #print(file)
         xmlObject = ET.parse(file)  # create an xml object that python can parse
         root = xmlObject.getroot()  # get the root of that object
-        namespaces = {'mods': 'http://www.loc.gov/mods/v3'}  # define your namespace
+        namespaces = {
+            'mods': 'http://www.loc.gov/mods/v3'}  # define your namespace
         copyright_ns = {'copyrightMD': 'http://www.cdlib.org/inside/diglib/copyrightMD'}
 
         xml_dictionary = {}
@@ -267,6 +295,7 @@ if __name__ == "__main__":
             except AttributeError:
                 pass
             try:
+                # below throws IndexError: list index out of range
                 if e.getnext().getchildren()[0].text == 'contributor':
                     contributor_value_list.append(e.text)
             except AttributeError:
