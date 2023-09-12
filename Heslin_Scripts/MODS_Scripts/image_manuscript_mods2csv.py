@@ -324,7 +324,9 @@ if __name__ == "__main__":
     df.to_csv (destination, index = False, header=True, encoding='utf-8')
 
 
-    new_csv = input('CSV has been created but headers need to be renamed and reindexed. Provide full pathname for new csv:')
+    #new_csv = input('CSV has been created but headers need to be renamed and reindexed. Provide full pathname for new csv:')
+    new_csv = destination
+
 
     fieldnames = ['identifier/pitt', 'title/titleInfo', 'creator', 'subject_geographic', 'subject_topic', 'namePart/subject', 'abstract', 'dateCreated/originInfo', 'normalized_date_qualifier','dateOther/display/originInfo',
                 'dateOther/sort/originInfo', 'publication_status', 'copyright_status', '{http://www.cdlib.org/inside/diglib/copyrightMD}name/accessCondition','typeOfResource', 'languageTerm/code/language', 'title/relatedItem',
