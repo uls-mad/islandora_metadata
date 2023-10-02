@@ -1,4 +1,5 @@
 fieldnames = [
+    'url',
     'identifier/pitt', 
     'title/titleInfo', 
     'creator', 

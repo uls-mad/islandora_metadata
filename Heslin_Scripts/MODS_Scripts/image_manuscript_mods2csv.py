@@ -57,10 +57,9 @@ class DialogBox():
         self.create_button_frame()
 
     def add_button(self, text, command, side, padx=0, pady=0):
-        button = Button(self.button_frame, text=text, command=command)
+        button = Button(self.button_frame, text=text, command=command, width=10)
         button.pack(side=side, padx=padx, pady=pady)
 
-    # Display dialog box content and wait for user response
     def display(self):
         self.parent.mainloop()
 
@@ -153,6 +152,7 @@ def get_source(dialog_box=DialogBox, source_type=str):
 def run_source_dialog():
     # Create dialog box
     source_box = DialogBox(title="Select Source Type", dimensions="300x110")
+    center_window(source_box.parent, "top")
 
     # Create text frame and add text to prompt user for source type
     source_box.create_text_frame()
@@ -178,7 +178,7 @@ def get_destination():
 
 
 # Check if the given element is a special field
-def special_field(element=ET.Element, tag=str):
+def check_special_field(element=ET.Element, tag=str):
     special_fields = ['accessCondition', 'namePart', 'roleTerm', 'subject']
     for field in special_fields:
         if f'{ mods_ns }{ field }' in [tag, element.getparent().tag]:
@@ -209,6 +209,28 @@ def remove_whitespaces(text):
     return new_text
 
 
+def center_window(window, position):
+    # Get the screen width and height
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+
+    # Get the window width and height
+    window_width = window.winfo_reqwidth()
+    window_height = window.winfo_reqheight()
+
+    # Calculate the x and y coordinates to center the window
+    x = (screen_width - window_width) // 2
+    y = (screen_height - window_height) // 2
+
+    # Position window to side to center top-level window(s)
+    if position == "bottom":
+        x -= 100
+        y -= 50
+
+    # Set the window position
+    window.geometry(f"+{x}+{y}")
+
+
 """ Main Functions """
 
 def process_xml(file):
@@ -229,7 +251,7 @@ def process_xml(file):
         
         # Check that current element and its parent is not subject 
         # and that the element text is not empty
-        if not special_field(element, tag) and text is not None:
+        if not check_special_field(element, tag) and text is not None:
             # Add XML dictionary with list of all parent elements
             if type_attribute:
                 elements.setdefault(f'{tag}/{type_attribute}', []).append(
@@ -407,6 +429,7 @@ if __name__ == "__main__":
     root.title("Processing Files")
     root.geometry('255x125')
     root.attributes("-topmost", True)
+    center_window(root, "top")
 
     # Create a progress bar
     progress_var = DoubleVar()
@@ -418,7 +441,7 @@ if __name__ == "__main__":
     processing_complete_label = Label(root, text="Processing...")
     processing_complete_label.pack()
 
-    # Start processing files automatically
+    # Start processing files
     start_processing(root=root, files=file_list)
 
     root.mainloop()
@@ -430,6 +453,10 @@ if __name__ == "__main__":
     for fieldname in df.columns.values:
         if fieldname not in fieldnames:
             fieldnames.append(fieldname)
+
+    # Add column with URL for object
+    url_prefix = "https://gamera.library.pitt.edu/islandora/object/pitt:"
+    df['url'] =  url_prefix + df['identifier/pitt']
 
     # Reindex and rename columns
     df = df.reindex(columns=fieldnames)
