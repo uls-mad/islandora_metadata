@@ -123,7 +123,8 @@ def extract_files(filepath=str):
     else:
         # Display file format error
         show_error(title="Invalid File Format", 
-                   message="Input file must be a ZIP file (*.zip). Run the program and try again.")
+                   message="Input file must be a ZIP file (*.zip). " + 
+                   "Run the program and try again.")
     
     return output_dir
 
@@ -233,7 +234,7 @@ def center_window(window, position):
 
 
 def remove_finding_aids(files=list):
-    fa_patterns = ['666980084', 'clp', 'mss', 'qss', 'rg04', 'ppi', 'qqs']
+    fa_patterns = ['666980084', 'clp.', 'mss', 'qss', 'rg04', 'ppi', 'qqs']
     files_to_remove = []
     # Generate list of finding aids identified by a finding aid filename pattern
     for filename in files:
@@ -383,7 +384,7 @@ def manage_processor(files=list, total_files=int, progress=int,
         root.after(1, manage_processor, files, total_files, progress, 
                    progress_var, processed_label)
     else:
-        # Processing is complete
+        # Notify user that processing is complete
         processing_complete_label.config(text="Complete!")
 
 
@@ -401,8 +402,8 @@ def start_processing(root=Tk, files=list):
     processed_label.update_idletasks() 
     
     # Start processing files
-    manage_processor(files=files, total_files = len(files), progress=progress, 
-                  progress_var=progress_var, processed_label=processed_label)
+    manage_processor(files=files, total_files = len(files), progress=progress,
+                     progress_var=progress_var, processed_label=processed_label)
 
 
 """ Driver Code """
@@ -419,8 +420,8 @@ if __name__ == "__main__":
 
     # Check if a source was selected
     # TO DO: Try a while loop that will ask if you want to close program or retry
+    text = "You did not select an input source. Run the program and try again."
     if not source:
-        text = "You did not select an input source. Run the program and try again."
         messagebox.showerror(title="Try again", message=text)
         sys.exit(0)
 
@@ -428,8 +429,8 @@ if __name__ == "__main__":
     get_destination()
 
     # Check if a source was selected
+    text = "You did not select an output folder. Run the program and try again."
     if not destination:
-        text = "You did not select an output folder. Run the program and try again."
         messagebox.showerror(title="Try again", message=text)
         sys.exit(0)
 
@@ -486,7 +487,8 @@ if __name__ == "__main__":
 
     # Remove empty values
     nan_value = float("NaN")
-    df.replace({'': nan_value, '; ': nan_value, '; ; ': nan_value}, inplace=True)
+    df.replace({'': nan_value, '; ': nan_value, '; ; ': nan_value}, 
+               inplace=True)
     df.dropna(how='all', axis=1, inplace=True)
 
 
