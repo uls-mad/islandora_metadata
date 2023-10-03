@@ -20,6 +20,7 @@ global mods_ns
 mods_ns = '{http://www.loc.gov/mods/v3}'
 global records
 records = []
+exceptions = []
 
 
 """ Classes """
@@ -198,7 +199,7 @@ def get_parents(root=ET.Element, element=ET.Element):
 # Get text values from given list of child elements
 def get_child_text(children=list):
     child_text = [child.text for child in children \
-                  if child.text.strip() and child.text is not None]
+                  if child.text is not None and child.text.strip()]
     return child_text
 
 
@@ -229,6 +230,19 @@ def center_window(window, position):
 
     # Set the window position
     window.geometry(f"+{x}+{y}")
+
+
+def remove_finding_aids(files=list):
+    fa_patterns = ['666980084', 'clp', 'mss', 'qss', 'rg04', 'ppi', 'qqs']
+    files_to_remove = []
+    # Generate list of finding aids identified by a finding aid filename pattern
+    for filename in files:
+        if any(pattern in filename.lower() for pattern in fa_patterns):
+            files_to_remove.append(filename)
+    # Remove finding aids from list of files
+    for file in files_to_remove:
+        files.remove(file)
+    return files
 
 
 """ Main Functions """
@@ -350,7 +364,11 @@ def manage_processor(files=list, total_files=int, progress=int,
                   progress_var=DoubleVar, processed_label=Label):
     if progress < total_files:
         # Process the file
-        process_xml(files[progress])
+        file = files[progress]
+        try:
+            process_xml(file)
+        except:
+            records.append({'identifier/pitt': file.split('_')[1]})
 
         # Update progress
         progress += 1
@@ -424,6 +442,9 @@ if __name__ == "__main__":
     # Get list of XML files in directory
     file_list = glob.glob('*.xml')
 
+    # Remove finding aids from list of files
+    file_list = remove_finding_aids(file_list)
+        
     # Get records by parsing and processing data in XML files
     root = Tk()
     root.title("Processing Files")
@@ -456,7 +477,8 @@ if __name__ == "__main__":
 
     # Add column with URL for object
     url_prefix = "https://gamera.library.pitt.edu/islandora/object/pitt:"
-    df['url'] =  url_prefix + df['identifier/pitt']
+    if 'url' in df.columns:
+        df['url'] =  url_prefix + df['identifier/pitt']
 
     # Reindex and rename columns
     df = df.reindex(columns=fieldnames)
