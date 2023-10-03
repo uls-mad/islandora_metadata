@@ -234,7 +234,7 @@ def center_window(window, position):
 
 
 def remove_finding_aids(files=list):
-    fa_patterns = ['666980084', 'clp.', 'mss', 'qss', 'rg04', 'ppi', 'qqs']
+    fa_patterns = ['666980084', 'clp.', 'mss.', 'qss', 'rg04.201', 'ppi', 'us-qqs']
     files_to_remove = []
     # Generate list of finding aids identified by a finding aid filename pattern
     for filename in files:
