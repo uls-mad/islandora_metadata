@@ -234,7 +234,8 @@ def center_window(window, position):
 
 
 def remove_finding_aids(files=list):
-    fa_patterns = ['666980084', 'clp.', 'mss.', 'qss', 'rg04.201', 'ppi', 'us-qqs']
+    fa_patterns = ['666980084', 'clp.', '-msc', 'mss.', 'qss', 'rg04.201', 
+                   'ppi', 'us-qqs', '-lh', 'clp-20220315-001-i']
     files_to_remove = []
     # Generate list of finding aids identified by a finding aid filename pattern
     for filename in files:
@@ -244,6 +245,31 @@ def remove_finding_aids(files=list):
     for file in files_to_remove:
         files.remove(file)
     return files
+
+
+def update_columns(df):
+    # Add columns not in standardized fields
+    for fieldname in df.columns.values:
+        if fieldname not in fieldnames:
+            fieldnames.append(fieldname)
+
+    # Add column with URL for object
+    url_prefix = "https://gamera.library.pitt.edu/islandora/object/pitt:"
+    if 'url' in df.columns:
+        df['url'] =  url_prefix + df['identifier/pitt']
+
+    # Update values in normalized_date_qualifier
+    if 'dateOther/display/originInfo' in df.columns:
+        df['normalized_date_qualifier'] = df['dateOther/display/originInfo'].\
+            apply(lambda x: 'yes' if 'c.' in x or 'ca.' in x else float("NaN"))
+
+    # Reindex columns
+    df = df.reindex(columns=fieldnames)
+
+    # Replace abbreviated Xpaths with standardized field names
+    df.rename(columns=columns, inplace=True)
+
+    return df
 
 
 """ Main Functions """
@@ -470,20 +496,7 @@ if __name__ == "__main__":
     
     # Convert list of dictionaries to DataFrame
     df = pd.DataFrame.from_dict(records)
-
-    # Replace abbreviated Xpaths with standardized field names
-    for fieldname in df.columns.values:
-        if fieldname not in fieldnames:
-            fieldnames.append(fieldname)
-
-    # Add column with URL for object
-    url_prefix = "https://gamera.library.pitt.edu/islandora/object/pitt:"
-    if 'url' in df.columns:
-        df['url'] =  url_prefix + df['identifier/pitt']
-
-    # Reindex and rename columns
-    df = df.reindex(columns=fieldnames)
-    df.rename(columns=columns, inplace=True)
+    df = update_columns(df)
 
     # Remove empty values
     nan_value = float("NaN")
