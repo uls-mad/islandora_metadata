@@ -12,60 +12,223 @@ from definitions import fieldnames, columns, namespaces
 
 """ Global Variables """
 
-global source 
-source = None
-global destination
-destination = None
 global mods_ns
 mods_ns = '{http://www.loc.gov/mods/v3}'
-global records
-records = []
 exceptions = []
 
 
 """ Classes """
 
-class DialogBox():
-    parent = Tk()
+class GUI:
+    root = None
     text_frame = None
     button_frame = None
 
-    def __init__(self, title, dimensions):
-        # Create dialog box
-        self.parent.title(title)
-        self.parent.geometry(dimensions)
+    def __init__(self, root, title, dimensions):
+        self.root = root
+        self.root.title(title)
+        self.root.geometry(dimensions)
 
-    def create_text_frame(self):
-        # Create a frame for dialog box buttons
-        self.text_frame = Frame(self.parent)
+    def set_title(self, title):
+        self.root.title = title
+
+    def set_geom(self, geometry):
+        self.root.geometry(geometry)
+
+    def add_text_frame(self):
+        self.text_frame = Frame(self.root)
         self.text_frame.pack()
+
+    def remove_text_frame(self):
+        self.text_frame.destroy()
 
     def reset_text_frame(self):
         self.text_frame.destroy()
-        self.create_text_frame()
+        self.add_text_frame()
     
     def add_label(self, text):
-        # Add label to text frame
         label = Label(self.text_frame, text=text)
         label.pack(pady=20)
 
-    def create_button_frame(self):
-        self.button_frame = Frame(self.parent)
+    def add_button_frame(self):
+        self.button_frame = Frame(self.root)
         self.button_frame.pack()
+
+    def remove_button_frame(self):
+        self.button_frame.destroy()
 
     def reset_button_frame(self):
         self.button_frame.destroy()
-        self.create_button_frame()
+        self.add_button_frame()
 
     def add_button(self, text, command, side, padx=0, pady=0):
         button = Button(self.button_frame, text=text, command=command, width=10)
         button.pack(side=side, padx=padx, pady=pady)
 
-    def display(self):
-        self.parent.mainloop()
+    def center_window(self,position):
+        # Get the screen width and height
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+
+        # Get the window width and height
+        window_width = self.root.winfo_reqwidth()
+        window_height = self.root.winfo_reqheight()
+
+        # Calculate the x and y coordinates to center the window
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+
+        # Position window to side to center top-level window(s)
+        if position == "bottom":
+            x -= 100
+            y -= 50
+
+        # Set the window position
+        self.root.geometry(f"+{x}+{y}")
+
+    def run(self):
+        self.root.mainloop()
 
     def close(self):
-        self.parent.destroy()
+        self.root.destroy()
+
+
+class Processor:
+    gui = None
+    files = []
+    total_files = 0
+    progress = 0
+    progress_var = None
+    processing_label = None
+    complete_label = None
+    close_button = None
+    source = None
+    destination = None
+    records = []
+
+    def __init__(self, root):
+        self.gui = GUI(root=root, 
+                       title="MODS to CSV Converter", 
+                       dimensions="300x110")
+        self.gui.center_window("top")
+
+    def run(self):
+        # Create text frame and add text to prompt user for source type
+        self.gui.add_text_frame()
+        self.gui.add_label("Do you need to import a Zip file or a folder?")
+
+        # Create button frame and add buttons
+        self.gui.add_button_frame()
+        self.gui.add_button(text="Zip file", side=LEFT, padx=5,
+                            command=lambda: self.get_source('Zip file'))
+        self.gui.add_button(text="Folder", side=RIGHT, padx=5,
+                            command=lambda: self.get_source('folder'))
+        
+    def get_source(self, source_type=str):
+        # Update dialog box content
+        self.gui.set_geom("300x65")
+        self.gui.reset_text_frame()
+        self.gui.add_label(f"Select an input {source_type}.")
+        self.gui.reset_button_frame()
+        
+        # Set source       
+        if source_type == 'Zip file':
+            file = filedialog.askopenfilename(title='Select Input File')
+            self.source = extract_files(file)
+        else:
+            self.source = filedialog.askdirectory(title='Select Input Folder')
+
+        # Check if a source was selected
+        # TO DO: Try a while loop that will ask if you want to close program or retry
+        text = "You did not select an input source. Run the program and try again."
+        if not self.source:
+            show_error(title="Try again", message=text)
+
+        self.get_destination()
+        
+    def get_destination(self):
+        self.gui.set_geom("300x65")
+        self.gui.reset_text_frame()
+        self.gui.add_label("Select an output destination.")
+        file_types = [('CSV UTF-8', '*.csv')]
+        self.destination = filedialog.\
+            asksaveasfilename(parent=self.gui.root, title="Save Output As", 
+                              filetypes=file_types, defaultextension=file_types)
+        
+        # Check if a source was selected
+        text = "You did not select an output destination." + \
+            "Run the program and try again."
+        if not self.destination:
+            show_error(title="Try again", message=text)
+        
+        self.gui.remove_text_frame()
+        self.gui.remove_button_frame()
+
+        self.start_processing()
+
+    def start_processing(self):
+        # Get files to be processed
+        self.files = get_files(source=self.source)
+        self.total_files = len(self.files)
+
+        # Update GUI
+        self.gui.set_title("Processing Files")
+        self.gui.set_geom('300x155')
+        self.gui.root.attributes("-topmost", True)
+
+        # Create a progress bar
+        self.progress_var = DoubleVar()
+        self.progress_bar = ttk.Progressbar(self.gui.root, maximum=100, len=200,
+                                            variable=self.progress_var)
+        self.progress_bar.pack(pady=20)
+
+        # Label to display processing status
+        self.complete_label = Label(self.gui.root, text="Processing...")
+        self.complete_label.pack()
+
+        # Create and place processed label
+        self.processing_label = Label(self.gui.root, text="0/0")
+        self.processing_label.pack()
+        self.processing_label.update_idletasks() 
+
+        # Create close button for GUI window
+        self.gui.add_button_frame()
+        self.gui.add_button("Cancel", side=RIGHT, pady=10, 
+                            command=self.gui.close)
+
+        # Update root to display components
+        self.gui.root.update_idletasks() 
+
+        self.manage_processor()
+
+    def manage_processor(self):
+        if self.progress < self.total_files:
+            # Process the file
+            file = self.files[self.progress]
+            try:
+                record = process_xml(file)
+                self.records.append(record)
+            except:
+                self.records.append({'identifier/pitt': file.split('_')[1]})
+
+            # Update progress
+            self.progress += 1
+            self.progress_var.set(int((self.progress / self.total_files) * 100))
+
+            # Update processed label
+            text = f"{self.progress}/{self.total_files} files"
+            self.processing_label.config(text=text)
+            self.processing_label.update_idletasks() 
+
+            # Schedule the next file processing
+            self.gui.root.after(1, self.manage_processor)
+        else:
+            # Notify user that processing is complete
+            records_to_csv(records=self.records, destination=self.destination)
+            self.complete_label.config(text="Complete!")
+            self.gui.reset_button_frame()
+            self.gui.add_button("OK", side=RIGHT, pady=10, 
+                                command=self.gui.close)
 
 
 class ModsElement:
@@ -105,6 +268,17 @@ class ModsElement:
 def show_error(title=str, message=str):
     messagebox.showerror(title=title, message=message)
     sys.exit(0)
+
+
+# Get list of files to be processed
+def get_files(source):
+    # Change working directory to source directory
+    os.chdir(source)
+    # Get list of XML files in directory
+    files = glob.glob('*.xml')
+    # Remove finding aids from list of files
+    files = remove_finding_aids(files)
+    return files
     
 
 # Extract files from compressed file (Zip) into a directory
@@ -127,56 +301,6 @@ def extract_files(filepath=str):
                    "Run the program and try again.")
     
     return output_dir
-
-
-# Define on-click functions to get source for import
-def get_source(dialog_box=DialogBox, source_type=str):
-    # Update dialog box content
-    dialog_box.parent.geometry("150x65")
-    dialog_box.reset_text_frame()
-    dialog_box.add_label(f"Select an input {source_type}.")
-    dialog_box.reset_button_frame()
-    
-    # Set source
-    global source
-    
-    if source_type == 'Zip file':
-        file = filedialog.askopenfilename(title='Select Input File')
-        source = extract_files(file)
-    else:
-        source = filedialog.askdirectory(title='Select Input Folder')
-
-    # Close dialog box
-    dialog_box.close()
-
-
-# Run file dialog box to get input filepath
-def run_source_dialog():
-    # Create dialog box
-    source_box = DialogBox(title="Select Source Type", dimensions="300x110")
-    center_window(source_box.parent, "top")
-
-    # Create text frame and add text to prompt user for source type
-    source_box.create_text_frame()
-    source_box.add_label("Do you need to import a Zip file or a folder?")
-
-    # Create button frame and add buttons
-    source_box.create_button_frame()
-    source_box.add_button(text="Zip file", side=LEFT, padx=5,
-                          command=lambda: get_source(source_box, 'Zip file'))
-    source_box.add_button(text="Folder", side=RIGHT, padx=5,
-                          command=lambda: get_source(source_box, 'folder'))
-
-    # Get source for import
-    source_box.display()
-
-
-# Run file dialog box to get output filepath
-def get_destination():
-    global destination
-    files = [('CSV UTF-8', '*.csv')]
-    destination = filedialog.asksaveasfilename(filetypes = files, 
-                                               defaultextension = files)
 
 
 # Check if the given element is a special field
@@ -211,43 +335,24 @@ def remove_whitespaces(text):
     return new_text
 
 
-def center_window(window, position):
-    # Get the screen width and height
-    screen_width = window.winfo_screenwidth()
-    screen_height = window.winfo_screenheight()
-
-    # Get the window width and height
-    window_width = window.winfo_reqwidth()
-    window_height = window.winfo_reqheight()
-
-    # Calculate the x and y coordinates to center the window
-    x = (screen_width - window_width) // 2
-    y = (screen_height - window_height) // 2
-
-    # Position window to side to center top-level window(s)
-    if position == "bottom":
-        x -= 100
-        y -= 50
-
-    # Set the window position
-    window.geometry(f"+{x}+{y}")
-
-
+# Remove finding aids from input files based on filename patterns
 def remove_finding_aids(files=list):
-    fa_patterns = ['666980084', 'clp.', '-msc', 'mss.', 'qss', 'rg04.201', 
-                   'ppi', 'us-qqs', '-lh', 'clp-20220315-001-i']
+    fa_patterns = ['666980084', 'clp.', 'mss.', 'qss', 'rg04.201', 'ppi', 'us-qqs']
     files_to_remove = []
+
     # Generate list of finding aids identified by a finding aid filename pattern
     for filename in files:
         if any(pattern in filename.lower() for pattern in fa_patterns):
             files_to_remove.append(filename)
+
     # Remove finding aids from list of files
     for file in files_to_remove:
         files.remove(file)
+
     return files
 
 
-def update_columns(df):
+def update_columns(df=pd.DataFrame):
     # Add columns not in standardized fields
     for fieldname in df.columns.values:
         if fieldname not in fieldnames:
@@ -270,6 +375,21 @@ def update_columns(df):
     df.rename(columns=columns, inplace=True)
 
     return df
+
+
+def records_to_csv(records=list, destination=str):
+    # Convert list of dictionaries to DataFrame
+    df = pd.DataFrame.from_dict(records)
+    df = update_columns(df)
+
+    # Remove empty values
+    nan_value = float("NaN")
+    df.replace({'': nan_value, '; ': nan_value, '; ; ': nan_value}, 
+                inplace=True)
+    df.dropna(how='all', axis=1, inplace=True)
+
+    # Write DataFrame to CSV file
+    df.to_csv(destination, index=False, header=True, encoding='utf-8')
 
 
 """ Main Functions """
@@ -383,129 +503,14 @@ def process_xml(file):
         if type(value) is list:
             record[field] = '; '.join(value)
 
-    # Add record dictionary to records
-    records.append(record)
-
-
-def manage_processor(files=list, total_files=int, progress=int, 
-                  progress_var=DoubleVar, processed_label=Label):
-    if progress < total_files:
-        # Process the file
-        file = files[progress]
-        try:
-            process_xml(file)
-        except:
-            records.append({'identifier/pitt': file.split('_')[1]})
-
-        # Update progress
-        progress += 1
-        progress_var.set(int((progress / total_files) * 100))
-
-        # Update processed label
-        text = f"{progress}/{total_files} files"
-        processed_label.config(text=text)
-        processed_label.update_idletasks() 
-
-        # Schedule the next file processing
-        root.after(1, manage_processor, files, total_files, progress, 
-                   progress_var, processed_label)
-    else:
-        # Notify user that processing is complete
-        processing_complete_label.config(text="Complete!")
-
-
-# Function to start processing files
-def start_processing(root=Tk, files=list):
-    # Initialize progress variable
-    progress = 0
-
-    # Update root to display components
-    root.update_idletasks() 
-
-    # Create and place processed label
-    processed_label = Label(root, text="0/0")
-    processed_label.pack()
-    processed_label.update_idletasks() 
-    
-    # Start processing files
-    manage_processor(files=files, total_files = len(files), progress=progress,
-                     progress_var=progress_var, processed_label=processed_label)
+    return record
 
 
 """ Driver Code """
 
 if __name__ == "__main__":
-    
-    """ 
-    Prompt user to select the source file or directory containing input data and 
-    the destination for the output
-    """
 
-    # Start dialog to get source type and input file/folder 
-    run_source_dialog()
-
-    # Check if a source was selected
-    # TO DO: Try a while loop that will ask if you want to close program or retry
-    text = "You did not select an input source. Run the program and try again."
-    if not source:
-        messagebox.showerror(title="Try again", message=text)
-        sys.exit(0)
-
-    # Get destination for export
-    get_destination()
-
-    # Check if a source was selected
-    text = "You did not select an output folder. Run the program and try again."
-    if not destination:
-        messagebox.showerror(title="Try again", message=text)
-        sys.exit(0)
-
-
-    """ Process data """
-
-    # Change working directory to source directory
-    os.chdir(source)
-
-    # Get list of XML files in directory
-    file_list = glob.glob('*.xml')
-
-    # Remove finding aids from list of files
-    file_list = remove_finding_aids(file_list)
-        
-    # Get records by parsing and processing data in XML files
     root = Tk()
-    root.title("Processing Files")
-    root.geometry('255x125')
-    root.attributes("-topmost", True)
-    center_window(root, "top")
-
-    # Create a progress bar
-    progress_var = DoubleVar()
-    progress_bar = ttk.Progressbar(root, variable=progress_var, 
-                                   maximum=100, len=200)
-    progress_bar.pack(pady=20)
-
-    # Label to display processing status
-    processing_complete_label = Label(root, text="Processing...")
-    processing_complete_label.pack()
-
-    # Start processing files
-    start_processing(root=root, files=file_list)
-
+    processor = Processor(root)
+    processor.run()
     root.mainloop()
-    
-    # Convert list of dictionaries to DataFrame
-    df = pd.DataFrame.from_dict(records)
-    df = update_columns(df)
-
-    # Remove empty values
-    nan_value = float("NaN")
-    df.replace({'': nan_value, '; ': nan_value, '; ; ': nan_value}, 
-               inplace=True)
-    df.dropna(how='all', axis=1, inplace=True)
-
-
-    """ Save Data """
-
-    # Write DataFrame to CSV file
-    df.to_csv(destination, index=False, header=True, encoding='utf-8')
