@@ -23,9 +23,11 @@ class GUI:
     root = None
     text_frame = None
     button_frame = None
+    dimensions = None
 
     def __init__(self, root, title, dimensions):
         self.root = root
+        self.dimensions = dimensions.split('x')
         self.root.title(title)
         self.root.geometry(dimensions)
 
@@ -80,8 +82,8 @@ class GUI:
 
         # Position window to side to center top-level window(s)
         if position == "bottom":
-            x -= 100
-            y -= 50
+            x -= int(self.dimensions[0])
+            y -= int(self.dimensions[1])
 
         # Set the window position
         self.root.geometry(f"+{x}+{y}")
@@ -352,6 +354,15 @@ def remove_finding_aids(files=list):
     return files
 
 
+def check_date_qualifier(record=dict):
+    if not record.get('normalized_date_qualifier') \
+        and record.get('dateOther/display/originInfo'):
+        if any(pattern in record.get('dateOther/display/originInfo') \
+               for pattern in ['c.', 'ca.']):
+            record.setdefault('normalized_date_qualifier', 'yes')
+    return record
+
+
 def update_columns(df=pd.DataFrame):
     # Add columns not in standardized fields
     for fieldname in df.columns.values:
@@ -360,13 +371,8 @@ def update_columns(df=pd.DataFrame):
 
     # Add column with URL for object
     url_prefix = "https://gamera.library.pitt.edu/islandora/object/pitt:"
-    if 'url' in df.columns:
+    if 'identifier/pitt' in df.columns:
         df['url'] =  url_prefix + df['identifier/pitt']
-
-    # Update values in normalized_date_qualifier
-    if 'dateOther/display/originInfo' in df.columns:
-        df['normalized_date_qualifier'] = df['dateOther/display/originInfo'].\
-            apply(lambda x: 'yes' if 'c.' in x or 'ca.' in x else float("NaN"))
 
     # Reindex columns
     df = df.reindex(columns=fieldnames)
@@ -498,7 +504,10 @@ def process_xml(file):
     record.setdefault('normalized_date_qualifier',
                         date_qualifier.get_element_attrib())
     
-    # Convert field value from lists to strings
+    # Check normalized_date_qualifier
+    record = check_date_qualifier(record)
+
+    # Convert field values from lists to strings
     for field, value in record.items(): 
         if type(value) is list:
             record[field] = '; '.join(value)
