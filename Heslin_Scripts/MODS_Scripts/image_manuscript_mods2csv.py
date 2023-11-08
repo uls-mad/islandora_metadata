@@ -415,6 +415,7 @@ def process_xml(file):
         tag = element.tag
         text = element.text
         type_attribute = element.attrib.get('type')
+        authority_attribute = element.attrib.get('authority')
         
         # Check that current element and its parent is not subject 
         # and that the element text is not empty
@@ -422,6 +423,10 @@ def process_xml(file):
             # Add XML dictionary with list of all parent elements
             if type_attribute:
                 elements.setdefault(f'{tag}/{type_attribute}', []).append(
+                    {remove_whitespaces(text):
+                        [e for e in get_parents(root, element)]})
+            elif authority_attribute:
+                elements.setdefault(f'{tag}/{authority_attribute}', []).append(
                     {remove_whitespaces(text):
                         [e for e in get_parents(root, element)]})
             else:
