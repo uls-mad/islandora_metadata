@@ -464,9 +464,12 @@ def process_xml(file):
     # Get subject elements
     for subject in root.iterfind('mods:subject', namespaces['mods_ns']):
         children = subject.getchildren()
+        authority_attribute = subject.attrib.get('authority')
         if not children:
             continue
         subject_field = f"subject_{children[0].tag.replace(mods_ns, '')}"
+        if subject_field == 'subject_topic' and authority_attribute == 'local':
+            subject_field = 'subject_local'
         record.setdefault(subject_field, [])
         values = '--'.join(get_child_text(children))
         if values:
