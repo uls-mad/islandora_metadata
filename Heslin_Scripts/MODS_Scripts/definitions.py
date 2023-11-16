@@ -5,13 +5,16 @@ fieldnames = [
     'creator', 
     'subject_geographic', 
     'subject_topic', 
+    'subject_local',
     'subject_name',
+    'subject_temporal',
     'namePart/subject', 
     'abstract', 
     'dateCreated/originInfo',
     'normalized_date_qualifier',
     'dateOther/display/originInfo',
     'dateOther/sort/originInfo', 
+    'dateCaptured/originInfo',
     'publication_status', 
     'copyright_status', 
     '{http://www.cdlib.org/inside/diglib/copyrightMD}name/accessCondition',
@@ -34,7 +37,9 @@ fieldnames = [
     'dateCreated/relatedItem', 
     'identifier/local-asc/relatedItem', 
     'note/ownership/relatedItem', 
-    'identifier/source'
+    'identifier/source',
+    'note/address',
+    'note/donor'
 ]
 
 
@@ -51,17 +56,20 @@ columns = {
     'identifier/pitt' : 'identifier',
     'title/relatedItem': 'source_collection', 
     'dateCreated/originInfo': 'normalized_date', 
+    'dateCaptured/originInfo': 'date_digitized',
     'note/prefercite/relatedItem': 'source_citation', 
     'identifier/relatedItem': 'source_collection_id', 
     'note/container/relatedItem': 'source_container',
     'note/series/relatedItem': 'source_series', 
     'note/subseries/relatedItem': 'source_subseries', 
+    'note/otherlevel/relatedItem': 'source_other_level',
     'placeTerm/text/originInfo': 'pub_place',
     'abstract': 'description', 
     'namePart/subject': 'subject_name', 
     '{http://www.cdlib.org/inside/diglib/copyrightMD}name/accessCondition' : 'rights_holder', 
     'identifier/source' : 'source_id', 
     'note/address' : 'address', 
+    'note/donor': 'gift_of',
     'dateCreated/relatedItem' : 'source_collection_date', 
     'identifier/local-asc/relatedItem' : 'source_collection_id', 
     'note/ownership/relatedItem' : 'source_ownership'}
