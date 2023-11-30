@@ -460,6 +460,8 @@ def process_xml(file):
             # Add element data to record dictionary
             record.setdefault(xpath, []).append(text.replace('\r', ' '))
 
+    ### SPECIAL FIELDS ###
+    
     # Get accessCondition elements
     publication_status = ""
     copyright_status = ""
@@ -525,15 +527,15 @@ def process_xml(file):
     # Check normalized_date_qualifier
     record = check_date_qualifier(record)
 
-    # Convert field values from lists to strings
-    for field, value in record.items(): 
-        if type(value) is list:
-            record[field] = '; '.join(value)
-
     # Ensure that identifier[@type="pitt"] exists
     if not 'pitt@identifier' in record:
         pid = file.replace("pitt_", "").replace("_MODS", "").replace(".xml", "")
         record.setdefault('identifier@pitt', pid)
+
+    # Convert field values from lists to strings
+    for field, value in record.items(): 
+        if type(value) is list:
+            record[field] = '; '.join(value)
 
     return record
 

@@ -1,3 +1,5 @@
+"""" List of prioritized fields in output CSV """
+
 fieldnames = [
     'url',
     'identifier/pitt', 
@@ -40,8 +42,10 @@ fieldnames = [
     'identifier/source',
     'note/address',
     'note/donor'
-]
+    ]
 
+
+""" Dictionary used to rename prioritized columns in output CSV """
 
 columns = {
     'title/titleInfo': 'title', 
@@ -72,8 +76,11 @@ columns = {
     'note/donor': 'gift_of',
     'dateCreated/relatedItem' : 'source_collection_date', 
     'identifier/local-asc/relatedItem' : 'source_collection_id', 
-    'note/ownership/relatedItem' : 'source_ownership'}
+    'note/ownership/relatedItem' : 'source_ownership'
+    }
 
+
+""" Namespaces Info """
 
 namespaces = {
     'mods_ns': {
@@ -83,6 +90,7 @@ namespaces = {
         'copyrightMD': 'http://www.cdlib.org/inside/diglib/copyrightMD'
         }
     }
+
 
 mods_ns = '{http://www.loc.gov/mods/v3}'
 copyrightMD_ns = '{http://www.cdlib.org/inside/diglib/copyrightMD}'
