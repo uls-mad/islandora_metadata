@@ -7,13 +7,11 @@ import os
 import glob
 import zipfile
 import pandas as pd
-from definitions import fieldnames, columns, namespaces
+from definitions import fieldnames, columns, namespaces, mods_ns
 
 
 """ Global Variables """
 
-global mods_ns
-mods_ns = '{http://www.loc.gov/mods/v3}'
 exceptions = []
 
 
@@ -313,6 +311,20 @@ def check_special_field(element=ET.Element, tag=str):
             return True
     return False
 
+# Check if the given root has the MODS namespace prefix and add if not
+def ensure_mods_prefix(tree=ET.ElementTree, root=ET.Element):
+    if not root.prefix:
+        # Create a new root element with 'mods' namespace
+        new_root = ET.Element('mods', nsmap=namespaces['mods_ns'])
+        # Copy children from the original root to the new root (with 'mods' namespace)
+        for child in root:
+            new_root.append(child)
+        # Create a new tree with the modified root
+        new_tree = ET.ElementTree(new_root)
+        new_root = new_tree.getroot()
+        return new_tree, new_root
+    return tree, root
+
 
 # Generate a list of an element's parents
 def get_parents(root=ET.Element, element=ET.Element):
@@ -332,9 +344,11 @@ def get_child_text(children=list):
 
 # Remove newline characters, trailing whitespaces, and multiple spaces from text
 def remove_whitespaces(text):
-    new_text = text.replace('\n    ', ' ').replace('\n', '').strip()
-    new_text = re.sub(r'\s+', ' ', new_text)
-    return new_text
+    if isinstance(text, str):
+        new_text = text.replace('\n    ', ' ').replace('\n', '').strip()
+        new_text = re.sub(r'\s+', ' ', new_text)
+        return new_text.strip()
+    return ''
 
 
 # Remove finding aids from input files based on filename patterns
@@ -364,6 +378,21 @@ def check_date_qualifier(record=dict):
 
 
 def update_columns(df=pd.DataFrame):
+    # Sort DataFrame by column name (alphabetical, ascending order)
+    df = df[sorted(df.columns)]
+    
+    # Get column headers and sort them alphabetically
+    column_headers = df.columns.tolist()
+
+    # Split each string on forward slashes, reverse the order, and rejoin
+    # Replace at symbols with forward slash and spaces with underscore
+    # Ex: physicalDescription/form@marcform >> form/marcform/physicalDescription
+    column_headers = ['/'.join(header.split('/')[::-1]).replace('@', '/').\
+                      replace(' ', '_') for header in column_headers]
+
+    # Rename DataFrame columns with the updated headers
+    df.columns = column_headers
+    
     # Add columns not in standardized fields
     for fieldname in df.columns.values:
         if fieldname not in fieldnames:
@@ -405,50 +434,31 @@ def process_xml(file):
     xml_object = ET.parse(file)
     # Get the root of that object
     root = xml_object.getroot()
-    # Initialize dictionary for elements
-    elements = {}
+    # Ensure that XML tree elements have MODS namespace prefix
+    xml_object, root = ensure_mods_prefix(xml_object, root)
 
-    # Create dictionary of dictionaries from parsed XML data
-    # Top-level dictionary: Key = Xpath, value = child dictionary
-    # Child dictionary: Key = field value, value = list of parent element(s)
+    # Create dictionary with element xpath as key and text as value
+    record = {}
+
     for element in root.xpath('.//*'):
+        xpath = xml_object.getpath(element).\
+            replace('mods:', '').replace('/mods/', '').replace('copyrightMD:', '')
+        xpath = re.sub(r'\[\d+\]', '', xpath)
         tag = element.tag
-        text = element.text
+        text = remove_whitespaces(element.text)
         type_attribute = element.attrib.get('type')
         authority_attribute = element.attrib.get('authority')
         
-        # Check that current element and its parent is not subject 
+        # Check that current element and parent are not special/nested fields
         # and that the element text is not empty
-        if not check_special_field(element, tag) and text is not None:
-            # Add XML dictionary with list of all parent elements
+        if not check_special_field(element, tag) and text:
+            # Add attribute value to xpath
             if type_attribute:
-                elements.setdefault(f'{tag}/{type_attribute}', []).append(
-                    {remove_whitespaces(text):
-                        [e for e in get_parents(root, element)]})
+                xpath += f'@{type_attribute}'
             elif authority_attribute:
-                elements.setdefault(f'{tag}/{authority_attribute}', []).append(
-                    {remove_whitespaces(text):
-                        [e for e in get_parents(root, element)]})
-            else:
-                elements.setdefault(tag, []).append(
-                    {remove_whitespaces(text):
-                        [e for e in get_parents(root, element)]})
-    
-    # Create dictionary from parsed XML data in elements dictionary
-    record = {}
-
-    for e1, e2 in elements.items():
-        for value_tag in e2:
-            for value, tag in value_tag.items():
-                # Check if value has non-whitespace characters/is not empty
-                if not value.strip():
-                    continue
-                if tag:
-                    record.setdefault(f"{e1.replace(mods_ns, '')}/{tag[-1]}", 
-                        []).append(value.replace('\r', ' '))
-                else:
-                    record.setdefault(e1.replace(mods_ns, ''),
-                        []).append(value.replace('\r', ' '))
+                xpath += f'@{authority_attribute}'
+            # Add element data to record dictionary
+            record.setdefault(xpath, []).append(text.replace('\r', ' '))
 
     # Get accessCondition elements
     publication_status = ""
@@ -519,6 +529,11 @@ def process_xml(file):
     for field, value in record.items(): 
         if type(value) is list:
             record[field] = '; '.join(value)
+
+    # Ensure that identifier[@type="pitt"] exists
+    if not 'pitt@identifier' in record:
+        pid = file.replace("pitt_", "").replace("_MODS", "").replace(".xml", "")
+        record.setdefault('identifier@pitt', pid)
 
     return record
 

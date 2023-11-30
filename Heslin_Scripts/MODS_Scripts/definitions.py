@@ -83,3 +83,6 @@ namespaces = {
         'copyrightMD': 'http://www.cdlib.org/inside/diglib/copyrightMD'
         }
     }
+
+mods_ns = '{http://www.loc.gov/mods/v3}'
+copyrightMD_ns = '{http://www.cdlib.org/inside/diglib/copyrightMD}'
