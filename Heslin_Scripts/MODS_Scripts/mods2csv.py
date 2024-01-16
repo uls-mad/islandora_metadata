@@ -495,7 +495,9 @@ def process_xml(file):
     nameParts = {
         "creator": [],
         "contributor": [],
-        "depositor": []
+        "depositor": [],
+        "interviewer": [],
+        "interviewee": [],
     }
 
     # Get all namePart elements and add values to corresponding role list
@@ -521,6 +523,8 @@ def process_xml(file):
     record.setdefault('contributor', nameParts['contributor'])
     record.setdefault('creator', nameParts['creator'])
     record.setdefault('depositor', nameParts['depositor'])
+    record.setdefault('interviewer', nameParts['interviewer'])
+    record.setdefault('interviewee', nameParts['interviewee'])
     record.setdefault('normalized_date_qualifier',
                         date_qualifier.get_element_attrib())
     
