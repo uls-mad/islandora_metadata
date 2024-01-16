@@ -5,6 +5,8 @@ fieldnames = [
     'identifier/pitt', 
     'title/titleInfo', 
     'creator', 
+    'interviewer',
+    'interviewee',
     'subject_geographic', 
     'subject_topic', 
     'subject_local',
