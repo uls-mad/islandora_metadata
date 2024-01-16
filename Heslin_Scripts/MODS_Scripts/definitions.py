@@ -7,6 +7,7 @@ fieldnames = [
     'creator', 
     'interviewer',
     'interviewee',
+    'other_names',
     'subject_geographic', 
     'subject_topic', 
     'subject_local',
@@ -43,7 +44,7 @@ fieldnames = [
     'note/ownership/relatedItem', 
     'identifier/source',
     'note/address',
-    'note/donor'
+    'note/donor',
     ]
 
 

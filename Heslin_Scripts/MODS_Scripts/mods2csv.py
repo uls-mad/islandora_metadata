@@ -491,23 +491,31 @@ def process_xml(file):
             if grandchildren:
                 record[subject_field] += (get_child_text(grandchildren))
         
-    # Create a dictionary for each targeted namePart roleTerm
-    nameParts = {
+    # Create a dictionary for each targeted name roleTerm
+    names = {
         "creator": [],
         "contributor": [],
         "depositor": [],
         "interviewer": [],
         "interviewee": [],
+        "other_names": [],
     }
 
     # Get all namePart elements and add values to corresponding role list
     for field in root.findall('.//mods:namePart', namespaces['mods_ns']):
+        roleTerm = None
         try:
             # below throws IndexError: list index out of range
             roleTerm = field.getnext().getchildren()[0].text
-            nameParts[roleTerm].append(field.text)
         except:
             pass
+        
+        if roleTerm is None:
+            names['other_names'].append(field.text)
+        elif roleTerm not in names:
+            names['other_names'].append(f"{field.text} [{roleTerm}]")
+        else:
+            names[roleTerm].append(field.text)
 
     # Create a MODS element from Xpath
     date_qualifier = ModsElement(
@@ -520,13 +528,16 @@ def process_xml(file):
     # Add fields to second XML dictionary
     record.setdefault('copyright_status', copyright_status)
     record.setdefault('publication_status', publication_status)
-    record.setdefault('contributor', nameParts['contributor'])
-    record.setdefault('creator', nameParts['creator'])
-    record.setdefault('depositor', nameParts['depositor'])
-    record.setdefault('interviewer', nameParts['interviewer'])
-    record.setdefault('interviewee', nameParts['interviewee'])
+    record.setdefault('contributor', names['contributor'])
+    record.setdefault('creator', names['creator'])
+    record.setdefault('depositor', names['depositor'])
+    record.setdefault('interviewer', names['interviewer'])
+    record.setdefault('interviewee', names['interviewee'])
     record.setdefault('normalized_date_qualifier',
                         date_qualifier.get_element_attrib())
+    
+    if names['other_names']:
+        record.setdefault('other_names', names['other_names'])
     
     # Check normalized_date_qualifier
     record = check_date_qualifier(record)
