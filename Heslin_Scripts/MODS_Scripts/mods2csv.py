@@ -492,6 +492,8 @@ def get_subject_data(subject=ET.Element):
         field = 'subject_local'
     elif child_tag in ['geographic', 'name', 'temporal', 'topic']:
         field = f'subject_{child_tag}'
+    elif authority_attribute is not None:
+        field = f"subject@{authority_attribute}/{child_tag}"
 
     # Extract and transform data
     for child in children:
