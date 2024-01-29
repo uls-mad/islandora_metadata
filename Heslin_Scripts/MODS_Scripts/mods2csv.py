@@ -204,12 +204,13 @@ class Processor:
 
     def manage_processor(self):
         if self.progress < self.total_files:
-            # Process the file
             file = self.files[self.progress]
             try:
+                # Process the MODS file
                 record = process_xml(file)
                 self.records.append(record)
             except:
+                # Log the exception for the skipped file
                 tb = reformat_traceback(traceback.format_exc())
                 self.exceptions.append({'File': file, 'Traceback': tb})
                 self.records.append({'identifier': get_pid(file)})
@@ -257,6 +258,7 @@ class ModsElement:
         self.elementname = elementname
         self.additional_args = kwargs
 
+    # Get the text value of the MODS element
     def get_element_value(self):
         if self.root.find(self.xpath, self.namespace) is not None:
             elementname = self.root.find(self.xpath, self.namespace).text
@@ -265,6 +267,7 @@ class ModsElement:
             elementname = ''
             return elementname
 
+    # Get values from data values from sibling elements
     def get_complex_element(self):
         value_list = []
         #if 'text' in self.additional_args.keys():
@@ -274,6 +277,7 @@ class ModsElement:
                 value_list.append(element.getparent().getprevious().text)
                 return value_list
 
+    # Set element attribute value to 'yes' if XPath is not null
     def get_element_attrib(self):
         if self.root.find(self.xpath, self.namespace) is not None:
             elementattrib = 'yes'
@@ -542,11 +546,13 @@ def get_name_data(name=ET.Element):
     return data
 
 
+# Extract object PID from MODS filename
 def get_pid(file=str):
     pid = file.replace("pitt_", "").replace("_MODS", "").replace(".xml", "")
     return pid
 
 
+# Add type attribute value for name element to XPath
 def add_name_type(element=ET.Element, xpath=str):
     name = element.getparent()
     type_attribute = name.get('type')
@@ -555,6 +561,7 @@ def add_name_type(element=ET.Element, xpath=str):
     return xpath
 
 
+# Add type attribute value for relatedItem element to XPath
 def add_relatedItem_type(element=ET.Element, xpath=str):
     parent = element.getparent()
     while get_tag(parent) != 'relatedItem':
@@ -586,6 +593,8 @@ def check_date_qualifier(record=dict):
 
 """ Main Function """
 
+# Extract data from given MODS file and create record as dict, where element
+# XPaths or local fieldnames are keys and the text values of elements as values
 def process_xml(file):
     # Create an XML object that python can parse
     xml_object = ET.parse(file)
