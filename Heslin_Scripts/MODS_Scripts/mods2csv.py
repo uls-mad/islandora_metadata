@@ -2,6 +2,8 @@ import sys
 from tkinter import filedialog, messagebox, ttk
 from tkinter import *
 from lxml import etree as ET
+from datetime import datetime
+import traceback
 import re
 import os
 import glob
@@ -10,12 +12,8 @@ import pandas as pd
 from definitions import fieldnames, columns, namespaces, mods_ns
 
 
-""" Global Variables """
 
-exceptions = []
-
-
-""" Classes """
+""" CLASSES """
 
 class GUI:
     root = None
@@ -99,12 +97,15 @@ class Processor:
     total_files = 0
     progress = 0
     progress_var = None
+    progress_label = 0
     processing_label = None
     complete_label = None
+    exceptions_label = None
     close_button = None
     source = None
     destination = None
     records = []
+    exceptions = []
 
     def __init__(self, root):
         self.gui = GUI(root=root, 
@@ -203,20 +204,25 @@ class Processor:
 
     def manage_processor(self):
         if self.progress < self.total_files:
-            # Process the file
             file = self.files[self.progress]
             try:
+                # Process the MODS file
                 record = process_xml(file)
                 self.records.append(record)
             except:
-                self.records.append({'identifier/pitt': file.split('_')[1]})
+                # Log the exception for the skipped file
+                tb = reformat_traceback(traceback.format_exc())
+                self.exceptions.append({'File': file, 'Traceback': tb})
+                self.records.append({'identifier': get_pid(file)})
+                self.progress_label -= 1
 
             # Update progress
             self.progress += 1
+            self.progress_label += 1
             self.progress_var.set(int((self.progress / self.total_files) * 100))
 
             # Update processed label
-            text = f"{self.progress}/{self.total_files} files"
+            text = f"{self.progress_label}/{self.total_files} files"
             self.processing_label.config(text=text)
             self.processing_label.update_idletasks() 
 
@@ -226,9 +232,22 @@ class Processor:
             # Notify user that processing is complete
             records_to_csv(records=self.records, destination=self.destination)
             self.complete_label.config(text="Complete!")
+            if self.exceptions:
+                self.log_exceptions()
+                self.gui.set_geom('300x180')
+                exception_msg = f"{len(self.exceptions)} exceptions occurred."
+                self.exceptions_label = Label(self.gui.root, text=exception_msg)
+                self.exceptions_label.pack()
             self.gui.reset_button_frame()
             self.gui.add_button("OK", side=RIGHT, pady=10, 
                                 command=self.gui.close)
+    
+    def log_exceptions(self):
+        # Create or append to a text file with exception information
+        current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filepath = f'exceptions_{current_datetime}.csv'
+        exceptions_df = pd.DataFrame.from_dict(self.exceptions)
+        exceptions_df.to_csv(filepath, index=False, encoding='utf-8')
 
 
 class ModsElement:
@@ -239,6 +258,7 @@ class ModsElement:
         self.elementname = elementname
         self.additional_args = kwargs
 
+    # Get the text value of the MODS element
     def get_element_value(self):
         if self.root.find(self.xpath, self.namespace) is not None:
             elementname = self.root.find(self.xpath, self.namespace).text
@@ -247,6 +267,7 @@ class ModsElement:
             elementname = ''
             return elementname
 
+    # Get values from data values from sibling elements
     def get_complex_element(self):
         value_list = []
         #if 'text' in self.additional_args.keys():
@@ -256,11 +277,14 @@ class ModsElement:
                 value_list.append(element.getparent().getprevious().text)
                 return value_list
 
+    # Set element attribute value to 'yes' if XPath is not null
     def get_element_attrib(self):
         if self.root.find(self.xpath, self.namespace) is not None:
             elementattrib = 'yes'
             return elementattrib
         
+
+""" PROCESSOR """
 
 """ Helper Functions """
 
@@ -268,17 +292,6 @@ class ModsElement:
 def show_error(title=str, message=str):
     messagebox.showerror(title=title, message=message)
     sys.exit(0)
-
-
-# Get list of files to be processed
-def get_files(source):
-    # Change working directory to source directory
-    os.chdir(source)
-    # Get list of XML files in directory
-    files = glob.glob('*.xml')
-    # Remove finding aids from list of files
-    files = remove_finding_aids(files)
-    return files
     
 
 # Extract files from compressed file (Zip) into a directory
@@ -303,13 +316,86 @@ def extract_files(filepath=str):
     return output_dir
 
 
-# Check if the given element is a special field
-def check_special_field(element=ET.Element, tag=str):
-    special_fields = ['accessCondition', 'namePart', 'roleTerm', 'subject']
-    for field in special_fields:
-        if f'{ mods_ns }{ field }' in [tag, element.getparent().tag]:
-            return True
-    return False
+# Get list of files to be processed
+def get_files(source):
+    # Change working directory to source directory
+    os.chdir(source)
+    # Get list of XML files in directory
+    files = glob.glob('*.xml')
+    # Remove finding aids from list of files
+    files = remove_finding_aids(files)
+    return files
+
+
+# Remove finding aids from input files based on filename patterns
+def remove_finding_aids(files=list):
+    fa_patterns = ['666980084','clp.','mss.','qss','rg04.201','ppi','us-qqs']
+    files_to_remove = []
+
+    # Generate list of finding aids identified by a finding aid filename pattern
+    for filename in files:
+        if any(pattern in filename.lower() for pattern in fa_patterns):
+            files_to_remove.append(filename)
+
+    # Remove finding aids from list of files
+    for file in files_to_remove:
+        files.remove(file)
+
+    return files
+
+
+# Modify column headers and add URL column for final output
+def update_columns(df=pd.DataFrame):
+    # Sort DataFrame by column name (alphabetical, ascending order)
+    df = df[sorted(df.columns)]
+
+    # Rename columns: Split each string on forward slashes, reverse the order, 
+    # and rejoin. Replace at symbols with forward slash and spaces with underscore
+    # Ex: physicalDescription/form@marcform >> form/marcform/physicalDescription
+    df.columns = [
+        '/'.join(header.split('/')[::-1]).replace('@', '/').replace(' ', '_') 
+        for header in df.columns.tolist()
+    ]
+    
+    # Add columns not in target fields
+    for fieldname in df.columns.values:
+        if fieldname not in fieldnames:
+            fieldnames.append(fieldname)
+
+    # Add column with URL for object
+    url_prefix = "https://gamera.library.pitt.edu/islandora/object/pitt:"
+    if 'identifier' in df.columns:
+        df['url'] = url_prefix + df['identifier']
+
+    # Reorder columns
+    df = df.reindex(columns=fieldnames)
+    return df
+
+
+# Process records and export to a CSV file
+def records_to_csv(records=list, destination=str):
+    # Convert list of dictionaries to DataFrame
+    df = pd.DataFrame.from_dict(records)
+    df = update_columns(df)
+
+    # Remove empty values
+    nan_value = float("NaN")
+    df.replace({'': nan_value, '; ': nan_value, '; ; ': nan_value}, inplace=True)
+    df.dropna(how='all', axis=1, inplace=True)
+
+    # Write DataFrame to CSV file
+    df.to_csv(destination, index=False, header=True, encoding='utf-8')
+
+
+# Remove script filename from given traceback
+def reformat_traceback(tb=str):
+    script_path = os.path.abspath(__file__)
+    return tb.replace(f'File "{script_path}", ', '').strip()
+
+
+""" DATA EXTRACTION AND TRANSFORMATION """
+
+""" Helper Functions """
 
 # Check if the given root has the MODS namespace prefix and add if not
 def ensure_mods_prefix(tree=ET.ElementTree, root=ET.Element):
@@ -326,6 +412,33 @@ def ensure_mods_prefix(tree=ET.ElementTree, root=ET.Element):
     return tree, root
 
 
+# Check if the given element is a special field
+def check_special_field(element=ET.Element, xpath=str):
+    special_fields = ['copyright', 'namePart', 'roleTerm', 'subject']
+    for field in special_fields:
+        if field in xpath and 'relatedItem' not in xpath:
+            return True
+    return False
+
+
+# Get XPath for given element and proccess string to simplify
+def get_xpath(xml_object, element=ET.Element):
+    # Get xpath
+    xpath = xml_object.getpath(element)
+    # Remove namespace prefixes and root
+    xpath = xpath.\
+        replace('mods:', '').\
+        replace('copyrightMD:', '').\
+        replace('/mods/', '')
+    # Remove index-like expressions (digits in brackets) from the XPath
+    xpath = re.sub(r'\[\d+\]', '', xpath)
+    return xpath
+
+
+def get_tag(element=ET.Element):
+    return element.tag.replace(mods_ns, '')
+
+
 # Generate a list of an element's parents
 def get_parents(root=ET.Element, element=ET.Element):
     parent_list = []
@@ -336,10 +449,127 @@ def get_parents(root=ET.Element, element=ET.Element):
 
 
 # Get text values from given list of child elements
-def get_child_text(children=list):
-    child_text = [child.text for child in children \
+def get_child_text(parent=ET.Element):
+    child_text = []
+    children = parent.getchildren()
+    if children:
+        child_text = [child.text for child in children \
                   if child.text is not None and child.text.strip()]
     return child_text
+
+
+# Get namePart and roleTerm values (if any) from given name element
+def get_name_value(name=ET.Element):
+    name = ET.ElementTree(name)
+    namePart = name.find(f"{mods_ns}namePart")
+    if namePart is None:
+        return None
+    roleTerm = name.find(f'{mods_ns}role/{mods_ns}roleTerm')
+    value = f"{namePart.text} [{roleTerm.text}]" \
+        if roleTerm is not None else namePart.text
+    return value
+
+
+# Get publication status and copyright status from given accessCondition element
+def get_copyright_data(accessCondition=ET.Element):
+    copyright = accessCondition.find(
+        'copyrightMD:copyright', namespaces['copyright_ns'])
+    data = [('publication_status', copyright.attrib.get('publication.status')),
+            ('copyright_status', copyright.attrib.get('copyright.status'))]
+    return [(key, value) for key, value in data if value]
+
+
+# Get specified and non-specified subject data
+def get_subject_data(subject=ET.Element):
+    data = []
+    values = []
+    authority_attribute = subject.attrib.get('authority')
+    children = subject.getchildren()
+    if not children:
+        return data
+    main_child = children[0]
+    child_tag = main_child.tag.replace(mods_ns, '')
+
+    # Name field
+    field = f"subject/{child_tag}"
+    if child_tag == 'topic' and authority_attribute == 'local':
+        field = 'subject_local'
+    elif child_tag in ['geographic', 'name', 'temporal', 'topic']:
+        field = f'subject_{child_tag}'
+    elif authority_attribute is not None:
+        field = f"subject@{authority_attribute}/{child_tag}"
+
+    # Extract and transform data
+    for child in children:
+        cur_tag = child.tag.replace(mods_ns, '')
+        if cur_tag == 'name':
+            values.append(get_name_value(child))
+        elif cur_tag == 'titleInfo':
+            values.append(', '.join(get_child_text(child)))
+        elif cur_tag == 'hierarchicalGeographic':
+            values.append('--'.join(get_child_text(child))) 
+        elif cur_tag == 'cartographics': 
+            # Assumes there are no other children in subject
+            for grandchild in child.getchildren():
+                grandchild_tag = grandchild.tag.replace(mods_ns, '')
+                data.append((grandchild_tag, grandchild.text))
+        else:
+            values.append(child.text)
+
+    # Remove NoneType values
+    values = [value for value in values if value is not None and value != '']
+    if values:
+        values_str = '--'.join(values)
+        data.append((field, values_str))
+    
+    return data
+
+
+# Get nameTerm and roleTerm (if any) values from name element
+def get_name_data(name=ET.Element):
+    data = []
+    roles = ['creator', 'contributor', 'depositor', 
+             'interviewer', 'interviewee', 'other_names']
+    name = ET.ElementTree(name)
+    try:
+        namePart = name.find(f'{mods_ns}namePart').text
+    except:
+        return data
+    try:
+        roleTerm = name.find(f'{mods_ns}role/{mods_ns}roleTerm').text
+    except:
+        roleTerm = None
+    if roleTerm in roles or roleTerm is None:
+        data.append((roleTerm or 'other_names', namePart))
+    else:
+        data.append(('other_names', f'{namePart} [{roleTerm}]'))
+    return data
+
+
+# Extract object PID from MODS filename
+def get_pid(file=str):
+    pid = file.replace("pitt_", "").replace("_MODS", "").replace(".xml", "")
+    return pid
+
+
+# Add type attribute value for name element to XPath
+def add_name_type(element=ET.Element, xpath=str):
+    name = element.getparent()
+    type_attribute = name.get('type')
+    if type_attribute is not None:
+        xpath = xpath.replace('name/', f'name@{type_attribute}/')
+    return xpath
+
+
+# Add type attribute value for relatedItem element to XPath
+def add_relatedItem_type(element=ET.Element, xpath=str):
+    parent = element.getparent()
+    while get_tag(parent) != 'relatedItem':
+        parent = parent.getparent()
+    type_attribute = parent.get('type')
+    if type_attribute is not None:
+        xpath = xpath.replace('relatedItem/', f'relatedItem@{type_attribute}/')
+    return xpath
 
 
 # Remove newline characters, trailing whitespaces, and multiple spaces from text
@@ -351,84 +581,20 @@ def remove_whitespaces(text):
     return ''
 
 
-# Remove finding aids from input files based on filename patterns
-def remove_finding_aids(files=list):
-    fa_patterns = ['666980084', 'clp.', 'mss.', 'qss', 'rg04.201', 'ppi', 'us-qqs']
-    files_to_remove = []
-
-    # Generate list of finding aids identified by a finding aid filename pattern
-    for filename in files:
-        if any(pattern in filename.lower() for pattern in fa_patterns):
-            files_to_remove.append(filename)
-
-    # Remove finding aids from list of files
-    for file in files_to_remove:
-        files.remove(file)
-
-    return files
-
-
+# Add date qualifier value if circa (or abbreviations) in display date
 def check_date_qualifier(record=dict):
     if not record.get('normalized_date_qualifier') \
         and record.get('dateOther/display/originInfo'):
-        if any(pattern in record.get('dateOther/display/originInfo') \
-               for pattern in ['c.', 'ca.']):
+        if any(pattern in record.get(columns['originInfo/dateOther@display']) \
+               for pattern in ['c.', 'ca.', 'circa']):
             record.setdefault('normalized_date_qualifier', 'yes')
     return record
 
 
-def update_columns(df=pd.DataFrame):
-    # Sort DataFrame by column name (alphabetical, ascending order)
-    df = df[sorted(df.columns)]
-    
-    # Get column headers and sort them alphabetically
-    column_headers = df.columns.tolist()
+""" Main Function """
 
-    # Split each string on forward slashes, reverse the order, and rejoin
-    # Replace at symbols with forward slash and spaces with underscore
-    # Ex: physicalDescription/form@marcform >> form/marcform/physicalDescription
-    column_headers = ['/'.join(header.split('/')[::-1]).replace('@', '/').\
-                      replace(' ', '_') for header in column_headers]
-
-    # Rename DataFrame columns with the updated headers
-    df.columns = column_headers
-    
-    # Add columns not in standardized fields
-    for fieldname in df.columns.values:
-        if fieldname not in fieldnames:
-            fieldnames.append(fieldname)
-
-    # Add column with URL for object
-    url_prefix = "https://gamera.library.pitt.edu/islandora/object/pitt:"
-    if 'identifier/pitt' in df.columns:
-        df['url'] =  url_prefix + df['identifier/pitt']
-
-    # Reindex columns
-    df = df.reindex(columns=fieldnames)
-
-    # Replace abbreviated Xpaths with standardized field names
-    df.rename(columns=columns, inplace=True)
-
-    return df
-
-
-def records_to_csv(records=list, destination=str):
-    # Convert list of dictionaries to DataFrame
-    df = pd.DataFrame.from_dict(records)
-    df = update_columns(df)
-
-    # Remove empty values
-    nan_value = float("NaN")
-    df.replace({'': nan_value, '; ': nan_value, '; ; ': nan_value}, 
-                inplace=True)
-    df.dropna(how='all', axis=1, inplace=True)
-
-    # Write DataFrame to CSV file
-    df.to_csv(destination, index=False, header=True, encoding='utf-8')
-
-
-""" Main Functions """
-
+# Extract data from given MODS file and create record as dict, where element
+# XPaths or local fieldnames are keys and the text values of elements as values
 def process_xml(file):
     # Create an XML object that python can parse
     xml_object = ET.parse(file)
@@ -441,81 +607,46 @@ def process_xml(file):
     record = {}
 
     for element in root.xpath('.//*'):
-        xpath = xml_object.getpath(element).\
-            replace('mods:', '').replace('/mods/', '').replace('copyrightMD:', '')
-        xpath = re.sub(r'\[\d+\]', '', xpath)
-        tag = element.tag
+        xpath = get_xpath(xml_object, element)
+        special_field = check_special_field(element, xpath)
+        tag = element.tag.replace(f'{mods_ns}', '')
         text = remove_whitespaces(element.text)
+        data = []
         type_attribute = element.attrib.get('type')
         authority_attribute = element.attrib.get('authority')
         
         # Check that current element and parent are not special/nested fields
         # and that the element text is not empty
-        if not check_special_field(element, tag) and text:
-            # Add attribute value to xpath
+        if not special_field and text:
+            # Set field and value
+            field = xpath
+            value = text.replace('\r', ' ')
+            # Add attribute value to field
             if type_attribute:
-                xpath += f'@{type_attribute}'
+                field += f'@{type_attribute}'
             elif authority_attribute:
-                xpath += f'@{authority_attribute}'
-            # Add element data to record dictionary
-            record.setdefault(xpath, []).append(text.replace('\r', ' '))
+                field += f'@{authority_attribute}'
+            # Add type to name element
+            if tag in ['namePart', 'roleTerm']:
+                field = add_name_type(element, xpath)
+            if 'relatedItem/' in field:
+                field = add_relatedItem_type(element, xpath)
+            # Update xpath to corresponding column name, if one exists
+            field = columns[field] if field in columns else field
+            # Add data to record
+            data.append((field, value))
+        elif xpath == 'accessCondition':
+            data = get_copyright_data(element)
+        elif xpath == 'subject':
+            data = get_subject_data(element)
+        elif xpath == 'name':
+            data = get_name_data(element)
 
-    ### SPECIAL FIELDS ###
-    
-    # Get accessCondition elements
-    publication_status = ""
-    copyright_status = ""
-
-    for access_conditions in root.iterfind('mods:accessCondition', 
-                                            namespaces['mods_ns']):
-        for copyrights in access_conditions.iterfind(
-            'copyrightMD:copyright', namespaces['copyright_ns']):
-            publication_status = copyrights.attrib['publication.status']
-            copyright_status = copyrights.attrib['copyright.status']
-
-    # Get subject elements
-    for subject in root.iterfind('mods:subject', namespaces['mods_ns']):
-        children = subject.getchildren()
-        authority_attribute = subject.attrib.get('authority')
-        if not children:
-            continue
-        subject_field = f"subject_{children[0].tag.replace(mods_ns, '')}"
-        if subject_field == 'subject_topic' and authority_attribute == 'local':
-            subject_field = 'subject_local'
-        record.setdefault(subject_field, [])
-        values = '--'.join(get_child_text(children))
-        if values:
-            record[subject_field].append(values)
-        if subject_field == 'subject_name':
-            grandchildren = children[0].getchildren()
-            if grandchildren:
-                record[subject_field] += (get_child_text(grandchildren))
-        
-    # Create a dictionary for each targeted name roleTerm
-    names = {
-        "creator": [],
-        "contributor": [],
-        "depositor": [],
-        "interviewer": [],
-        "interviewee": [],
-        "other_names": [],
-    }
-
-    # Get all namePart elements and add values to corresponding role list
-    for field in root.findall('.//mods:namePart', namespaces['mods_ns']):
-        roleTerm = None
-        try:
-            # below throws IndexError: list index out of range
-            roleTerm = field.getnext().getchildren()[0].text
-        except:
-            pass
-        
-        if roleTerm is None:
-            names['other_names'].append(field.text)
-        elif roleTerm not in names:
-            names['other_names'].append(f"{field.text} [{roleTerm}]")
-        else:
-            names[roleTerm].append(field.text)
+        # Add element data to record dictionary
+        for field, value in data:
+            if value:
+                value = remove_whitespaces(value)
+                record.setdefault(field, []).append(value)
 
     # Create a MODS element from Xpath
     date_qualifier = ModsElement(
@@ -524,28 +655,16 @@ def process_xml(file):
         namespace=namespaces['mods_ns'], 
         elementname='date_qualifier'
         )
-    
-    # Add fields to second XML dictionary
-    record.setdefault('copyright_status', copyright_status)
-    record.setdefault('publication_status', publication_status)
-    record.setdefault('contributor', names['contributor'])
-    record.setdefault('creator', names['creator'])
-    record.setdefault('depositor', names['depositor'])
-    record.setdefault('interviewer', names['interviewer'])
-    record.setdefault('interviewee', names['interviewee'])
     record.setdefault('normalized_date_qualifier',
                         date_qualifier.get_element_attrib())
-    
-    if names['other_names']:
-        record.setdefault('other_names', names['other_names'])
-    
+
     # Check normalized_date_qualifier
     record = check_date_qualifier(record)
 
-    # Ensure that identifier[@type="pitt"] exists
-    if not 'pitt@identifier' in record:
-        pid = file.replace("pitt_", "").replace("_MODS", "").replace(".xml", "")
-        record.setdefault('identifier@pitt', pid)
+    # Ensure that identifier@pitt is in record
+    if not 'identifier' in record:
+        pid = get_pid(file)
+        record.setdefault('identifier', pid)
 
     # Convert field values from lists to strings
     for field, value in record.items(): 
@@ -558,7 +677,6 @@ def process_xml(file):
 """ Driver Code """
 
 if __name__ == "__main__":
-
     root = Tk()
     processor = Processor(root)
     processor.run()
