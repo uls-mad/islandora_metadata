@@ -14,8 +14,8 @@ from collections import Counter
 
 path = '/Users/kaylaheslin/Desktop'
 baseURL = 'https://pittapi.as.atlas-sys.com'
-user_name = 'kmh250'
-password = 'hL9xE4rC8cI6'
+user_name = input("Enter Aspace API username: ")
+password = input('Enter Aspace API password: ')
 repo = input("Enter repo number:")
 record_type = 'archival_objects'
 auth = requests.post('https://pittapi.as.atlas-sys.com/users/{}/login?password={}'.format(user_name, password)).json()
