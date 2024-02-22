@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 2024-01-26
+## [Unreleased] - 2024-01-29
 
 ### Added
 - Added exception logging feature:
