@@ -12,7 +12,7 @@ import re
 from dateutil import parser
 from collections import Counter
 
-path = '/Users/kaylaheslin/Desktop'
+path = input('Enter path to desktop: ')
 baseURL = 'https://pittapi.as.atlas-sys.com'
 user_name = input("Enter Aspace API username: ")
 password = input('Enter Aspace API password: ')
