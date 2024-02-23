@@ -24,7 +24,6 @@ articles
 artifacts (object genre)
 attendance records
 autobiographies (literary genre)
-autobiographies (literary works)
 ballots
 banners
 baptismal certificates
@@ -33,7 +32,6 @@ bibliographies
 billheads
 bills of sale
 biographies (literary genre)
-biographies (literary works)
 blogs
 blueprints (reprographic copies)
 bonds (legal records)
@@ -67,7 +65,7 @@ city directories
 civil court records
 claims
 clippings (information artifacts)
-"clippings, newspaper"
+newspaper clippings
 collages (visual works)
 color prints (prints)
 comic strips
@@ -153,7 +151,6 @@ leaflets (printed works)
 leases
 lecture notes
 lectures
-lectures notes
 ledgers (account books)
 legal documents
 legal notices
@@ -192,15 +189,13 @@ musical performances
 muster rolls
 needlework (visual works)
 newsletters
-newspaper clippings
 newspapers
 notes (documents)
 obituaries
 oral histories (literary genre)
-oral histories (literary works)
 orders (military records)
 orders to pay
-organs (aerophones)
+organs (pipe organs)
 outlines (documents)
 paintings (visual works)
 pamphlets
@@ -260,7 +255,7 @@ royalty statements
 rugs (textiles)
 rules (instructions)
 sales catalogs
-satires (literary works)
+satires (literary genre)
 scenarios (outlines)
 schedules (time plans)
 school exercises
@@ -319,7 +314,6 @@ transportation timetables
 travel literature
 treatises
 tusk (material)
-typescript
 typescripts
 vases
 warrants
