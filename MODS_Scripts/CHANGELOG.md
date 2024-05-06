@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2024-05-06
+
+### Changed
+- Modularized `GUI` class and `process_xml()` function and helper functions so 
+  they can be used in other scripts (now in their own Python files).
+- Added states to control progression of Processor through steps.
+
+
+### Added
+- Added askyesno dialog box when a source or destination is not selected so that 
+  program can continue without closing and re-running. 
+
+
 ## [Unreleased] - 2024-01-29
 
 ### Added

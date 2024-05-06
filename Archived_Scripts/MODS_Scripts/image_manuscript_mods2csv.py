@@ -7,7 +7,7 @@ import os
 import glob
 import zipfile
 import pandas as pd
-from definitions import fieldnames, columns, namespaces, mods_ns
+from MODS_Scripts.definitions import fieldnames, columns, namespaces, mods_ns
 
 
 """ Global Variables """

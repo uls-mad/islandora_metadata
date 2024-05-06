@@ -1,8 +1,4 @@
 # Files Found Here
-The files found within this directory are primarily python scripts created to work with archival metadata using the [Metadata Object Descriptive Schema](http://www.loc.gov/standards/mods/)(MODS).
-These scripts were developed for particular use cases within the Archives & Special Collections Department at Pitt. 
-
-The ["image_manuscript_mods2csv.py"](https://github.com/uls-mad/islandora_metadata/blob/main/Heslin_Scripts/MODS_Scripts/image_manuscript_mods2csv.py) script will flatten MODS XML into a CSV spreadsheet. However, BE AWARE that this script prioritizes certain MODS fields and attributes. There are special fields that are captured differently than all other fields, which can be modified in the `process_xml()` and `update_columns()` functions. Prioritized fields have fieldnames that are stadardized according to a template in the output CSV file, which can be modified in the `columns` dictionary and `fieldnames` list in the ["definitions.py"](https://github.com/uls-mad/islandora_metadata/blob/main/Heslin_Scripts/MODS_Scripts/definitions.py) file. **Note:** Most elements can be accessed by referencing their XPath with attribute (ex: `".//mods:languageTerm[@type='code'][@authority='iso639-2b']"`). These can be accessed using the `.get_element_value()` method of the `ModsElement()` class. However, there are some elements that rely on parent-level data to extract (ex: depositor, creator, and contributor information). These can be accessed using the `get_complex_element()` method of the `ModsElement()` class.
 
 The ["add_copyright_element.py"](https://github.com/uls-mad/islandora_metadata/blob/main/Heslin_Scripts/MODS_Scripts/add_copyright_element.py) script creates an <accessCondition> tag and a child <copyrightMD:copyright> tag with attributes "copyright.status" and "publication.status."
 In our use case, we used this script to batch apply copyright status to archival objects missing this metadata field using a CSV spreadsheet. 
@@ -10,8 +6,8 @@ In our use case, we used this script to batch apply copyright status to archival
 The ["add_identifier_element.py"](https://github.com/uls-mad/islandora_metadata/blob/main/Heslin_Scripts/MODS_Scripts/build_mods_for_books_dateCreated.py) functions in a similar way to the "add_copyright_element" but instead we were created an unique identifier for archival objects missing this field using a CSV spreadsheet. 
 
 The ["build_mods_for_books_dateCreated.py"](https://github.com/uls-mad/islandora_metadata/blob/main/Heslin_Scripts/MODS_Scripts/build_mods_for_books_dateCreated.py) and ["build_mods_for_books_dateIssued.py"](https://github.com/uls-mad/islandora_metadata/blob/main/Heslin_Scripts/MODS_Scripts/build_mods_for_books_dateIssued.py) scripts allow us to extract exisiting data from our integrated library system (ILS), Alma, and reuse some of this metadata in MODS records. To work, these scripts require a CSV spreadsheet containing the fields you wish to collect in the MODS record (referenced in the script as "extended csv"), and a batch MODS XML file that contains MARC data for each object you wish to create a MODS file for (referenced in the script as "mods xml file").
-  
-## To use "build_mods_for_books*.py" scripts
+
+# How to use "build_mods_for_books*.py" scripts
 
 1. Download and save the file locally 
 2. Open you terminal and invoke python (must be using python 3) followed by the full path to the downloaded script
