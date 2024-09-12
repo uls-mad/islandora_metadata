@@ -71,6 +71,7 @@ columns = {
     'relatedItem@host/identifier@local-asc': 'source_collection_id', 
     'relatedItem@host/note@ownership': 'source_ownership',
     'relatedItem@host/note@prefercite': 'source_citation', 
+    'relatedItem/note@prefercite': 'source_citation', 
     'relatedItem@host/note@container': 'source_container',
     'relatedItem@host/note@series': 'source_series', 
     'relatedItem@host/note@subseries': 'source_subseries', 
