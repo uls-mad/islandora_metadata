@@ -139,6 +139,8 @@ def get_name_value(name=ET.Element):
 def get_copyright_data(accessCondition=ET.Element):
     copyright = accessCondition.find(
         'copyrightMD:copyright', namespaces['copyright_ns'])
+    if copyright is None:
+        return []
     data = [('publication_status', copyright.attrib.get('publication.status')),
             ('copyright_status', copyright.attrib.get('copyright.status'))]
     return [(key, value) for key, value in data if value]
@@ -209,7 +211,6 @@ def get_name_data(name=ET.Element):
     else:
         data.append(('other_names', f'{namePart} [{roleTerm}]'))
     return data
-
 
 
 # Add type attribute value for name element to XPath
@@ -293,7 +294,7 @@ def process_xml(file):
             if tag in ['namePart', 'roleTerm']:
                 field = add_name_type(element, xpath)
             if 'relatedItem/' in field:
-                field = add_relatedItem_type(element, xpath)
+                field = add_relatedItem_type(element, field)
             # Update xpath to corresponding column name, if one exists
             field = columns[field] if field in columns else field
             # Add data to record
