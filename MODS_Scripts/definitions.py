@@ -64,7 +64,7 @@ columns = {
     'physicalDescription/form': 'format', 
     'physicalDescription/extent': 'extent',
     'genre@aat': 'genre_aat', 
-    #'relatedItem@host/titleInfo/title': 'source_collection',
+    'relatedItem@host/titleInfo/title': 'CHECK_source_collection',
     #'relatedItem/titleInfo/title': 'source_collection', # Remove once CSV-to-MODS utility updated
     'relatedItem@host/dateCreated': 'source_collection_date', 
     'relatedItem@host/identifier': 'source_collection_id', 
