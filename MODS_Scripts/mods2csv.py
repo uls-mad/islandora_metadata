@@ -111,7 +111,7 @@ class Processor:
         self.gui.add_button(text="Folder", side=RIGHT, padx=5,
                             command=lambda: self.get_source_by_type('folder'))
         
-    def get_source_by_type(self, source_type=str):
+    def get_source_by_type(self, source_type: str):
         # Update dialog box content
         self.gui.set_geom("300x65")
         self.gui.reset_text_frame()
@@ -259,13 +259,13 @@ class Processor:
 """ Helper Functions """
 
 # Show a given error and exit program
-def show_error(title=str, message=str):
+def show_error(title: str, message: str):
     messagebox.showerror(title=title, message=message)
     sys.exit(0)
     
 
 # Extract files from compressed file (Zip) into a directory
-def extract_files(filepath=str):
+def extract_files(filepath: str):
     output_dir = ""
     
     # Confirm that file is zip file
@@ -298,7 +298,7 @@ def get_files(source):
 
 
 # Remove finding aids from input files based on filename patterns
-def remove_finding_aids(files=list):
+def remove_finding_aids(files: list):
     fa_patterns = ['666980084','clp.','mss.','qss','rg04.201','ppi','us-qqs']
     files_to_remove = []
 
@@ -315,7 +315,7 @@ def remove_finding_aids(files=list):
 
 
 # Modify column headers and add URL column for final output
-def update_columns(df=pd.DataFrame):
+def update_columns(df: pd.DataFrame):
     # Sort DataFrame by column name (alphabetical, ascending order)
     df = df[sorted(df.columns)]
 
@@ -343,7 +343,7 @@ def update_columns(df=pd.DataFrame):
 
 
 # Process records and export to a CSV file
-def records_to_csv(records=list, destination=str):
+def records_to_csv(records: list, destination: str):
     # Convert list of dictionaries to DataFrame
     df = pd.DataFrame.from_dict(records)
     df = update_columns(df)
@@ -358,7 +358,7 @@ def records_to_csv(records=list, destination=str):
 
 
 # Remove script filename from given traceback
-def reformat_traceback(tb=str):
+def reformat_traceback(tb: str):
     script_path = os.path.abspath(__file__)
     return tb.replace(f'File "{script_path}", ', '').strip()
 

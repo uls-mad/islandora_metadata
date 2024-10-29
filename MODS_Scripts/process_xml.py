@@ -62,7 +62,7 @@ class ModsElement:
 """ Helper Functions """
 
 # Check if the given root has the MODS namespace prefix and add if not
-def ensure_mods_prefix(tree=ET.ElementTree, root=ET.Element):
+def ensure_mods_prefix(tree: ET.ElementTree, root: ET.Element):
     if not root.prefix:
         # Create a new root element with 'mods' namespace
         new_root = ET.Element('mods', nsmap=namespaces['mods_ns'])
@@ -77,7 +77,7 @@ def ensure_mods_prefix(tree=ET.ElementTree, root=ET.Element):
 
 
 # Check if the given element is a special field
-def check_special_field(element=ET.Element, xpath=str):
+def check_special_field(element: ET.Element, xpath: str):
     special_fields = ['copyright', 'namePart', 'roleTerm', 'subject']
     for field in special_fields:
         if field in xpath and 'relatedItem' not in xpath:
@@ -86,7 +86,7 @@ def check_special_field(element=ET.Element, xpath=str):
 
 
 # Get XPath for given element and proccess string to simplify
-def get_xpath(xml_object, element=ET.Element):
+def get_xpath(xml_object, element: ET.Element):
     # Get xpath
     xpath = xml_object.getpath(element)
     # Remove namespace prefixes and root
@@ -100,12 +100,12 @@ def get_xpath(xml_object, element=ET.Element):
 
 
 # Get tag attribute of element
-def get_tag(element=ET.Element):
+def get_tag(element: ET.Element):
     return element.tag.replace(mods_ns, '')
 
 
 # Generate a list of an element's parents
-def get_parents(root=ET.Element, element=ET.Element):
+def get_parents(root: ET.Element, element: ET.Element):
     parent_list = []
     while element.getparent() != root:
         parent_list.append(element.getparent().tag.replace(mods_ns, ''))
@@ -114,7 +114,7 @@ def get_parents(root=ET.Element, element=ET.Element):
 
 
 # Get text values from given list of child elements
-def get_child_text(parent=ET.Element):
+def get_child_text(parent: ET.Element):
     child_text = []
     children = parent.getchildren()
     if children:
@@ -124,7 +124,7 @@ def get_child_text(parent=ET.Element):
 
 
 # Get namePart and roleTerm values (if any) from given name element
-def get_name_value(name=ET.Element):
+def get_name_value(name: ET.Element):
     name = ET.ElementTree(name)
     namePart = name.find(f"{mods_ns}namePart")
     if namePart is None:
@@ -136,7 +136,7 @@ def get_name_value(name=ET.Element):
 
 
 # Get publication status and copyright status from given accessCondition element
-def get_copyright_data(accessCondition=ET.Element):
+def get_copyright_data(accessCondition: ET.Element):
     copyright = accessCondition.find(
         'copyrightMD:copyright', namespaces['copyright_ns'])
     if copyright is None:
@@ -147,7 +147,7 @@ def get_copyright_data(accessCondition=ET.Element):
 
 
 # Get specified and non-specified subject data
-def get_subject_data(subject=ET.Element):
+def get_subject_data(subject: ET.Element):
     data = []
     values = []
     authority_attribute = subject.attrib.get('authority')
@@ -193,7 +193,7 @@ def get_subject_data(subject=ET.Element):
 
 
 # Get nameTerm and roleTerm (if any) values from name element
-def get_name_data(name=ET.Element):
+def get_name_data(name: ET.Element):
     data = []
     roles = ['creator', 'contributor', 'depositor', 
              'interviewer', 'interviewee', 'other_names']
@@ -214,7 +214,7 @@ def get_name_data(name=ET.Element):
 
 
 # Add type attribute value for name element to XPath
-def add_name_type(element=ET.Element, xpath=str):
+def add_name_type(element: ET.Element, xpath: str):
     name = element.getparent()
     type_attribute = name.get('type')
     if type_attribute is not None:
@@ -223,7 +223,7 @@ def add_name_type(element=ET.Element, xpath=str):
 
 
 # Add type attribute value for relatedItem element to XPath
-def add_relatedItem_type(element=ET.Element, xpath=str):
+def add_relatedItem_type(element: ET.Element, xpath: str):
     parent = element.getparent()
     while get_tag(parent) != 'relatedItem':
         parent = parent.getparent()
