@@ -404,28 +404,21 @@ def process_title(record: dict) -> dict:
     return record
 
 
-def process_language(record: dict, value: str) -> dict:
+def process_language(value: str) -> str | None:
     """
-    Updates the `record` dictionary with a language term based on the `value`.
-
-    This function searches for the given `value` in the `field_code` column of 
-    the `LANGUAGE_MAPPING` DataFrame. If a match is found, the corresponding 
-    `term_name` is added to `record['field_language']`. If no match is found, 
-    `record['field_language']` remains unchanged.
+    Maps a language field code to its corresponding term name using LANGUAGE_MAPPING.
 
     Args:
-        record (dict): The dictionary representing the record to update.
-        value (str): The language code to look up in the mapping.
+        value (str): The language field code to look up.
 
     Returns:
-        dict: The updated record with the `field_language` value added if found.
+        str | None: The corresponding language term name if found, otherwise None.
     """
     matching_row = LANGUAGE_MAPPING.loc[
         LANGUAGE_MAPPING["field_code"] == value, "term_name"
     ]
-    if not matching_row.empty:
-        record["field_language"] = matching_row.iloc[0]
-    return record
+    return matching_row.iloc[0] if not matching_row.empty else None
+
 
 
 def process_name(
@@ -945,6 +938,34 @@ def process_records(
                             value = value.replace('info:fedora/', '')
                             if value in ['pitt:root', 'islandora:root']:
                                 continue
+                        elif field in TITLE_FIELDS:
+                            record = add_title(record, solr_field, field, value)
+                            continue
+                        elif field == 'field_language':
+                            value = process_language(value)
+                        elif field == 'field_linked_agent':
+                            record, personal_names = process_name(
+                                record, personal_names, solr_field, field, value
+                            )
+                            continue
+                        elif field in DATE_FIELDS:
+                            continue
+                        elif field in SUBJECT_FIELDS:
+                            record = process_subject(record, solr_field, value)
+                            continue
+                        elif field == 'field_genre':
+                            record = process_genre(record, value)
+                            continue
+                        elif field == 'field_type_of_resources_legacy':
+                            value = TYPE_MAPPING[value]
+                        elif field == 'field_physical_form':
+                            record = process_form(record, value)
+                            continue
+                        elif field in SOURCE_FIELDS:
+                            source_data[solr_field] = data
+                            continue
+                        elif field == 'field_rights_statement':
+                            value = process_rights(value)
                         elif field == 'field_model':
                             if value not in OBJECT_MAPPING:
                                 add_exception(
@@ -959,36 +980,8 @@ def process_records(
                                 record, None, 'field_resource_type', 
                                 resource_type
                                 )
-                        elif field == 'field_type_of_resources_legacy':
-                            value = TYPE_MAPPING[value]
                         elif field == 'field_domain_access':
                             value = DOMAIN_MAPPING.get(value, '')
-                        elif field == 'field_rights_statement':
-                            value = process_rights(value)
-                        elif field in TITLE_FIELDS:
-                            record = add_title(record, solr_field, field, value)
-                            continue
-                        elif field == 'field_language':
-                            record = process_language(record, value)
-                        elif field == 'field_linked_agent':
-                            record, personal_names = process_name(
-                                record, personal_names, solr_field, field, value
-                            )
-                            continue
-                        elif field in DATE_FIELDS:
-                            continue
-                        elif field in SUBJECT_FIELDS:
-                            record = process_subject(record, solr_field, value)
-                            continue
-                        elif field == 'field_genre':
-                            record = process_genre(record, value)
-                            continue
-                        elif field == 'field_physical_form':
-                            record = process_form(record, value)
-                            continue
-                        elif field in SOURCE_FIELDS:
-                            source_data[solr_field] = data
-                            continue
 
                         # Add Solr data to I2 field
                         add_value(record, None, field, value)
