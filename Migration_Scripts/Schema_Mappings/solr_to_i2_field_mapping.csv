@@ -1,0 +1,219 @@
+solr_field,machine_name,required,label,prefix,notes
+,id,yes,,,Copy PID
+PID,field_pid,,,,
+ancestors_ms,parent_id,,,,Used for batching records by collection; can delete this column after exporting data from Solr.
+RELS_EXT_isSequenceNumber_literal_ms,field_weight,,,,Remove leading 0's.
+,transcript,,,,Transcript file
+,hocr,,,,HOCR file
+fedora_datastream_info_JP2_ID_ms,,,,,"If JP2, add link to file in ""file"" column. Then delete this column."
+fedora_datastream_info_HOCR_ID_ms,,,,,"If HOCR, add link to file in ""hocr"" column. Then delete this column."
+fedora_datastream_info_TRANSCRIPT_ID_ms,,,,,"If TRANSCRIPT, add link to file in ""transcript"" column. Then delete this column."
+RELS_EXT_hasModel_uri_ms,field_model,yes,Model*,,"Use for determining Resource Type, then delete
+
+Use for determining display logic, along with Model. Terms come from Islandora Models vocab."
+RELS_EXT_isConstituentOf_uri_ms,parent_id,,,,Use to fill in parent_id column; then delete.
+RELS_EXT_isMemberOf_uri_ms,parent_id,,,,Use to fill in parent_id column; then delete.
+RELS_EXT_isMemberOfCollection_uri_ms,parent_id,,,,Use to fill in parent_id column; then delete.
+mods_typeOfResource_ms,field_type_of_resources_legacy,,Type of Resource,,Use for metadata display
+mods_typeOfResource_ms,field_resource_type,yes,"Type* (change from ""Resource Type"")",,"Use for determining Resource Type, then delete
+
+Use for determining display logic, along with Model. Terms come from Resource Types vocab."
+mods_genre_authority_aat_ms,field_genre,,Genre,,
+mods_note_relation_ms,field_related_title,,Related Title,,"Custom text plain, long"
+mods_note_isPartOf_ms,field_related_title_part_of,,Part of,,"Custom text plain, long"
+mods_note_replaces_ms,field_related_title_preceding,,Preceding Title,,"Custom text plain, long"
+mods_note_isReplacedby_ms,field_related_title_succeeding,,Succeeding Title,,"Custom text plain, long"
+mods_note_hasPart_ms,field_related_title_constituent,,Includes,,"Custom text plain, long"
+mods_note_isVersionOf_ms,field_related_title_original,,Original Version,,"Custom text plain, long"
+mods_note_hasFormat_ms,field_related_title_other_format,,Other Format,,"Custom text plain, long"
+mods_note_hasVersion_ms,field_related_title_other_versio,,Other Version,,"Custom text plain, long"
+mods_note_isReferencedBy_ms,field_related_title_referenced,,Referenced By,,"Custom text plain, long"
+,field_full_title,,Full Title,,"Composed of: 
+mods_titleInfo_nonSort_ms + 
+mods_titleInfo_title_ms + """":"""" + mods_titleInfo_subtitle_ms + """","""" + mods_titleInfo_partNumber_ms + """","""" +mods_titleInfo_partName_ms"""
+mods_titleInfo_subTitle_ms,field_full_title,,Full Title,,Copy to Full Title
+,title,,Title,,Displays as title in header and list views - note that this sometimes differs from i7. Composed of: mods_titleInfo_nonSort_ms + mods_titleInfo_title_ms + mods_titleInfo_partNumber_ms + mods_titleInfo_partName_ms
+mods_name_personal_arranger_namePart_ms,field_linked_agent,,Contributors,relators:arr:,Copy to Linked Agent w/ relators:arr:person:
+mods_name_personal_editor_ms,field_linked_agent,,Contributors,relators:edt:,Copy to Linked Agent w/ relators:edt:person:
+mods_originInfo_eventType_publication_publisher_ms,field_publisher_pitt,,Publisher,,"Custom plain text, long"
+mods_originInfo_eventType_publisher_place_placeTerm_text_ms,field_place_publication,,Publication Place,,Copy to Publication Place
+mods_originInfo_eventType_producer_place_placeTerm_text_ms,field_place_production,,Production Place,,"Custom plain text, long"
+mods_note_language_ms,field_note,,Note,Language:,Copy to Note
+mods_identifier_issue_number_ms,field_music_publisher_number,,Music Publisher Number,,Copy to Music Publisher Number
+mods_originInfo_eventType_distribution_publisher_ms,field_distributor,,Distributor,,"Custom plain text, long"
+mods_name_personal_lyricist_namePart_ms,field_linked_agent,,Contributors,relators:lyr:,Copy to Linked Agent with relators:lyr:person:
+mods_identifier_source_ms,field_local_identifier,,Local Identifier,,
+mods_name_personal_dedicatee_namePart_ms,field_linked_agent,,Contributors,relators:dte:,Copy to Linked Agent with relators:dte:person: (need to deduplicate)
+mods_identifier_music_publisher_ms,field_music_publisher_number,,Music Publisher Number,,Custom long plain text field.
+mods_originInfo_eventType_manufacture_place_placeTerm_text_ms,field_place_manufacture,,Manufacture Place,,Custom long plain text field
+mods_originInfo_eventType_manufacturer_place_placeTerm_text_ms,field_place_manufacture,,Manufacture Place,,Copy to Manufacture Place
+mods_originInfo_eventType_manufacture_publisher_ms,field_manufacturer,,Manufacturer,,Custom long plain text field
+mods_originInfo_eventType_manufacturer_publisher_ms,field_manufacturer,,Manufacturer,,Copy to Manufacturer
+mods_tableOfContents_ms,field_table_of_contents,,Table of Contents,,
+mods_originInfo_eventType_production_publisher_ms,field_producer,,Producer,,Copy to Producer
+mods_relatedItem_host_titleInfo_title_ms,field_source_collection,,Source Collection Title,,Custom taxonomy
+mods_name_personal_transcriber_namePart_ms,field_linked_agent,,Contributors,relators:trc:,Copy to Linked Agent with relators:trc:person:
+mods_physicalDescription_form_ms,field_physical_form,,Form,,
+mods_titleInfo_uniform_partName_ms,field_uniform_title,,Uniform Title,,Copy to Uniform Title
+,field_uniform_title,,Uniform Title,,"Composed of: mods_titleInfo_uniform_title_ms + "","" + mods_titleInfo_uniform_partNumber_ms + "","" + mods_titleInfo_uniform_partName_ms"
+mods_titleInfo_title_ms,field_full_title,,Full Title,,Copy to Full Title and Title
+mods_originInfo_encoding_marc_point_end_qualifier_questionable_dateIssued_ms,field_edtf_date,,Date,,Copy to Date
+mods_physicalDescription_extent_ms,field_extent,,Extent,,
+mods_name_personal_namePart_ms,field_linked_agent,,Contributors,relators:att:,"If name does not appear in any other MODS name field with a role, copy to Linked Agent with prefix of relators:att:person:"
+mods_name_personal_compiler_namePart_ms,field_linked_agent,,Contributors,relators:com:,Copy to Linked Agent with relators:com:person:
+mods_note_statement_of_responsibility_ms,field_statement_of_resp,,Statement of Responsibility,,Custom WYSIWYG field
+mods_identifier__ms,field_music_publisher_number,,Music Publisher Number,,Copy to Music Publisher Number
+mods_subject_genre_ms,field_subject_genre,,Subject (Genre),,Custom taxonomy Will need to de-duplicate (data is repeated).
+mods_originInfo_eventType_distributor_publisher_ms,field_distributor,,Distributor,,Copy to Distributor
+mods_originInfo_dateOther_ms,field_edtf_date,,Date,,Copy to Date
+mods_subject_topic_ms,field_subject,,Subject (Topic),,
+mods_originInfo_encoding_marc_dateCreated_ms,field_edtf_date,,Date,,Copy to Date
+mods_language_languageTerm_code_ms,field_language,,Language,,
+mods_titleInfo_uniform_title_ms,field_uniform_title,,Uniform Title,,Copy to Uniform Title
+mods_subject_temporal_ms,field_temporal_subject,,Subject (Temporal),,
+mods_name_personal_editor_namePart_ms,field_linked_agent,,Contributors,relators:edt:,Copy to Linked Agent with relators:edt:person:
+mods_originInfo_eventType_production_place_placeTerm_text_ms,field_place_production,,Production Place,,Copy to Production Place
+mods_genre_musical_composition_authority_marcmuscomp_ms,field_muscomp_genre,,Musical Composition Genre,,Custom text field
+mods_identifier_matrix_number_ms,field_music_publisher_number,,Music Publisher Number,,Copy to Music Publisher Number
+mods_originInfo_eventType_publication_place_placeTerm_text_ms,field_place_publication,,Publication Place,,"Custom plain text, long"
+mods_titleInfo_alternative_subTitle_ms,field_alternative_title_pitt,,Alternative Title,,Copy to Alternative Title
+mods_name_personal_composer_namePart_ms,field_linked_agent,,Contributors,relators:cmp:,Copy to Linked Agent with relators:cmp:person:
+mods_originInfo_eventType_producer_publisher_ms,field_producer,,Producer,,Custom text plain long
+mods_titleInfo_translated_subTitle_ms,field_alternative_title_pitt,,Alternative Title,,Copy to Alternative Title > Translated Title
+mods_originInfo_edition_ms,field_edition,,Edition Statement,,
+mods_abstract_ms,field_description_long,,Description,,
+mods_titleInfo_partNumber_ms,field_full_title,,Full Title,,Copy to Full Title and Title
+mods_titleInfo_uniform_partNumber_ms,field_uniform_title,,Uniform Title,,Copy to Uniform Title
+mods_name_depositor_namePart_ms,field_depositor,,Contributing Institution,,Custom taxonomy
+mods_originInfo_issuance_ms,field_mode_of_issuance,,Mode of Issuance,,Custom taxonomy
+mods_subject_geographic_ms,field_geographic_subject,,Subject (Geographic),,
+mods_originInfo_copyrightDate_ms,field_copyright_date,,Copyright Date,,Custom EDTF field
+mods_name_personal_translator_namePart_ms,field_linked_agent,,Contributors,relators:trl:,Copy to Linked Agent with relators:trl:person:
+mods_titleInfo_alternative_title_ms,field_alternative_title_pitt,,Alternative Title,,"""mods_titleInfo_alternative_title_ms + """":"""" + mods_titleInfo_alternative_subTitle_ms + """",""""+ mods_titleInfo_alternative_partNumber_ms + """",""""+ mods_titleInfo_alternative_partName_ms | Custom plain text, long"""
+dc.rights,field_rights_statement,,Rights Statement,,Use mods_accessCondition fields instead. But NOTE - rights data doesn't seem to be in any MODS accessCondition field for Mirskey collection - only in dc.rights?
+mods_identifier_music_plate_ms,field_music_publisher_number,,Music Publisher Number,,Copy to Music Publisher Number
+mods_identifier_oclc_ms,field_oclc_number,,OCLC Number,,
+mods_subject_name_personal_namePart_ms,field_subjects_name,,Subject (Name),person:,"Add prefix of person: (or other, as applicable)"
+mods_originInfo_eventType_publisher_publisher_ms,field_publisher_pitt,,Publisher,,Copy to Publisher
+mods_originInfo_encoding_marc_point_start_qualifier_questionable_dateIssued_ms,field_edtf_date,,Date,,Copy to Date
+mods_originInfo_eventType_distributor_place_placeTerm_text_ms,field_place_distribution,,Distribution Place,,Copy to Distribution Place
+mods_titleInfo_translated_title_ms,field_alternative_title_pitt,,Alternative Title,,Copy to Alternative Title > Translated Title
+mods_titleInfo_partName_ms,field_full_title,,Full Title,,Copy to Full Title and Title
+mods_titleInfo_alternative_partNumber_ms,field_alternative_title_pitt,,Alternative Title,,Copy to Alternative Title
+mods_originInfo_eventType_distribution_place_placeTerm_text_ms,field_place_distribution,,Distribution Place,,"Custom plain text, long field"
+mods_originInfo_encoding_marc_point_start_dateIssued_ms,field_edtf_date,,Date,,Copy to Date NOTE: Might cause some weird data - like for pitt:666989929 which now has two dates
+mods_recordInfo_recordIdentifier_ms,field_record_source_id,,Record Source Identifier,,Custom plain text field
+mods_note_ms,field_note,,Note,,
+mods_titleInfo_nonSort_ms,field_full_title,,Full Title,,Copy to Full Title and Title
+mods_originInfo_place_placeTerm_code_authority_marccountry_ms,field_place_published_pitt,,Place Published,,Custom taxonomy
+mods_originInfo_dateIssued_ms,field_edtf_date,,Date,,Copy to Date
+mods_originInfo_dateCreated_ms,field_edtf_date,,Date,,
+mods_note_biographical/historical_ms,field_note,,Note,Background:,Copy to Note
+mods_name_conference_creator_namePart_ms,field_linked_agent,,Contributors,relators:att:,Copy to Linked Agent with prefix of relators:att:conference: Needs custom Conference taxonomy added to Linked Agent.
+mods_name_conference_namePart_ms,field_linked_agent,,Contributors,relators:att:,Copy to Linked Agent with prefix of relators:att:conference:
+mods_name_contributor_namePart_ms,field_linked_agent,,Contributors,relators:ctb:,Copy to Linked Agent with prefix of relators:ctb:person:
+mods_name_corporate_associated_name_namePart_ms,field_linked_agent,,Contributors,relators:asn:,Copy to Linked Agent with prefix of relators:asn:corporate_body:
+mods_name_corporate_author_namePart_ms,field_linked_agent,,Contributors,relators:aut:,Copy to Linked Agent with prefix of relators:aut:corporate_body:
+mods_name_corporate_creator_namePart_ms,field_linked_agent,,Contributors,relators:cre:,Copy to Linked Agent with prefix of relators:cre:corporate_body:
+mods_name_corporate_engraver_namePart_ms,field_linked_agent,,Contributors,relators:egr:,Copy to Linked Agent with prefix of relators:egr:corporate_body:
+mods_name_corporate_film_producer_namePart_ms,field_linked_agent,,Contributors,relators:fmp:,Copy to Linked Agent with prefix of relators:fmp:corporate_body:
+mods_name_corporate_issuing_body_namePart_ms,field_linked_agent,,Contributors,relators:isb:,Copy to Linked Agent with prefix of relators:isb:corporate_body:
+mods_name_corporate_performer_namePart_ms,field_linked_agent,,Contributors,relators:prf:,Copy to Linked Agent with prefix of relators:prf:corporate_body:
+mods_name_corporate_printer_namePart_ms,field_linked_agent,,Contributors,relators:prt:,Copy to Linked Agent with prefix of relators:prt:corporate_body:
+mods_name_corporate_publisher_namePart_ms,field_linked_agent,,Contributors,relators:pbl:,Copy to Linked Agent with prefix of relators:pbl:corporate_body:
+mods_name_corporate_sponsor_namePart_ms,field_linked_agent,,Contributors,relators:spn:,Copy to Linked Agent with prefix of relators:spn:corporate_body:
+mods_name_corporate_translator_namePart_ms,field_linked_agent,,Contributors,relators:trl:,Copy to Linked Agent with prefix of relators:trl:corporate_body:
+mods_name_creator_namePart_ms,field_linked_agent,,Contributors,relators:cre:,Copy to Linked Agent with prefix of relators:cre:person: (? - may need to manually check if person or corporate_body)
+mods_name_interviewee_namePart_ms,field_linked_agent,,Contributors,relators:ive:,Copy to Linked Agent with prefix of relators:ive:person: (? - may need to manually check if person or corporate_body - assuming the former though)
+mods_name_interviewer_namePart_ms,field_linked_agent,,Contributors,relators:ivr:,Copy to Linked Agent with prefix of relators:ivr:person: (may need to manually check if person or corporate_body: - assuming the former though)
+mods_name_namePart_ms,,,Contributors,relators:att:,No longer migrating
+mods_name_personal_associated_name_namePart_ms,field_linked_agent,,Contributors,relators:asn:,Copy to Linked Agent with prefix of relators:asn:person:
+mods_name_personal_attributed_name_namePart_ms,field_linked_agent,,Contributors,relators:att:,Copy to Linked Agent with prefix of relators:att:person:
+mods_name_personal_author_namePart_ms,field_linked_agent,,Contributors,relators:aut:,Copy to Linked Agent with prefix of relators:aut:person:
+mods_name_personal_bookseller_namePart_ms,field_linked_agent,,Contributors,relators:bsl:,Copy to Linked Agent with prefix of relators:bsl:person:
+mods_name_personal_cartographer_namePart_ms,field_linked_agent,,Contributors,relators:ctg:,Copy to Linked Agent with prefix of relators:ctg:person:
+mods_name_personal_commentator_namePart_ms,field_linked_agent,,Contributors,relators:cmm:,Copy to Linked Agent with prefix of relators:cmm:person:
+mods_name_personal_conductor_namePart_ms,field_linked_agent,,Contributors,relators:cnd:,Copy to Linked Agent with prefix of relators:cnd:person:
+mods_name_personal_creator_namePart_ms,field_linked_agent,,Contributors,relators:cre:,Copy to Linked Agent with prefix of relators:cre:person:
+mods_name_personal_defendant_namePart_ms,field_linked_agent,,Contributors,relators:dfd:,Copy to Linked Agent with prefix of relators:dfd:person:
+mods_name_personal_director_namePart_ms,field_linked_agent,,Contributors,relators:drt:,Copy to Linked Agent with prefix of relators:drt:person:
+mods_name_personal_editor_of_moving_image_work_namePart_ms,field_linked_agent,,Contributors,relators:edm:,Copy to Linked Agent with prefix of relators:edm:person:
+mods_name_personal_engraver_namePart_ms,field_linked_agent,,Contributors,relators:egr:,Copy to Linked Agent with prefix of relators:egr:person:
+mods_name_personal_film_director_namePart_ms,field_linked_agent,,Contributors,relators:fmd:,Copy to Linked Agent with prefix of relators:fmd:person:
+mods_name_personal_film_producer_namePart_ms,field_linked_agent,,Contributors,relators:fmp:,Copy to Linked Agent with prefix of relators:fmp:person:
+mods_name_personal_former_owner_namePart_ms,field_linked_agent,,Contributors,relators:fmo:,Copy to Linked Agent with prefix of relators:fmo:person:
+mods_name_personal_illustrator_namePart_ms,field_linked_agent,,Contributors,relators:ill:,Copy to Linked Agent with prefix of relators:ill:person:
+mods_name_personal_inscriber_namePart_ms,field_linked_agent,,Contributors,relators:ins:,Copy to Linked Agent with prefix of relators:ins:person:
+mods_name_personal_instrumentalist_namePart_ms,field_linked_agent,,Contributors,relators:itr:,Copy to Linked Agent with prefix of relators:itr:person:
+mods_name_personal_librettist_namePart_ms,field_linked_agent,,Contributors,relators:lbt:,Copy to Linked Agent with prefix of relators:lbt:person:
+mods_name_personal_narrator_namePart_ms,field_linked_agent,,Contributors,relators:nrt:,Copy to Linked Agent with prefix of relators:nrt:person:
+mods_name_personal_performer_namePart_ms,field_linked_agent,,Contributors,relators:prf:,Copy to Linked Agent with prefix of relators:prf:person:
+mods_name_personal_photographer_namePart_ms,field_linked_agent,,Contributors,relators:pht:,Copy to Linked Agent with prefix of relators:pht:person:
+mods_name_personal_printer_namePart_ms,field_linked_agent,,Contributors,relators:prt:,Copy to Linked Agent with prefix of relators:prt:person:
+mods_name_personal_publisher_namePart_ms,field_linked_agent,,Contributors,relators:pbl:,Copy to Linked Agent with prefix of relators:pbl:person:
+mods_name_personal_researcher_namePart_ms,field_linked_agent,,Contributors,relators:res:,Copy to Linked Agent with prefix of relators:res:person:
+mods_name_personal_singer_namePart_ms,field_linked_agent,,Contributors,relators:sng:,Copy to Linked Agent with prefix of relators:sng:person:
+mods_name_personal_speaker_namePart_ms,field_linked_agent,,Contributors,relators:spk:,Copy to Linked Agent with prefix of relators:spk:person:
+mods_name_personal_author_of_introduction_etc._namePart_ms,field_linked_agent,,Contributors,relators:aui:,Copy to Linked Agent with prefix of relators:aui:person:
+mods_originInfo_encoding_marc_qualifier_approximate_dateCreated_ms,field_edtf_date,,Date,,Copy to Date
+mods_originInfo_encoding_marc_point_start_dateCreated_ms,field_edtf_date,,Date,,Copy to Date
+mods_originInfo_encoding_marc_point_end_dateCreated_ms,field_edtf_date,,Date,,Copy to Date
+mods_originInfo_encoding_marc_point_end_dateIssued_ms,field_edtf_date,,Date,,Copy to Date
+mods_originInfo_encoding_iso8601_keyDate_yes_qualifier_inferred_dateCreated_ms,field_edtf_date,,Date,,Copy to Date
+mods_originInfo_encoding_iso8601_keyDate_yes_qualifier_approximate_dateCreated_ms,field_edtf_date,,Date,,Copy to Date
+mods_originInfo_encoding_iso8601_keyDate_yes_qualifier_questionable_dateIssued_ms,field_edtf_date,,Date,,Copy to Date
+RELS_EXT_dateIssued_literal_ms,field_edtf_date,,Date,,Copy to Date
+mods_subject_cartographics_coordinates_ms,field_coordinates_text,,Coordinates (Text),,
+mods_subject_name_conference_namePart_ms,field_subjects_name,,Subject (Name),conference:,Copy to Subject (Name) with prefix of conference: (Added Conference taxonomy to this field.)
+mods_subject_name_corporate_namePart_ms,field_subjects_name,,Subject (Name),corporate_body:,Copy to Subject (Name) with prefix of corporate_body:
+mods_subject_name_namePart_ms,field_subjects_name,,Subject (Name),person:|corporate_body:,"Copy to Subject (Name) field, need to manually check if person or corporate_body prefix."
+mods_identifier_isbn_ms,field_isbn,,ISBN,,
+mods_note_address_ms,field_address,,Addresses,,Copy to Address
+mods_note_acquisition_ms,field_note,,Note,Acquisition:,Copy to Note
+mods_note_bibliography_ms,field_note,,Note,Bibliography:,Copy to Note
+mods_note_creation/production_credits_ms,field_note,,Note,Production Credits:,Copy to Note
+mods_note_date/sequential_designation_ms,field_note,,Note,Sequential Designation:,Copy to Note
+mods_note_donor_ms,field_note,,Note,Donor:,Copy to Note
+mods_note_numbering_ms,field_note,,Note,Numbering:,Copy to Note
+mods_note_original_version_ms,field_note,,Note,Original Version:,Copy to Note
+mods_note_owner_ms,field_land_grantor,,Land Grantor,,Copy to Land Grantor
+mods_note_performers_ms,field_note,,Note,Performers:,Copy to Note
+mods_note_reproduction_ms,field_note,,Note,Repoduction:,Copy to Note
+mods_note_thesis_ms,field_note,,Note,Thesis:,Copy to Note
+mods_note_venue_ms,field_note,,Note,Venue:,Copy to Note
+mods_note_features_ms,field_geo_feature,,Geographic Features,,Copy to Geographic Features
+mods_note_streets_ms,field_thoroughfare,,Thoroughfares,,Copy to Thoroughfares
+mods_relatedItem_series_note_numbering_ms,field_note,,Note,Numbering:,Copy to Note
+mods_accessCondition_copyright_rights.holder_name_ms,field_copyright_holder,,Copyright Holder,,"Custom plain text field, long"
+mods_accessCondition_copyright_rights.holder_note_ms,field_rights_notes,,Copyright Note,,"Custom plain text field, long"
+mods_accessCondition_copyright_general.note_ms,field_rights_notes,,Copyright Note,,Copy to Copyright Note
+mods_originInfo_place_placeTerm_code_authority_marccountry_ms,field_place_published_country,,Country of Publication,,"Custom taxonomy ""MARC Countries"""
+mods_relatedItem_series_originInfo_frequency_ms,field_frequency,,Frequency,,"Custom text plain, long"
+mods_originInfo_frequency_ms,field_frequency,,Frequency,,Copy to Frequency
+mods_identifier_issn_ms,field_issn,,ISSN,,"Custom text plain, repeatable"
+mods_identifier_issn-l_ms,field_issn,,ISSN,,Copy to ISSN
+mods_relatedItem_host_originInfo_issuance_ms,field_mode_of_issuance,,Mode of Issuance,,Copy to Mode of Issuance
+mods_relatedItem_series_originInfo_issuance_ms,field_mode_of_issuance,,Mode of Issuance,,Copy to Mode of Issuance
+RELS_EXT_preservicaExportDate_literal_dt,field_preservica_date,,Preservica Export Date,,Custom EDTF field
+RELS_EXT_preservicaRef_literal_s,field_preservica_id,,Preservica Identifier,,Custom plain text field
+mods_accessCondition_copyright_copyright_status_ms,field_rights_statement,,Rights Statement,,Custom taxonomy
+mods_subject_cartographics_scale_ms,field_scale,,Scale,,Custom plain text field
+mods_relatedItem_host_note_prefercite_ms,field_source_citation,,Source Citation,,"Custom formatted text, long"
+mods_relatedItem_note_prefercite_ms,field_source_citation,,Source Citation,,Copy to Source Citation
+mods_relatedItem_host_originInfo_dateCreated_ms,field_source_collection,,Source Collection Title,,Copy to Source Collection Title
+mods_relatedItem_host_identifier_ms,field_source_collection_id,,Source Collection Identifier,,Custom taxonomy
+mods_relatedItem_host_identifier_local-asc_ms,field_source_collection_id,,Source Collection Identifier,,Copy to Source Collection Identifier
+mods_relatedItem_host_note_container_ms,field_source_location,,Archival Container,,"Custom plain text, long"
+mods_relatedItem_host_note_otherlevel_ms,field_series_information,,Series Information,,Copy to Source Location
+mods_relatedItem_host_note_series_ms,field_series_information,,Series Information,,Copy to Source Location
+mods_relatedItem_host_note_subseries_ms,field_series_information,,Series Information,,Copy to Source Location
+,field_source_repository,,Source Repository,,Custom taxonomy
+mods_subject_titleInfo_title_ms,field_subject_title,,Subject (Title),,"Custom taxonomy, repeatable"
+mods_subject_titleInfo_partName_ms,field_subject_title,,Subject (Title),,Copy to Subject (Title)
+,field_access_terms,,Access Control,,Controls access via Groups. Terms come from Islandora Access taxonomy.
+,field_member_of,yes,Member of,,"If ingesting into a pre-existing collection in Drupal, put its node ID here. Otherwise, leave blank. This column is required by Workbench (even if empty)."
+,field_display_hints,,,,Controls how objects display. Terms come from Islandora Display taxonomy.
+,file,,,,Path to main file (original file from which derivatives will be made).
+RELS_EXT_isMemberOfSite_uri_ms,field_domain_access,,Domain,,"Use to fill in Domain column; then delete.
+
+Determines on which domain(s) an object will display to anonymous users. Example entry is: historicpittsburgh_org|digital_library_pitt_edu"

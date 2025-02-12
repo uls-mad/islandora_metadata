@@ -1,0 +1,188 @@
+mods_physicalDescription_form_ms,field_physical_form,field_extent,field_genre,Action
+Newspaper Article,,,clippings (information artifacts),remove
+atlas,,,atlases,remove
+manuscript,,,,remove
+map,,,maps (documents),remove
+music,,,sheet music,remove
+notated music,,,sheet music,remove
+score,,,sheet music,remove
+unknown,,,,remove
+ivory,animal material|ivory,,,replace
+leather,animal material|leather,,,replace
+parchment,animal material|parchment,,,replace
+audiocassette,audio|cassette tape|audiocassette,,,replace
+cassette tape,audio|cassette tape|audiocassette,,,replace
+B&W,black and white,,,replace
+B&W Aerial Photo,black and white,,,replace
+B&W Photo,black and white,,,replace
+B&W Postcard,black and white,,,replace
+B&amp;W Photo,black and white,,photographs,replace
+Black and White Illustration,black and white,,prints (visual works),replace
+Black and White Postcard,black and white,,correspondence|postcards,replace
+Black and White Print,black and white,,photographs|photographic prints|black-and-white prints (photographs),replace
+Black and White Print in Decorative Cloth Frame,black and white,,photographs|photographic prints|black-and-white prints (photographs),replace
+black and white photograph,black and white,,photographs|photographic prints|black-and-white prints (photographs),replace
+board,board,,,keep
+paper boards,board|paperboard,,,replace
+canvas,canvas,,,keep
+ceramic,ceramic,,,keep
+Color,color,,,replace
+Color Illustration,color,,drawings (visual works),replace
+Color Photo,color,,photographs,replace
+Color Postcard,color,,correspondence|postcards,replace
+Color Print,color,,prints (visual works)|color prints (prints),replace
+Color image from catalog,color,,,replace
+color photograph,color,,photographs,replace
+Digital Image,digital,,,replace
+digital,digital,,,keep
+electronic,electronic,,,keep
+electronic resource,electronic,,,replace
+enamel,enamel,,,keep
+metal,metal,,,keep
+brass,metal|brass,,,replace
+bronze,metal|bronze,,,replace
+copper,metal|copper,,,replace
+galvanized metal,metal|galvanized metal,,,replace
+cast iron,metal|iron|cast iron,,,replace
+forged iron,metal|iron|forged iron,,,replace
+Tintype,metal|lacquered metal,,photographs|tintypes (photographs),replace
+lacquered metal,metal|lacquered metal,,,replace
+lead,metal|lead,,,replace
+stainless steel,metal|steel|stainless steel,,,replace
+microform,microform,,,keep
+microfiche,microform|microfiche,,,replace
+microfilm,microform|microfilm,,,replace
+microfilm reel,microform|microfilm,,,replace
+malachite,mineral|malachite,,,replace
+mixed media,mixed media,,,keep
+mixed media on cardboard,mixed media|on cardboard,,,replace
+mounted on board,mounted on board,,,keep
+Painting,paint,,paintings (visual works),replace
+gold paint,paint,,paintings (visual works),replace
+acrylic,paint|acrylic paint,,paintings (visual works)|acrylic paintings (visual works),replace
+oil paint,paint|oil paint,,paintings (visual works)|oil paintings (visual works),replace
+oil on board,paint|oil paint|on board,,paintings (visual works)|oil paintings (visual works),replace
+oil on canvas,paint|oil paint|on canvas,,paintings (visual works)|oil paintings (visual works),replace
+oil on cardboard,paint|oil paint|on cardboard,,paintings (visual works)|oil paintings (visual works),replace
+oil on metal,paint|oil paint|on metal,,paintings (visual works)|oil paintings (visual works),replace
+oil on iron and string (with movement),paint|oil paint|on metal|on iron,,paintings (visual works)|oil paintings (visual works),replace
+oil on tin plate,paint|oil paint|on metal|on tin plate,,paintings (visual works)|oil paintings (visual works),replace
+oil on tin plate and wood,paint|oil paint|on metal|on tin plate|on wood,,paintings (visual works)|oil paintings (visual works),replace
+oil on wood,paint|oil paint|on wood,,paintings (visual works)|oil paintings (visual works),replace
+tempera and oil on canvas,paint|oil paint|tempera paint|on canvas,,paintings (visual works)|tempera paintings|oil paintings (visual works),replace
+hand-colored with watercolor,paint|watercolor,,,replace
+letter,paper,,,replace
+paper,paper,,,keep
+photogravure,paper,,prints (visual works)|photomechanical prints|photogravures (prints),replace
+Cabinet Card,paper|card stock,,photographs|card photographs (photographs)|cabinet photographs,replace
+Postcard,paper|card stock,,correspondence|postcards,replace
+Postcard Print,paper|card stock,,correspondence|postcards,replace
+card stock,paper|card stock,,,replace
+Color postcard,paper|card stock|color,,correspondence|postcards,replace
+Cyanotype,paper|photographic paper,,photographs|photographic prints|cyanotypes (photographic prints),replace
+chromogenic color print,paper|photographic paper,,photographs|photographic prints|chromogenic color prints,replace
+collodion printing out print,paper|photographic paper,,photographs|photographic prints|collodion prints,replace
+contact print,paper|photographic paper,,photographs|photographic prints|contact prints,replace
+contact prints,paper|photographic paper,,photographs|photographic prints|contact prints,replace
+cyanotype,paper|photographic paper,,photographs|photographic prints|cyanotypes (photographic prints),replace
+photograph,paper|photographic paper,,,replace
+photographic paper,paper|photographic paper,,photographs|photographic prints,replace
+photographic print,paper|photographic paper,,photographs|photographic prints,replace
+platinum print,paper|photographic paper,,photographs|photographic prints|platinum prints,replace
+platinum print ?,paper|photographic paper,,photographs|photographic prints|platinum prints,replace
+bromide print,paper|photographic paper|bromide paper,,photographs|photographic prints,replace
+chlorobromide print,paper|photographic paper|chlorobromide paper,,photographs|photographic prints,replace
+mediabrome photograph,paper|photographic paper|chlorobromide paper|Mediabrome paper,,photographs|photographic prints,replace
+developing-out paper,paper|photographic paper|developing-out paper,,photographs,replace
+gelatin printing out paper print,paper|photographic paper|developing-out paper|gelatin silver paper,,photographs|photographic prints|gelatin silver prints,replace
+gelatin printing out paper print\,paper|photographic paper|developing-out paper|gelatin silver paper,,photographs|photographic prints|gelatin silver prints,replace
+gelatin silver developing-out print,paper|photographic paper|developing-out paper|gelatin silver paper,,photographs|photographic prints|gelatin silver prints,replace
+gelatin silver plate,paper|photographic paper|developing-out paper|gelatin silver paper,,photographs,replace
+gelatin silver print,paper|photographic paper|developing-out paper|gelatin silver paper,,photographs|photographic prints|gelatin silver prints,replace
+gelatin silver print (see comments),paper|photographic paper|developing-out paper|gelatin silver paper,,photographs|photographic prints|gelatin silver prints,replace
+gelatin silver print\,paper|photographic paper|developing-out paper|gelatin silver paper,,photographs|photographic prints|gelatin silver prints,replace
+gelatin silver printing-out print,paper|photographic paper|developing-out paper|gelatin silver paper,,photographs|photographic prints|gelatin silver prints,replace
+gelatin silver prints (see comments),paper|photographic paper|developing-out paper|gelatin silver paper,,photographs|photographic prints|gelatin silver prints,replace
+vintage silver print on period canvas backed mount,paper|photographic paper|developing-out paper|gelatin silver paper,,photographs|photographic prints|gelatin silver prints,replace
+gelatin silver print mounted on Fome-Cor,paper|photographic paper|developing-out paper|gelatin silver paper|board|foam board|Fome-Cor,,photographs|photographic prints|gelatin silver prints,replace
+gelatin silver print mounted on cardboard,paper|photographic paper|developing-out paper|gelatin silver paper|mounted on cardboard,,photographs|photographic prints|gelatin silver prints,replace
+ifachrome print,paper|photographic paper|Ilfochrome paper|Cibachrome paper,,photographs|photographic prints|albumen prints|silver-dye bleach prints,replace
+mediabrome,paper|photographic paper|Mediabrome paper,,photographs|photographic prints,replace
+albumen print,paper|photographic paper|printing-out paper,,photographs|photographic prints|albumen prints,replace
+albumen stereograph,paper|photographic paper|printing-out paper,,photographs|photographic prints|albumen prints|stereoscopic photographs|stereographs,replace
+printing-out paper,paper|photographic paper|printing-out paper,,photographs,replace
+resin coated print,paper|photographic paper|resin-coated paper,,photographs,replace
+resin-coated paper,paper|photographic paper|resin-coated paper,,photographs,replace
+paper-lined linen,paper|textile|linen|paper-lined linen,,,replace
+paper-mâché,paper-mâché,,,keep
+photographic film (photographic materials),photographic film,,photographs,replace
+Instant Camera Print,photographic film|self-developing film,,photographs|diffusion transfer prints,replace
+120mm film,photographic film|120mm film,,photographs,replace
+120mm positive,photographic film|120mm film|color,,photographs,replace
+35mm film,photographic film|35mm film,,photographs,replace
+35mm safety negative,photographic film|35mm film|negative film|safety negative,,photographs,replace
+acetate film,photographic film|acetate film,,photographs,replace
+acetate film or cellulose nitrate film,photographic film|acetate film|cellulose nitrate film,,photographs,replace
+black and white: Ansco film,photographic film|Ansco film|black and white,,photographs,replace
+cellulose nitrate film,photographic film|cellulose nitrate film,,photographs,replace
+black and white: nitrate? film,photographic film|cellulose nitrate film|black and white,,photographs,replace
+negative,photographic film|negative film,,photographs,replace
+black and white negative,photographic film|negative film|black and white,,photographs,replace
+copy negative,photographic film|negative film|copy negative,,photographs,replace
+safety negative,photographic film|negative film|safety negative,,photographs,replace
+polyester film,photographic film|polyester film,,photographs,replace
+safety film,photographic film|safety film,,photographs,replace
+black and white: Agfa safety film,photographic film|safety film|Agfa safety film|black and white,,photographs,replace
+black and white: Ansco safety film,photographic film|safety film|Ansco safety film|black and white,,photographs,replace
+black and white: unknown safety film,photographic film|safety film|black and white,,photographs,replace
+black and white: Kodak safety film,photographic film|safety film|Kodak safety film|black and white,,photographs,replace
+self-developing film,photographic film|self-developing film,,photographs,replace
+transparency film,photographic film|transparency film,,photographs,replace
+color transparency,photographic film|transparency film|color,,photographs,replace
+glass plate,photographic plate|glass plate,,photographs,replace
+Glass Plate Negative,photographic plate|glass plate|glass plate negative,,photographs,replace
+glass plate negative,photographic plate|glass plate|glass plate negative,,photographs,replace
+photographic slide,photographic slide,,photographs,keep
+35mm slide,photographic slide|35mm slide,,photographs,replace
+35 mm Color Slide,photographic slide|35mm slide|color,,photographs,replace
+lantern slide,photographic slide|lantern slide,,photographs,replace
+negative slide,photographic slide|negative slide,,photographs,replace
+plaster,plaster,,,keep
+Plaster of Paris,plaster|Plaster of Paris,,,replace
+toned Plaster of Paris,plaster|Plaster of Paris,,,replace
+porcelain,porcelain,,,keep
+print,print,,,keep
+granite,rock|granite,,,replace
+ore,rock|ore,,,replace
+Sepia Postcard,sepia,,correspondence|postcards,replace
+Sepia Print,sepia,,sepia prints,replace
+sound recording,sound recording,,,keep
+sound recording],sound recording,,,replace
+dictabelt,sound recording|dictabelt,,,replace
+sound-tape reel,sound recording|sound-tape reel,,,replace
+textile,textile,,,keep
+cloth,textile|cloth,,,replace
+fabric,textile|fabric,,,replace
+felt,textile|felt,,,replace
+silk,textile|silk,,,replace
+wool,textile|wool,,,replace
+videocassette,video|cassette tape|videocassette,,,replace
+remote,video|digital,,,replace
+videorecording,video|digital,,,replace
+wax,wax,,,keep
+wood,wood,,,keep
+wood and canvas,wood|canvas,,,replace
+5x7 Glass Plate Negative,photographic plate|glass plate|glass plate negative,5 x 7 in.,photographs,replace
+Manuscript,,,,remove
+5x7 Acetate Negative,photographic film|cellulose acetate film|negative film,5 x 7 in.,photographs,replace
+manusript,,,,remove
+sound cassette,audio|cassette tape|audiocassette,,,replace
+manuscri pt,,,,remove
+film reel,video|film reels|motion picture film,,photographs,replace
+6 1/2 x 8 1/2 Safety Negative,photographic film|negative film|safety negative,6.5 x 8.5 in.,photographs,replace
+photonegative,photographic film|negative film,,photographs,replace
+audio cassettes,audio|cassette tape|audiocassette,,,replace
+5x7 Aceteate Negative,photographic film|cellulose acetate film|negative film,5 x 7 in.,photographs,replace
+negatives,photographic film|negative film,,photographs,replace
+8x10 Glass Plate Negative,photographic plate|glass plate|glass plate negative,8 x 10 in.,photographs,replace
+"gelatin silver print, hand-colored with watercolor",paper|photographic paper|developing-out paper|gelatin silver paper|paint|watercolor,,photographs|photographic prints|gelatin silver prints,replace
