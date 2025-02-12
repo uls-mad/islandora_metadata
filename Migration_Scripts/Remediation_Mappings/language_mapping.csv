@@ -1,59 +1,484 @@
-term_name,field_code,field_authority_link
-No linguistic content | Not applicable,zxx,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/zxx
-Filipino | Pilipino,fil,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/fil
-Chichewa | Chewa | Nyanja,nya,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/nya
-Nepal Bhasa | Newari,new,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/new
-Romanian | Moldavian | Moldovan,ron,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/ron
-Mi'kmaq | Micmac,mic,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/mic
-Catalan | Valencian,cat,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/cat
-Beja | Bedawiyet,bej,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/bej
-Pampanga | Kapampangan,pam,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/pam
-Spanish | Castilian,spa,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/spa
-Bini | Edo,bin,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/bin
-Classical Newari | Old Newari | Classical Nepal Bhasa,nwc,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/nwc
-Panjabi | Punjabi,pan,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/pan
-"Provençal, Old (to 1500) | Occitan, Old (to 1500)",pro,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/pro
-Limburgan | Limburger | Limburgish,lim,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/lim
-Luxembourgish | Letzeburgesch,ltz,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/ltz
-"Ndebele, North | North Ndebele",nde,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/nde
-Gaelic | Scottish Gaelic,gla,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/gla
-Khotanese | Sakan,kho,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/kho
-Blissymbols | Blissymbolics | Bliss,zbl,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/zbl
-Dutch | Flemish,dut,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/dut
-Asturian | Bable | Leonese | Asturleonese,ast,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/ast
-Zhuang | Chuang,zha,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/zha
-"Ndebele, South | South Ndebele",nbl,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/nbl
-Church Slavic | Old Slavonic | Church Slavonic | Old Bulgarian | Old Church Slavonic,chu,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/chu
-"Low German | Low Saxon | German, Low | Saxon, Low",nds,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/nds
-Kikuyu | Gikuyu,kik,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/kik
-Himachali languages | Western Pahari languages,him,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/him
-Kalmyk | Oirat,xal,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/xal
-Kalaallisut | Greenlandic,kal,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/kal
-Rarotongan | Cook Islands Maori,rar,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/rar
-Navajo | Navaho,nav,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/nav
-Kuanyama | Kwanyama,kua,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/kua
-Crimean Tatar | Crimean Turkish,crh,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/crh
-Interlingue | Occidental,ile,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/ile
-Pedi | Sepedi | Northern Sotho,nso,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/nso
-Sichuan Yi | Nuosu,iii,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/iii
-Official Aramaic (700-300 BCE) | Imperial Aramaic (700-300 BCE),arc,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/arc
-Kachin | Jingpho,kac,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/kac
-Mapudungun | Mapuche,arn,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/arn
-Uighur | Uyghur,uig,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/uig
-Kirghiz | Kyrgyz,kir,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/kir
-Hmong | Mong,hmn,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/hmn
-Pushto | Pashto,pus,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/pus
-Swiss German | Alemannic | Alsatian,gsw,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/gsw
-Klingon | tlhIngan-Hol,tlh,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/tlh
-"Norwegian Nynorsk | Nynorsk, Norwegian",nno,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/nno
-"Bokmål, Norwegian | Norwegian Bokmål",nob,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/nob
-Blin | Bilin,byn,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/byn
-Chipewyan | Dene Suline,chp,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/chp
-Aromanian | Arumanian | Macedo-Romanian,rup,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/rup
-Haitian | Haitian Creole,hat,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/hat
-Wolaitta | Wolaytta,wal,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/wal
-Adyghe | Adygei,ady,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/ady
-Ossetian | Ossetic,oss,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/oss
-Divehi | Dhivehi | Maldivian,div,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/div
-Zaza | Dimili | Dimli | Kirdki | Kirmanjki | Zazaki,zza,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/zza
-Sinhala | Sinhalese,sin,iso639-2b%%http://id.loc.gov/vocabulary/iso639-2/sin
+term_name,field_code
+Tai languages,tai
+No linguistic content | Not applicable,zxx
+Bantu languages,bnt
+Bulgarian,bul
+Filipino | Pilipino,fil
+Chichewa | Chewa | Nyanja,nya
+Scots,sco
+Basque,baq
+Manchu,mnc
+Athapascan languages,ath
+Nepal Bhasa | Newari,new
+Romanian | Moldavian | Moldovan,ron
+Icelandic,ice
+Erzya,myv
+Venda,ven
+Sundanese,sun
+Munda languages,mun
+Salishan languages,sal
+Madurese,mad
+Austronesian languages,map
+Mi'kmaq | Micmac,mic
+Luo (Kenya and Tanzania),luo
+Elamite,elx
+Papuan languages,paa
+Sorbian languages,wen
+Bhojpuri,bho
+Zapotec,zap
+Maltese,mlt
+Buriat,bua
+Ewondo,ewo
+Tsimshian,tsi
+Fang,fan
+Maori,mao
+Skolt Sami,sms
+Kutenai,kut
+Lunda,lun
+Manobo languages,mno
+Slave (Athapascan),den
+Sicilian,scn
+Prakrit languages,pra
+Gilbertese,gil
+Braj,bra
+Songhai languages,son
+Catalan | Valencian,cat
+Romany,rom
+Altaic languages,tut
+Arapaho,arp
+Votic,vot
+Beja | Bedawiyet,bej
+Swahili,swa
+Aleut,ale
+Pampanga | Kapampangan,pam
+Minangkabau,min
+Spanish | Castilian,spa
+Sanskrit,san
+Kurdish,kur
+Chagatai,chg
+Bini | Edo,bin
+Oromo,orm
+Tuvinian,tyv
+Sindhi,snd
+Mongo,lol
+Classical Newari | Old Newari | Classical Nepal Bhasa,nwc
+Vai,vai
+Gbaya,gba
+Macedonian,mac
+Ndonga,ndo
+Mongolian,mon
+Central American Indian languages,cai
+Romance languages,roa
+Panjabi | Punjabi,pan
+Coptic,cop
+Luba-Lulua,lua
+Lingala,lin
+Kru languages,kro
+Banda languages,bad
+Afrikaans,afr
+Apache languages,apa
+Ingush,inh
+Dravidian languages,dra
+South American Indian languages,sai
+"Provençal, Old (to 1500) | Occitan, Old (to 1500)",pro
+Gujarati,guj
+Luba-Katanga,lub
+Central Khmer,khm
+Malagasy,mlg
+Turkish,tur
+Yoruba,yor
+Philippine languages,phi
+Estonian,est
+Limburgan | Limburger | Limburgish,lim
+Dzongkha,dzo
+Caucasian languages,cau
+Tamashek,tmh
+Italian,ita
+Somali,som
+Cherokee,chr
+Malay,may
+Sami languages,smi
+Neapolitan,nap
+Croatian,hrv
+Luxembourgish | Letzeburgesch,ltz
+Rundi,run
+Iranian languages,ira
+Samaritan Aramaic,sam
+Ido,ido
+Konkani,kok
+Khasi,kha
+Kimbundu,kmb
+Mandingo,man
+Duala,dua
+Gondi,gon
+Galician,glg
+Cebuano,ceb
+Judeo-Persian,jpr
+Indonesian,ind
+"Ndebele, North | North Ndebele",nde
+Baltic languages,bat
+Lahnda,lah
+Gaelic | Scottish Gaelic,gla
+Dargwa,dar
+"Creoles and pidgins, Portuguese-based",cpp
+Artificial languages,art
+Khotanese | Sakan,kho
+Akkadian,akk
+Occitan (post 1500),oci
+Sukuma,suk
+Sino-Tibetan languages,sit
+Volapük,vol
+Belarusian,bel
+Norwegian,nor
+Algonquian languages,alg
+Afar,aar
+Fulah,ful
+Chuukese,chk
+Blissymbols | Blissymbolics | Bliss,zbl
+Portuguese,por
+Northern Frisian,frr
+Osage,osa
+Tibetan,bod
+Afrihili,afh
+Mossi,mos
+Hupa,hup
+Mohawk,moh
+Gayo,gay
+Bislama,bis
+Lule Sami,smj
+Dutch | Flemish,dut
+Washo,was
+Syriac,syr
+Turkmen,tuk
+Bamileke languages,bai
+Lithuanian,lit
+Mirandese,mwl
+English,eng
+Indic languages,inc
+Hindi,hin
+Egyptian (Ancient),egy
+Montenegrin,cnr
+Avaric,ava
+Ga,gaa
+Tamil,tam
+Eastern Frisian,frs
+Celtic languages,cel
+Papiamento,pap
+Kpelle,kpe
+Bemba,bem
+Malayalam,mal
+Santali,sat
+Bihari languages,bih
+Chuvash,chv
+Nogai,nog
+"German, Middle High (ca.1050-1500)",gmh
+Sumerian,sux
+Asturian | Bable | Leonese | Asturleonese,ast
+Aragonese,arg
+"Irish, Old (to 900)",sga
+Southern Altai,alt
+Zhuang | Chuang,zha
+Akan,aka
+Finnish,fin
+Uzbek,uzb
+Fon,fon
+Kosraean,kos
+Ewe,ewe
+Nzima,nzi
+"Ndebele, South | South Ndebele",nbl
+Nepali,nep
+Hiligaynon,hil
+Kashmiri,kas
+Corsican,cos
+Tereno,ter
+Azerbaijani,aze
+Tonga (Tonga Islands),ton
+Waray,war
+Karen languages,kar
+Wolof,wol
+Sranan Tongo,srn
+Makasar,mak
+Tiv,tiv
+Galibi Carib,car
+Indo-European languages,ine
+Cornish,cor
+Church Slavic | Old Slavonic | Church Slavonic | Old Bulgarian | Old Church Slavonic,chu
+Niuean,niu
+"Low German | Low Saxon | German, Low | Saxon, Low",nds
+Rajasthani,raj
+Bengali,ben
+Kikuyu | Gikuyu,kik
+Himachali languages | Western Pahari languages,him
+Basa,bas
+Faroese,fao
+Nubian languages,nub
+Latin,lat
+Gwich'in,gwi
+Chinese,chi
+Thai,tha
+Soninke,snk
+Kalmyk | Oirat,xal
+Swati,ssw
+Selkup,sel
+Pangasinan,pag
+Iban,iba
+Arawak,arw
+Avestan,ave
+Acoli,ach
+Kashubian,csb
+Bashkir,bak
+Classical Syriac,syc
+Ugaritic,uga
+Tumbuka,tum
+Dogrib,dgr
+Hungarian,hun
+Japanese,jpn
+North American Indian languages,nai
+Kawi,kaw
+Sign Languages,sgn
+"French, Old (842-ca.1400)",fro
+Southern Sami,sma
+Fanti,fat
+Kalaallisut | Greenlandic,kal
+Chinook jargon,chn
+Luiseno,lui
+Chamic languages,cmc
+Interlingua (International Auxiliary Language Association),ina
+Burmese,bur
+Romansh,roh
+"Greek, Modern (1453-)",ell
+Geez,gez
+Tok Pisin,tpi
+Nilo-Saharan languages,ssa
+Sardinian,srd
+Latvian,lav
+Zulu,zul
+Ukrainian,ukr
+Ojibwa,oji
+Karelian,krl
+Cheyenne,chy
+Buginese,bug
+Iloko,ilo
+Lojban,jbo
+Dinka,din
+"Sotho, Southern",sot
+Undetermined,und
+Creek,mus
+Rarotongan | Cook Islands Maori,rar
+Baluchi,bal
+Korean,kor
+Welsh,cym
+Manipuri,mni
+Quechua,que
+Efik,efi
+Maithili,mai
+Tsonga,tso
+Chibcha,chb
+Pali,pli
+Land Dayak languages,day
+Esperanto,epo
+Dyula,dyu
+Slavic languages,sla
+Persian,fas
+Inupiaq,ipk
+Lezghian,lez
+Tigrinya,tir
+Navajo | Navaho,nav
+Vietnamese,vie
+Chamorro,cha
+Angika,anp
+Mari,chm
+Serbian,srp
+Kuanyama | Kwanyama,kua
+Dogri,doi
+"Creoles and pidgins, French-based",cpf
+Lushai,lus
+Tetum,tet
+Phoenician,phn
+Pohnpeian,pon
+Mende,men
+Crimean Tatar | Crimean Turkish,crh
+Semitic languages,sem
+Inari Sami,smn
+Gothic,got
+Mandar,mdr
+Kurukh,kru
+Zande languages,znd
+Danish,dan
+Otomian languages,oto
+Russian,rus
+Afro-Asiatic languages,afa
+Uncoded languages,mis
+Tagalog,tgl
+Cushitic languages,cus
+Kumyk,kum
+Batak languages,btk
+Czech,ces
+Tigre,tig
+Walloon,wln
+Interlingue | Occidental,ile
+Moksha,mdf
+Germanic languages,gem
+"Creoles and pidgins, English based",cpe
+Sasak,sas
+Herero,her
+Kanuri,kau
+Nias,nia
+Marshallese,mah
+Caddo,cad
+Awadhi,awa
+Lower Sorbian,dsb
+Tajik,tgk
+Swedish,swe
+Hawaiian,haw
+German,deu
+Pedi | Sepedi | Northern Sotho,nso
+Kabardian,kbd
+Kinyarwanda,kin
+"German, Old High (ca.750-1050)",goh
+Amharic,amh
+Sandawe,sad
+Udmurt,udm
+Ganda,lug
+Guarani,grn
+Hiri Motu,hmo
+Sichuan Yi | Nuosu,iii
+Breton,bre
+Twi,twi
+Achinese,ace
+Sango,sag
+Urdu,urd
+Tupi languages,tup
+Slovak,slk
+Official Aramaic (700-300 BCE) | Imperial Aramaic (700-300 BCE),arc
+Sogdian,sog
+Kachin | Jingpho,kac
+Balinese,ban
+Mapudungun | Mapuche,arn
+Khoisan languages,khi
+Finno-Ugrian languages,fiu
+"Greek, Ancient (to 1453)",grc
+Samoan,smo
+Magahi,mag
+Reserved for local use,qaa-qtz
+Berber languages,ber
+Uighur | Uyghur,uig
+Kazakh,kaz
+Timne,tem
+Masai,mas
+Zuni,zun
+Umbundu,umb
+"Dutch, Middle (ca.1050-1350)",dum
+Rapanui,rap
+French,fra
+Nyoro,nyo
+Palauan,pau
+Igbo,ibo
+Upper Sorbian,hsb
+Kirghiz | Kyrgyz,kir
+Polish,pol
+Kabyle,kab
+Shan,shn
+Fijian,fij
+Yiddish,yid
+Haida,hai
+Lozi,loz
+Hebrew,heb
+Judeo-Arabic,jrb
+Siouan languages,sio
+Yakut,sah
+Xhosa,xho
+Hmong | Mong,hmn
+Friulian,fur
+Pushto | Pashto,pus
+Swiss German | Alemannic | Alsatian,gsw
+Lamba,lam
+Adangme,ada
+Marathi,mar
+Tonga (Nyasa),tog
+Marwari,mwr
+Serer,srr
+Albanian,alb
+Gorontalo,gor
+Klingon | tlhIngan-Hol,tlh
+Ekajuk,eka
+"French, Middle (ca.1400-1600)",frm
+Ijo languages,ijo
+Hausa,hau
+"English, Middle (1100-1500)",enm
+"Norwegian Nynorsk | Nynorsk, Norwegian",nno
+Chechen,che
+Kannada,kan
+Ainu,ain
+Sidamo,sid
+Karachay-Balkar,krc
+Hittite,hit
+Tlingit,tli
+Northern Sami,sme
+Abkhazian,abk
+N'Ko,nqo
+"Bokmål, Norwegian | Norwegian Bokmål",nob
+Niger-Kordofanian languages,nic
+"Persian, Old (ca.600-400 B.C.)",peo
+"Irish, Middle (900-1200)",mga
+Lao,lao
+Blin | Bilin,byn
+Kamba,kam
+Armenian,arm
+Western Frisian,fry
+Chipewyan | Dene Suline,chp
+Tswana,tsn
+Shona,sna
+Bikol,bik
+Nyankole,nyn
+Tahitian,tah
+Nahuatl languages,nah
+Cree,cre
+Arabic,ara
+Ladino,lad
+Irish,gle
+Mon-Khmer languages,mkh
+Wakashan languages,wak
+Aromanian | Arumanian | Macedo-Romanian,rup
+Yapese,yap
+Dakota,dak
+Georgian,geo
+Manx,glv
+Komi,kom
+Grebo,grb
+Zenaga,zen
+Yupik languages,ypk
+Bambara,bam
+Choctaw,cho
+Haitian | Haitian Creole,hat
+"Norse, Old",non
+Susu,sus
+Australian languages,aus
+Oriya,ori
+Bosnian,bos
+Wolaitta | Wolaytta,wal
+Pahlavi,pal
+Telugu,tel
+Tatar,tat
+Standard Moroccan Tamazight,zgh
+Multiple languages,mul
+Kara-Kalpak,kaa
+Siksika,bla
+Kongo,kon
+Nyamwezi,nym
+Yao,yao
+Slovenian,slv
+Adyghe | Adygei,ady
+Ossetian | Ossetic,oss
+Mayan languages,myn
+Divehi | Dhivehi | Maldivian,div
+"Turkish, Ottoman (1500-1928)",ota
+Inuktitut,iku
+Assamese,asm
+Aymara,aym
+Zaza | Dimili | Dimli | Kirdki | Kirmanjki | Zazaki,zza
+Creoles and pidgins,crp
+Iroquoian languages,iro
+"English, Old (ca.450-1100)",ang
+Sinhala | Sinhalese,sin
+Javanese,jav
