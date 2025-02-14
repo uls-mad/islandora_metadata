@@ -14,11 +14,12 @@ Use for determining display logic, along with Model. Terms come from Islandora M
 RELS_EXT_isConstituentOf_uri_ms,parent_id,,,,Use to fill in parent_id column; then delete.
 RELS_EXT_isMemberOf_uri_ms,parent_id,,,,Use to fill in parent_id column; then delete.
 RELS_EXT_isMemberOfCollection_uri_ms,parent_id,,,,Use to fill in parent_id column; then delete.
-mods_typeOfResource_ms,field_type_of_resources_legacy,,Type of Resource,,Use for metadata display
+mods_typeOfResource_ms,field_type_of_resource,,Type of Resource,,Use for metadata display
 mods_typeOfResource_ms,field_resource_type,yes,"Type* (change from ""Resource Type"")",,"Use for determining Resource Type, then delete
 
 Use for determining display logic, along with Model. Terms come from Resource Types vocab."
 mods_genre_authority_aat_ms,field_genre,,Genre,,
+mods_genre_ms,field_genre,,Genre,,
 mods_note_relation_ms,field_related_title,,Related Title,,"Custom text plain, long"
 mods_note_isPartOf_ms,field_related_title_part_of,,Part of,,"Custom text plain, long"
 mods_note_replaces_ms,field_related_title_preceding,,Preceding Title,,"Custom text plain, long"
@@ -105,7 +106,7 @@ mods_originInfo_encoding_marc_point_start_dateIssued_ms,field_edtf_date,,Date,,C
 mods_recordInfo_recordIdentifier_ms,field_record_source_id,,Record Source Identifier,,Custom plain text field
 mods_note_ms,field_note,,Note,,
 mods_titleInfo_nonSort_ms,field_full_title,,Full Title,,Copy to Full Title and Title
-mods_originInfo_place_placeTerm_code_authority_marccountry_ms,field_place_published_pitt,,Place Published,,Custom taxonomy
+mods_originInfo_place_placeTerm_code_authority_marccountry_ms,field_place_published_pitt,,Place Published,,"Custom taxonomy ""MARC Countries"""
 mods_originInfo_dateIssued_ms,field_edtf_date,,Date,,Copy to Date
 mods_originInfo_dateCreated_ms,field_edtf_date,,Date,,
 mods_note_biographical/historical_ms,field_note,,Note,Background:,Copy to Note
@@ -187,7 +188,6 @@ mods_relatedItem_series_note_numbering_ms,field_note,,Note,Numbering:,Copy to No
 mods_accessCondition_copyright_rights.holder_name_ms,field_copyright_holder,,Copyright Holder,,"Custom plain text field, long"
 mods_accessCondition_copyright_rights.holder_note_ms,field_rights_notes,,Copyright Note,,"Custom plain text field, long"
 mods_accessCondition_copyright_general.note_ms,field_rights_notes,,Copyright Note,,Copy to Copyright Note
-mods_originInfo_place_placeTerm_code_authority_marccountry_ms,field_place_published_country,,Country of Publication,,"Custom taxonomy ""MARC Countries"""
 mods_relatedItem_series_originInfo_frequency_ms,field_frequency,,Frequency,,"Custom text plain, long"
 mods_originInfo_frequency_ms,field_frequency,,Frequency,,Copy to Frequency
 mods_identifier_issn_ms,field_issn,,ISSN,,"Custom text plain, repeatable"
