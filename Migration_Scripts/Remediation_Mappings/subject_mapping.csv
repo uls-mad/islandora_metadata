@@ -1816,7 +1816,7 @@ mods_subject_topic_ms,College yearbooks,32,College yearbooks,http://id.loc.gov/a
 mods_subject_topic_ms,Collie,1,Collie,http://id.loc.gov/authorities/subjects/sh85028430,lcsh,topic,,,,false,
 mods_subject_topic_ms,Collision damage,2,Collision damage,http://id.loc.gov/authorities/subjects/sh99005249,lcsh,topic,,,,false,
 mods_subject_topic_ms,Colonial forces,1,Colonial forces,http://id.loc.gov/authorities/subjects/sh99005250,lcsh,topic,,,,false,
-mods_subject_topic_ms,"Colonial period, ca. 1600-1775.",2,"Colonial period, ca. 1600-1775",,local,temporal,,add,"Colonial period, ca. 1600-1775",true,lcsh subheading
+mods_subject_topic_ms,"Colonial period, ca. 1600-1775.",2,"Colonial period, ca. 1600-1775",,local,temporal,,add,"Colonial period, ca. 1600-1775",true,LCSH subheading
 mods_subject_topic_ms,Colonies,74,Colonies,http://id.loc.gov/authorities/subjects/sh85028562,lcsh,topic,,,,false,
 mods_subject_topic_ms,Colonists,3,Colonists,http://id.loc.gov/authorities/subjects/sh96005040,lcsh,topic,,,,false,
 mods_subject_topic_ms,Colonization,3,Colonization,http://id.loc.gov/authorities/subjects/sh99005562,lcsh,topic,,,,false,
@@ -5036,7 +5036,7 @@ mods_subject_topic_ms,Medicine in literature,1,Medicine in literature,http://id.
 mods_subject_topic_ms,"Medicine, Military",2,"Medicine, Military",http://id.loc.gov/authorities/subjects/sh85083153,lcsh,topic,,,,false,
 mods_subject_topic_ms,"Medicine, Preventive",1,"Medicine, Preventive",http://id.loc.gov/authorities/subjects/sh85083162,lcsh,topic,,,,false,
 mods_subject_topic_ms,"Medicine, Preventive.",1,"Medicine, Preventive",http://id.loc.gov/authorities/subjects/sh85083162,lcsh,topic,,replace,"Medicine, Preventive",true,
-mods_subject_topic_ms,"Medieval, 500-1500",3391,"Medieval, 500-1500",,local,temporal,,,,false,lcsh subheading
+mods_subject_topic_ms,"Medieval, 500-1500",3391,"Medieval, 500-1500",,local,temporal,,,,false,LCSH subheading
 mods_subject_topic_ms,Meditation in literature,1,Meditation in literature,http://id.loc.gov/authorities/subjects/sh94006414,lcsh,topic,,,,false,
 mods_subject_topic_ms,Mediums,3,Mediums,http://id.loc.gov/authorities/subjects/sh85083238,lcsh,topic,,,,false,
 mods_subject_topic_ms,Medlar,1,Medlars (Plants),http://id.loc.gov/authorities/subjects/sh2003001125,lcsh,topic,,replace,Medlars (Plants),true,
@@ -5764,10 +5764,10 @@ mods_subject_topic_ms,"Part songs, Sacred",7,"Part songs, Sacred",http://id.loc.
 mods_subject_topic_ms,"Participation, French",6,Participation,http://id.loc.gov/authorities/subjects/sh85098355,lcsh,topic,,add,Participation,true,
 mods_subject_topic_ms,"Participation, Black",1,Participation,http://id.loc.gov/authorities/subjects/sh85098355,lcsh,topic,,add,Participation,true,
 mods_subject_topic_ms,"Participation, Afro-American",1,Participation,http://id.loc.gov/authorities/subjects/sh85098355,lcsh,topic,,add,Participation,true,
-mods_subject_topic_ms,"Participation, Afro-American",1,"Participation, African American",,local,topic,,split,"Participation, African American",true,lcsh subheading
-mods_subject_topic_ms,"Participation, Black",1,"Participation, Black",,local,topic,,,,false,lcsh subheading
+mods_subject_topic_ms,"Participation, Afro-American",1,"Participation, African American",,local,topic,,split,"Participation, African American",true,LCSH subheading
+mods_subject_topic_ms,"Participation, Black",1,"Participation, Black",,local,topic,,,,false,LCSH subheading
 mods_subject_topic_ms,"Participation, Foreign",1,"Participation, Foreign",http://id.loc.gov/authorities/subjects/sh2002005434,lcsh,topic,,,,false,
-mods_subject_topic_ms,"Participation, French",6,"Participation, French",,local,topic,,,,false,lcsh subheading
+mods_subject_topic_ms,"Participation, French",6,"Participation, French",,local,topic,,,,false,LCSH subheading
 mods_subject_topic_ms,"Participation, German",2,"Participation, German, [Irish, Swiss, etc.]",http://id.loc.gov/authorities/subjects/sh2002005439,lcsh,topic,,replace,"Participation, German, [Irish, Swiss, etc.]",true,
 mods_subject_topic_ms,"Participation, Jewish",1,"Participation, Jewish",http://id.loc.gov/authorities/subjects/sh99004953,lcsh,topic,,,,false,
 mods_subject_topic_ms,Particle accelerators.,2,Particle accelerators,http://id.loc.gov/authorities/subjects/sh85098356,lcsh,topic,,replace,Particle accelerators,true,
@@ -5917,10 +5917,13 @@ mods_subject_topic_ms,Photographers.,5,Photographers,http://id.loc.gov/authoriti
 mods_subject_topic_ms,Photographs,1,Photographs,http://id.loc.gov/authorities/subjects/sh85101195,lcsh,topic,,,,false,
 mods_subject_topic_ms,Snapshots.,14,Photographs,http://id.loc.gov/authorities/subjects/sh85101195,lcsh,topic,,replace,Photographs,true,
 mods_subject_topic_ms,Photographic studios.,1,Photography,http://id.loc.gov/authorities/subjects/sh00006943,lcsh,topic,,split,Photography,true,
-mods_subject_topic_ms,Studios and dark rooms,10,Photography,http://id.loc.gov/authorities/subjects/sh00006943,lcsh,topic,,replace,Photography,true,
-mods_subject_topic_ms,Studios and dark rooms.,1,Photography,http://id.loc.gov/authorities/subjects/sh00006943,lcsh,topic,,split,Photography,true,
+mods_subject_topic_ms,Studios and dark rooms,10,Studios and darkrooms,,lcsh,topic,,split,Photography,true,
+mods_subject_topic_ms,Studios and dark rooms,10,Photography,http://id.loc.gov/authorities/subjects/sh00006943,local,topic,,add,,true,LCSH subheading
+mods_subject_topic_ms,Studios and dark rooms.,1,Studios and darkrooms,,lcsh,topic,,split,Photography,true,
+mods_subject_topic_ms,Studios and dark rooms.,1,Photography,http://id.loc.gov/authorities/subjects/sh00006943,local,topic,,add,,true,LCSH subheading
 mods_subject_topic_ms,Photography,21,Photography,http://id.loc.gov/authorities/subjects/sh00006943,lcsh,topic,,,,false,
-mods_subject_topic_ms,Photography studios and darkrooms,1,Photography,http://id.loc.gov/authorities/subjects/sh00006943,lcsh,topic,,split,Photography,true,
+mods_subject_topic_ms,Photography studios and darkrooms,1,Studios and darkrooms,,lcsh,topic,,split,Photography,true,
+mods_subject_topic_ms,Photography studios and darkrooms,1,Photography,http://id.loc.gov/authorities/subjects/sh00006943,local,topic,,add,,true,LCSH subheading
 mods_subject_topic_ms,Photography of dogs.,2,Photography of dogs,http://id.loc.gov/authorities/subjects/sh85101341,lcsh,topic,,replace,Photography of dogs,true,
 mods_subject_topic_ms,Photography of immigrants,5,Photography of immigrants,http://id.loc.gov/authorities/subjects/sh2007007785,lcsh,topic,,,,false,
 mods_subject_topic_ms,Photography of twins,1,Photography of twins,http://id.loc.gov/authorities/subjects/sh86004432,lcsh,topic,,,,false,
@@ -6826,8 +6829,8 @@ mods_subject_topic_ms,Real estate,1,Real property,http://id.loc.gov/authorities/
 mods_subject_topic_ms,Real property,138,Real property,http://id.loc.gov/authorities/subjects/sh85111739,lcsh,topic,,,,false,
 mods_subject_topic_ms,Receipts (Acknowledgments),3,Receipts (Acknowledgments),http://id.loc.gov/authorities/subjects/sh85111810,lcsh,topic,,,,false,
 mods_subject_topic_ms,Royalties,43,Receipts (Acknowledgments),http://id.loc.gov/authorities/subjects/sh85111810,lcsh,topic,,replace,Receipts (Acknowledgments),true,
-mods_subject_topic_ms,Receivers and reception,5,Receivers and reception,,local,topic,,,,false,lcsh subheading
-mods_subject_topic_ms,Receivers and reception.,7,Receivers and reception,,local,topic,,replace,Receivers and reception,true,lcsh subheading
+mods_subject_topic_ms,Receivers and reception,5,Receivers and reception,,local,topic,,,,false,LCSH subheading
+mods_subject_topic_ms,Receivers and reception.,7,Receivers and reception,,local,topic,,replace,Receivers and reception,true,LCSH subheading
 mods_subject_topic_ms,Reception rooms,3,Reception rooms,http://id.loc.gov/authorities/subjects/sh00007925,lcsh,topic,,,,false,
 mods_subject_topic_ms,Recitations,11,Recitations,http://id.loc.gov/authorities/subjects/sh85111830,lcsh,topic,,,,false,
 mods_subject_topic_ms,Martin P4M Mercator (Reconnaissance aircraft),1,Reconnaissance aircraft,http://id.loc.gov/authorities/subjects/sh85111861,lcsh,topic,,add,Reconnaissance aircraft,true,
@@ -6939,7 +6942,7 @@ mods_subject_topic_ms,Retirement communities,3,Retirement communities,http://id.
 mods_subject_topic_ms,Reunions,1,Reunions,http://id.loc.gov/authorities/subjects/sh86003774,lcsh,topic,,,,false,
 mods_subject_topic_ms,Revenge,1,Revenge,http://id.loc.gov/authorities/subjects/sh85113420,lcsh,topic,,,,false,
 mods_subject_topic_ms,Revenue,18,Revenue,http://id.loc.gov/authorities/subjects/sh85113422,lcsh,topic,,,,false,
-mods_subject_topic_ms,"Revolution, 1775-1783.",2,"Revolution, 1775-1783",,local,temporal,,add,"Revolution, 1775-1783",true,lcsh subheading
+mods_subject_topic_ms,"Revolution, 1775-1783.",2,"Revolution, 1775-1783",,local,temporal,,add,"Revolution, 1775-1783",true,LCSH subheading
 mods_subject_topic_ms,Revolutionaries,1,Revolutionaries,http://id.loc.gov/authorities/subjects/sh85113502,lcsh,topic,,,,false,
 mods_subject_topic_ms,Revolutionary ballads and songs,6,Revolutionary ballads and songs,http://id.loc.gov/authorities/subjects/sh85113449,lcsh,topic,,,,false,
 mods_subject_topic_ms,Revolutions,6,Revolutions,http://id.loc.gov/authorities/subjects/sh85113507,lcsh,topic,,,,false,
@@ -8903,10 +8906,10 @@ mods_subject_topic_ms,War correspondents,2,War correspondents,http://id.loc.gov/
 mods_subject_topic_ms,War finance,3,War finance,http://id.loc.gov/authorities/subjects/sh85145175,lcsh,topic,,,,false,
 mods_subject_topic_ms,War memorials,13,War memorials,http://id.loc.gov/authorities/subjects/sh85145184,lcsh,topic,,,,false,
 mods_subject_topic_ms,War Memorials,4,War memorials,http://id.loc.gov/authorities/subjects/sh85145184,lcsh,topic,,replace,War memorials,true,
-mods_subject_topic_ms,War of 1812.,19,War of 1812,,local,temporal,,add,War of 1812,true,lcsh subheading
-mods_subject_topic_ms,United States History War of 1812.,1,War of 1812,,local,temporal,,add,War of 1812,true,lcsh subheading
-mods_subject_topic_ms,War of 1812,9,War of 1812,,local,temporal,,add,,false,lcsh subheading
-mods_subject_topic_ms,War Of 1812.,1,War of 1812,,local,temporal,,add,War of 1812,true,lcsh subheading
+mods_subject_topic_ms,War of 1812.,19,War of 1812,,local,temporal,,add,War of 1812,true,LCSH subheading
+mods_subject_topic_ms,United States History War of 1812.,1,War of 1812,,local,temporal,,add,War of 1812,true,LCSH subheading
+mods_subject_topic_ms,War of 1812,9,War of 1812,,local,temporal,,add,,false,LCSH subheading
+mods_subject_topic_ms,War Of 1812.,1,War of 1812,,local,temporal,,add,War of 1812,true,LCSH subheading
 mods_subject_topic_ms,War photographers,35,War photographers,http://id.loc.gov/authorities/subjects/sh85145196,lcsh,topic,,,,false,
 mods_subject_topic_ms,War songs,127,War songs,http://id.loc.gov/authorities/subjects/sh85145219,lcsh,topic,,,,false,
 mods_subject_topic_ms,"War stories, Chinese",6,"War stories, Chinese",http://id.loc.gov/authorities/subjects/sh86002684,lcsh,topic,,,,false,
@@ -9397,7 +9400,7 @@ mods_subject_temporal_ms,1945-,29,1945-,,local,temporal,,,,false,
 mods_subject_temporal_ms,1945-1960,1,1945-1960,,local,temporal,,,,false,
 mods_subject_temporal_ms,1945-1964,2,1945-1964,,local,temporal,,,,false,
 mods_subject_temporal_ms,1945-1980,1,1945-1980,,local,temporal,,,,false,
-mods_subject_geographic_ms,1945-1980,1,1945-1980,,local,temporal,,,,false,lcsh subheading
+mods_subject_geographic_ms,1945-1980,1,1945-1980,,local,temporal,,,,false,LCSH subheading
 mods_subject_temporal_ms,1945-1982,1,1945-1982,,local,temporal,,,,false,
 mods_subject_temporal_ms,1945-1985,2,1945-1985,,local,temporal,,,,false,
 mods_subject_temporal_ms,1945-1989,5,1945-1989,,local,temporal,,,,false,
@@ -10346,11 +10349,11 @@ mods_subject_topic_ms,"RIDC Park (O'Hara (Township: Allegheny County, Pa.))",1,C
 mods_subject_geographic_ms,"City Farm Lane (Homestead, Pa.)",1,"City Farm Lane (Homestead, Pa.)",,local,thoroughfare,thoroughfare,move,,false,
 mods_subject_geographic_ms,Civic improvement,2,Civic improvement,http://id.loc.gov/authorities/subjects/sh85026300,lcsh,topic,,,,false,
 mods_subject_temporal_ms,"Civil War, 1642-1649",3,"Great Britain--History--Civil War, 1642-1649",http://id.loc.gov/authorities/subjects/sh85056792,lcsh,topic,,split,"Great Britain--History--Civil War, 1642-1649",true,
-mods_subject_temporal_ms,"Civil War, 1642-1649",3,"Civil War, 1642-1649",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Civil War, 1642-1649",3,"Civil War, 1642-1649",,local,temporal,,add,,false,LCSH subheading
 mods_subject_geographic_ms,"Civil War, 1861-1865",3,"United States--History--Civil War, 1861-1865",http://id.loc.gov/authorities/subjects/sh85140205,lcsh,topic,,split,"United States--History--Civil War, 1861-1865",true,
-mods_subject_geographic_ms,"Civil War, 1861-1865",3,"Civil War, 1861-1865",,local,temporal,,add,,false,lcsh subheading
+mods_subject_geographic_ms,"Civil War, 1861-1865",3,"Civil War, 1861-1865",,local,temporal,,add,,false,LCSH subheading
 mods_subject_temporal_ms,"Civil War, 1861-1865",232,"United States--History--Civil War, 1861-1865",http://id.loc.gov/authorities/subjects/sh85140205,lcsh,topic,,split,"United States--History--Civil War, 1861-1865",true,
-mods_subject_temporal_ms,"Civil War, 1861-1865",232,"Civil War, 1861-1865",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Civil War, 1861-1865",232,"Civil War, 1861-1865",,local,temporal,,add,,false,LCSH subheading
 mods_subject_topic_ms,"Claibant Way (Pittsburgh, Pa.)",1,"Claibant Way (Pittsburgh, Pa.)",,local,thoroughfare,thoroughfare,move,,false,
 mods_subject_geographic_ms,Clairton (Pa.),7,Clairton (Pa.),http://id.loc.gov/authorities/names/n85189419,naf,geographic,,,,false,
 mods_subject_topic_ms,Clairton.,12,Clairton (Pa.),http://id.loc.gov/authorities/names/n85189419,naf,geographic,,replace,Clairton (Pa.),true,
@@ -10391,10 +10394,10 @@ mods_subject_geographic_ms,Colombia,15,Colombia,http://id.loc.gov/authorities/na
 mods_subject_geographic_ms,Colona (Pa.),13,Colona (Pa.),,local,geographic,,,,false,
 mods_subject_temporal_ms,"Colonial period, ca. 1600-1775",107,"North America--History--Colonial period, ca. 1600-1775",http://id.loc.gov/authorities/subjects/sh85092461,lcsh,topic,,split,"North America--History--Colonial period, ca. 1600-1775",true,
 mods_subject_temporal_ms,"Colonial period, ca. 1600-1775",107,"United States--History--Colonial period, ca. 1600-1775",http://id.loc.gov/authorities/subjects/sh85140131,lcsh,topic,,add,"United States--History--Colonial period, ca. 1600-1775",true,
-mods_subject_temporal_ms,"Colonial period, ca. 1600-1775",107,"Colonial period, ca. 1600-1775",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Colonial period, ca. 1600-1775",107,"Colonial period, ca. 1600-1775",,local,temporal,,add,,false,LCSH subheading
 mods_subject_temporal_ms,"Colonial period, ca 1600-1775",1,"North America--History--Colonial period, ca. 1600-1775",http://id.loc.gov/authorities/subjects/sh85092461,lcsh,topic,,split,"North America--History--Colonial period, ca. 1600-1775",true,
 mods_subject_temporal_ms,"Colonial period, ca 1600-1775",1,"United States--History--Colonial period, ca. 1600-1775",http://id.loc.gov/authorities/subjects/sh85140131,lcsh,topic,,add,"United States--History--Colonial period, ca. 1600-1775",true,
-mods_subject_temporal_ms,"Colonial period, ca 1600-1775",1,"Colonial period, ca. 1600-1775",,local,temporal,,add,"Colonial period, ca. 1600-1775",true,lcsh subheading
+mods_subject_temporal_ms,"Colonial period, ca 1600-1775",1,"Colonial period, ca. 1600-1775",,local,temporal,,add,"Colonial period, ca. 1600-1775",true,LCSH subheading
 mods_subject_geographic_ms,Colonies,1,Colonies,http://id.loc.gov/authorities/subjects/sh85028562,lcsh,topic,,,,false,
 mods_subject_geographic_ms,Colorado,11,Colorado,http://id.loc.gov/authorities/names/n80125532,naf,geographic,,,,false,
 mods_subject_topic_ms,Colorado,1,Colorado,http://id.loc.gov/authorities/names/n80125532,naf,geographic,,,,false,
@@ -10429,7 +10432,7 @@ mods_subject_geographic_ms,Conemaugh Water Gap (Pa.),4,"Conemaugh Water Gap (Fai
 mods_subject_topic_ms,Coney Island,1,"Coney Island (New York, N.Y.)",http://id.loc.gov/authorities/subjects/sh87001319,lcsh,geographic,,replace,"Coney Island (New York, N.Y.)",true,
 mods_subject_geographic_ms,Confederate States of America,23,Confederate States of America,http://id.loc.gov/authorities/names/n79063906-781,naf,geographic,,,,false,
 mods_subject_temporal_ms,"Confederation, 1783-1789",1,"United States--History--Confederation, 1783-1789",http://id.loc.gov/authorities/subjects/sh85140184,lcsh,topic,,split,"United States--History--Confederation, 1783-1789",true,
-mods_subject_temporal_ms,"Confederation, 1783-1789",1,"Confederation, 1783-1789",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Confederation, 1783-1789",1,"Confederation, 1783-1789",,local,temporal,,add,,false,LCSH subheading
 mods_subject_name_corporate_namePart_ms,Methodist Episcopal Church. Conferences,1,Meetings,http://id.loc.gov/authorities/subjects/sh85083267,lcsh,topic,,add,Meetings,true,
 mods_subject_topic_ms,"Confirmation (Jewish rite): East Liberty (Pittsburgh, Pa.)",30,Confirmation (Jewish rite),http://id.loc.gov/authorities/subjects/sh85030951,lcsh,topic,,split,Confirmation (Jewish rite),true,
 mods_subject_genre_ms,Congresses,67,Congresses,http://id.loc.gov/authorities/subjects/sh99001964,lcsh,genre,,,,false,
@@ -10446,13 +10449,13 @@ mods_subject_geographic_ms,Connellsville,3,Connellsville (Pa.),http://id.loc.gov
 mods_subject_topic_ms,Connellsville (Pa.),1,Connellsville (Pa.),http://id.loc.gov/authorities/names/n82134242,naf,geographic,,,,false,
 mods_subject_geographic_ms,Connoquenessing Creek (Pa.),2,Connoquenessing Creek (Pa.),,local,geographic,creek,,,false,
 mods_subject_temporal_ms,"Conquest, 1519-1540",1,"Mexico--History--Conquest, 1519-1540",http://id.loc.gov/authorities/subjects/sh85084574,lcsh,topic,,split,"Mexico--History--Conquest, 1519-1540",true,
-mods_subject_temporal_ms,"Conquest, 1519-1540",1,"Conquest, 1519-1540",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Conquest, 1519-1540",1,"Conquest, 1519-1540",,local,temporal,,add,,false,LCSH subheading
 mods_subject_temporal_ms,"Conquest, 1522-1548",1,"Peru--History--Conquest, 1522-1548",http://id.loc.gov/authorities/subjects/sh85100205,lcsh,topic,,split,"Peru--History--Conquest, 1522-1548",true,
-mods_subject_temporal_ms,"Conquest, 1522-1548",1,"Conquest, 1522-1548",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Conquest, 1522-1548",1,"Conquest, 1522-1548",,local,temporal,,add,,false,LCSH subheading
 mods_subject_genre_ms,Constitution,6,Constitution,http://id.loc.gov/authorities/subjects/sh2003003664,lcsh,genre,,,,false,
 mods_subject_titleInfo_title_ms,Constitution,1,Constitution,http://id.loc.gov/authorities/names/n2002034499,naf,title,,,,false,
 mods_subject_temporal_ms,"Constitutional period, 1789-1809",1,"United States--History--Constitutional period, 1789-1809",http://id.loc.gov/authorities/subjects/sh85140188,lcsh,topic,,split,"United States--History--Constitutional period, 1789-1809",true,
-mods_subject_temporal_ms,"Constitutional period, 1789-1809",1,"Constitutional period, 1789-1809",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Constitutional period, 1789-1809",1,"Constitutional period, 1789-1809",,local,temporal,,add,,false,LCSH subheading
 mods_subject_topic_ms,Glassport-Dravosburg Bridge (Pa.),1,"Dravosburg Bridge (Allegheny County, Pa.)",,local,thoroughfare,thoroughfare,move,"Dravosburg Bridge (Allegheny County, Pa.)",true,
 mods_subject_topic_ms,Glassport-Dravosburg Bridge (Pa.),1,Construction equipment,http://id.loc.gov/authorities/subjects/sh85031345,lcsh,topic,,add,Construction equipment,true,
 mods_subject_geographic_ms,Contla (Tlaxcala),2,Contla (Tlaxcala),,local,geographic,,,,false,
@@ -10517,7 +10520,7 @@ mods_subject_topic_ms,Crystal City.,1,Crystal City (Mo.),http://id.loc.gov/autho
 mods_subject_topic_ms,Cuba,2,Cuba,http://id.loc.gov/authorities/names/n79079435,naf,geographic,,,,false,
 mods_subject_geographic_ms,Cuba,146,Cuba,http://id.loc.gov/authorities/names/n79079435,naf,geographic,,,,false,
 mods_subject_temporal_ms,"Cultural Revolution, 1966-1976",4,"China--History--Cultural Revolution, 1966-1976",http://id.loc.gov/authorities/subjects/sh85024126,lcsh,topic,,split,"China--History--Cultural Revolution, 1966-1976",true,
-mods_subject_temporal_ms,"Cultural Revolution, 1966-1976",4,"Cultural Revolution, 1966-1976",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Cultural Revolution, 1966-1976",4,"Cultural Revolution, 1966-1976",,local,temporal,,add,,false,LCSH subheading
 mods_subject_geographic_ms,"Cumberland (Bedford County, Pa. : Township)",1,"Cumberland (Bedford County, Pa. : Township)",,local,geographic,,,,false,
 mods_subject_topic_ms,Cumberland (Md.),1,Cumberland (Md.),http://id.loc.gov/authorities/names/n79133195,naf,geographic,,,,false,
 mods_subject_geographic_ms,Cumberland (Md.),6,Cumberland (Md.),http://id.loc.gov/authorities/names/n79133195,naf,geographic,,,,false,
@@ -11075,9 +11078,9 @@ mods_subject_geographic_ms,"Freemont Avenue Bridge (Bellevue, Pa.)",1,"Freemont 
 mods_subject_topic_ms,Freeport (Pa.),3,Freeport (Pa.),http://id.loc.gov/authorities/names/n87932106,naf,geographic,,,,false,
 mods_subject_topic_ms,"Freeport Road (Marshall, Pa.)",1,"Freeport Road (Marshall Township, Pa.)",,local,thoroughfare,thoroughfare,move,"Freeport Road (Marshall Township, Pa.)",true,
 mods_subject_temporal_ms,"French and Indian War, 1754-1763",1,"United States--History--French and Indian War, 1754-1763",http://id.loc.gov/authorities/subjects/sh85140137,lcsh,topic,,split,"United States--History--French and Indian War, 1754-1763",true,
-mods_subject_temporal_ms,"French and Indian War, 1754-1763",1,"French and Indian War, 1754-1763",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"French and Indian War, 1754-1763",1,"French and Indian War, 1754-1763",,local,temporal,,add,,false,LCSH subheading
 mods_subject_temporal_ms,"French and Indian War, 1755-1763",21,"United States--History--French and Indian War, 1754-1763",http://id.loc.gov/authorities/subjects/sh85140137,lcsh,topic,,split,"United States--History--French and Indian War, 1754-1763",true,
-mods_subject_temporal_ms,"French and Indian War, 1755-1763",21,"French and Indian War, 1755-1763",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"French and Indian War, 1755-1763",21,"French and Indian War, 1755-1763",,local,temporal,,add,,false,LCSH subheading
 mods_subject_topic_ms,"Frew Street (Pittsburgh, Pa.)",1,"Frew Street (Pittsburgh, Pa.)",,local,thoroughfare,thoroughfare,move,,false,
 mods_subject_topic_ms,"Frick Park (Pittsburgh, Pa.)",3,"Frick Park (Pittsburgh, Pa.)",,local,geographic,,,,false,
 mods_subject_geographic_ms,"Frick Park (Pittsburgh, Pa.)",3,"Frick Park (Pittsburgh, Pa.)",,local,geographic,,,,false,
@@ -11613,9 +11616,9 @@ mods_subject_geographic_ms,Kilbuck (Pa. : Township),12,Kilbuck (Pa. : Township),
 mods_subject_geographic_ms,Ohio Township; Kilbuck Township,1,Kilbuck (Pa. : Township),http://id.loc.gov/authorities/names/no2007050015,naf,geographic,,add,Kilbuck (Pa. : Township),true,
 mods_subject_geographic_ms,"Kilbuck Pond (Pittsburgh, Pa.)",1,"Kilbuck Pond (Pittsburgh, Pa.)",,local,geographic,pond,,,false,
 mods_subject_temporal_ms,"King George's War, 1744-1748",3,"United States--History--King George's War, 1744-1748",http://id.loc.gov/authorities/subjects/sh85140136,lcsh,topic,,split,"United States--History--King George's War, 1744-1748",true,
-mods_subject_temporal_ms,"King George's War, 1744-1748",3,"King George's War, 1744-1748",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"King George's War, 1744-1748",3,"King George's War, 1744-1748",,local,temporal,,add,,false,LCSH subheading
 mods_subject_temporal_ms,"King William's War, 1689-1697",2,"United States--History--King William's War, 1689-1697",http://id.loc.gov/authorities/subjects/sh85140133,lcsh,topic,,split,"United States--History--King William's War, 1689-1697",true,
-mods_subject_temporal_ms,"King William's War, 1689-1697",2,"King William's War, 1689-1697",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"King William's War, 1689-1697",2,"King William's War, 1689-1697",,local,temporal,,add,,false,LCSH subheading
 mods_subject_geographic_ms,"Kinsman Street (Cleveland, Ohio)",3,"Kinsman Street (Cleveland, Ohio)",,local,thoroughfare,thoroughfare,move,,false,
 mods_subject_geographic_ms,Kisokaido Road (Japan),1,Kisokaido Road (Japan),,local,thoroughfare,thoroughfare,move,,false,
 mods_subject_topic_ms,Kittanning (Pa.),1,Kittanning (Pa.),http://id.loc.gov/authorities/names/n83232978,naf,geographic,,,,false,
@@ -11652,7 +11655,7 @@ mods_subject_geographic_ms,Lancaster County,3,Lancaster County (Pa.),http://id.l
 mods_subject_geographic_ms,Lancaster County (Pa.),3,Lancaster County (Pa.),http://id.loc.gov/authorities/names/n79056624,naf,geographic,,,,false,
 mods_subject_topic_ms,Lancaster County (Pa.),2,Lancaster County (Pa.),http://id.loc.gov/authorities/names/n79056624,naf,geographic,,,,false,
 mods_subject_temporal_ms,"Lancaster and York, 1399-1485",1,"Great Britain--History--Lancaster and York, 1399-1485",http://id.loc.gov/authorities/subjects/sh85056765,lcsh,topic,,split,"Great Britain--History--Lancaster and York, 1399-1485",true,
-mods_subject_temporal_ms,"Lancaster and York, 1399-1485",1,"Lancaster and York, 1399-1485",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Lancaster and York, 1399-1485",1,"Lancaster and York, 1399-1485",,local,temporal,,add,,false,LCSH subheading
 mods_subject_topic_ms,"Lancaster-Schuylkill Bridge (Philadelphia, Pa.)",1,"Lancaster-Schuylkill Bridge (Philadelphia, Pa.)",http://id.loc.gov/authorities/subjects/sh89007025,lcsh,geographic,,,,false,
 mods_subject_topic_ms,"Shattuck, Aaron Draper, 1832-1928Landscape prints.",1,Landscape prints,http://id.loc.gov/authorities/subjects/sh85074468,lcsh,topic,,add,Landscape prints,true,
 mods_subject_topic_ms,Landscape prints.Potomac River.,1,Landscape prints,http://id.loc.gov/authorities/subjects/sh85074468,lcsh,topic,,split,Landscape prints,true,
@@ -11781,7 +11784,7 @@ mods_subject_geographic_ms,Los Angeles Metropolitan Area (Calif.),2,Los Angeles 
 mods_subject_geographic_ms,Los Angeles County (Calif.),3,Los Angeles County (Calif.),http://id.loc.gov/authorities/names/n79055167,naf,geographic,,,,false,
 mods_subject_geographic_ms,Loudoun County (Va.),1,Loudoun County (Va.),http://id.loc.gov/authorities/names/n80149095,naf,geographic,,,,false,
 mods_subject_temporal_ms,"Louis XIV, 1643-1715",3,"France--History--Louis XIV, 1643-1715",http://id.loc.gov/authorities/subjects/sh85051304,lcsh,topic,,split,"France--History--Louis XIV, 1643-1715",true,
-mods_subject_temporal_ms,"Louis XIV, 1643-1715",3,"Louis XIV, 1643-1715",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Louis XIV, 1643-1715",3,"Louis XIV, 1643-1715",,local,temporal,,add,,false,LCSH subheading
 mods_subject_topic_ms,Louisbourg (N.S.),3,Louisbourg (N.S.),http://id.loc.gov/authorities/names/n82120728,naf,geographic,,,,false,
 mods_subject_geographic_ms,Louisiana,19,Louisiana,http://id.loc.gov/authorities/names/n79138970,naf,geographic,,,,false,
 mods_subject_geographic_ms,Louisville (Ky.),2,Louisville (Ky.),http://id.loc.gov/authorities/names/n79022918,naf,geographic,,,,false,
@@ -12496,7 +12499,7 @@ mods_subject_topic_ms,"Ontario, Lake (N.Y. and Ont.)",2,"Ontario, Lake (N.Y. and
 mods_subject_topic_ms,"Ontario, Lake.",2,"Ontario, Lake (N.Y. and Ont.)",http://id.loc.gov/authorities/subjects/sh85094825,lcsh,geographic,,replace,"Ontario, Lake (N.Y. and Ont.)",true,
 mods_subject_topic_ms,"Ontario, Lake (N.Y.)",1,"Ontario, Lake (N.Y. and Ont.)",http://id.loc.gov/authorities/subjects/sh85094825,lcsh,geographic,,replace,"Ontario, Lake (N.Y. and Ont.)",true,
 mods_subject_temporal_ms,"Opium War, 1840-1842",1,"China--History--Opium War, 1840-1842",http://id.loc.gov/authorities/subjects/sh85024090,lcsh,topic,,split,"China--History--Opium War, 1840-1842",true,
-mods_subject_temporal_ms,"Opium War, 1840-1842",1,"Opium War, 1840-1842",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Opium War, 1840-1842",1,"Opium War, 1840-1842",,local,temporal,,add,,false,LCSH subheading
 mods_subject_geographic_ms,Oregon,1,Oregon,http://id.loc.gov/authorities/names/n79021953-781,naf,geographic,,,,false,
 mods_subject_geographic_ms,Oregon National Historic Trail,1,Oregon National Historic Trail,http://id.loc.gov/authorities/subjects/sh99013734,lcsh,geographic,,,,false,
 mods_subject_topic_ms,Oregon Territory (U.S.),1,Oregon Territory,http://id.loc.gov/authorities/names/no2008087840,naf,geographic,,replace,Oregon Territory,true,
@@ -12740,7 +12743,7 @@ mods_subject_geographic_ms,"Philadelphia, Pa.",130,Philadelphia (Pa.),http://id.
 mods_subject_topic_ms,Philadlephia (Pa.),38,Philadelphia (Pa.),http://id.loc.gov/authorities/names/n78095520,naf,geographic,,replace,Philadelphia (Pa.),true,
 mods_subject_geographic_ms,Philadelphia County,5,Philadelphia County (Pa.),http://id.loc.gov/authorities/names/n81144644,naf,geographic,,replace,Philadelphia County (Pa.),true,
 mods_subject_geographic_ms,Philadelphia County (Pa.),2,Philadelphia County (Pa.),http://id.loc.gov/authorities/names/n81144644,naf,geographic,,,,false,
-mods_subject_topic_ms,Philadelphia Region (Pa.),11,Philadelphia Metropolitan Area (Pa.),,local,geographic,,replace,Philadelphia Metropolitan Area (Pa.),true,lcsh subheading
+mods_subject_topic_ms,Philadelphia Region (Pa.),11,Philadelphia Metropolitan Area (Pa.),,local,geographic,,replace,Philadelphia Metropolitan Area (Pa.),true,LCSH subheading
 mods_subject_topic_ms,Philadelphia Region,1,Philadelphia (Pa.),http://id.loc.gov/authorities/names/n78095520,naf,geographic,,replace,Philadelphia (Pa.),true,
 mods_subject_geographic_ms,Philippines,12,Philippines,http://id.loc.gov/authorities/names/n79058386,naf,geographic,,,,false,
 mods_subject_geographic_ms,"Philipstown (Clarion County, Pa.)",1,"Philipstown (Clarion County, Pa.)",,local,geographic,,,,false,
@@ -12888,7 +12891,7 @@ mods_subject_geographic_ms,Mayor's Office,2,Pittsburgh (Pa.),http://id.loc.gov/a
 mods_subject_topic_ms,Mayors-​-​Pennsylvania-​-​Pittsburgh.,1,Pittsburgh (Pa.),http://id.loc.gov/authorities/names/n79054720,naf,geographic,,add,Pittsburgh (Pa.),true,
 mods_subject_topic_ms,"Pittsburgh Area,",43,Pittsburgh (Pa.),http://id.loc.gov/authorities/names/n79054720,naf,geographic,,replace,Pittsburgh (Pa.),true,
 mods_subject_topic_ms,Pittsburgh Metropolitan Area,1,Pittsburgh (Pa.),http://id.loc.gov/authorities/names/n79054720,naf,geographic,,replace,Pittsburgh (Pa.),true,
-mods_subject_geographic_ms,Pittsburgh Metropolitan Area (Pa.),3,Pittsburgh Metropolitan Area (Pa.),,local,geographic,,,,false,lcsh subheading
+mods_subject_geographic_ms,Pittsburgh Metropolitan Area (Pa.),3,Pittsburgh Metropolitan Area (Pa.),,local,geographic,,,,false,LCSH subheading
 mods_subject_topic_ms,Pittsburgh Public Schools (Pa.).Aeronautics Class.,1,Aeronautics,http://id.loc.gov/authorities/subjects/sh85001319,lcsh,topic,,add,Aeronautics,true,
 mods_subject_topic_ms,Pittsburgh Public Schools (Pa.).Aeronautics Class.,1,Classes (Groups of students),http://id.loc.gov/authorities/subjects/sh96010588,lcsh,topic,,add,Classes (Groups of students),true,
 mods_subject_topic_ms,Pittsburgh Public Schools (Pa.).Aeronautics class.,1,Aeronautics,http://id.loc.gov/authorities/subjects/sh85001319,lcsh,topic,,add,Aeronautics,true,
@@ -13131,23 +13134,23 @@ mods_subject_geographic_ms,Research,1,Research,http://id.loc.gov/authorities/sub
 mods_subject_geographic_ms,Reserve (Pa. : Township),7,Reserve (Pa. : Township),http://id.loc.gov/authorities/names/no2010075786,naf,geographic,,,,false,
 mods_subject_name_corporate_namePart_ms,"Hyeholde (Restaurant : Coraopolis, Pa.)",1,Restaurants,http://id.loc.gov/authorities/subjects/sh85113249,lcsh,topic,,add,Restaurants,true,
 mods_subject_temporal_ms,"Revolution, 1775-1783",125,"United States--History--Revolution, 1775-1783",http://id.loc.gov/authorities/subjects/sh85140139,lcsh,topic,,split,"United States--History--Revolution, 1775-1783",true,
-mods_subject_temporal_ms,"Revolution, 1775-1783",125,"Revolution, 1775-1783",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Revolution, 1775-1783",125,"Revolution, 1775-1783",,local,temporal,,add,,false,LCSH subheading
 mods_subject_temporal_ms,Revolution,1,"United States--History--Revolution, 1775-1783",http://id.loc.gov/authorities/subjects/sh85140139,lcsh,topic,,split,"United States--History--Revolution, 1775-1783",true,
-mods_subject_temporal_ms,Revolution,1,"Revolution, 1775-1783",,local,temporal,,add,"Revolution, 1775-1783",true,lcsh subheading
+mods_subject_temporal_ms,Revolution,1,"Revolution, 1775-1783",,local,temporal,,add,"Revolution, 1775-1783",true,LCSH subheading
 mods_subject_geographic_ms,"Revolution, 1775-1783",1,"United States--History--Revolution, 1775-1783",http://id.loc.gov/authorities/subjects/sh85140139,lcsh,topic,,split,"United States--History--Revolution, 1775-1783",true,
-mods_subject_geographic_ms,"Revolution, 1775-1783",1,"Revolution, 1775-1783",,local,temporal,,add,,false,lcsh subheading
+mods_subject_geographic_ms,"Revolution, 1775-1783",1,"Revolution, 1775-1783",,local,temporal,,add,,false,LCSH subheading
 mods_subject_temporal_ms,"Revolution, 1789-1799",2,"France--History--Revolution, 1789-1799",http://id.loc.gov/authorities/subjects/sh85051319,lcsh,topic,,split,"France--History--Revolution, 1789-1799",true,
-mods_subject_temporal_ms,"Revolution, 1789-1799",2,"Revolution, 1789-1799",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Revolution, 1789-1799",2,"Revolution, 1789-1799",,local,temporal,,add,,false,LCSH subheading
 mods_subject_temporal_ms,"Revolution, 1791-1804",2,"Haiti--History--Revolution, 1791-1804",http://id.loc.gov/authorities/subjects/sh85058354,lcsh,topic,,split,"Haiti--History--Revolution, 1791-1804",true,
-mods_subject_temporal_ms,"Revolution, 1791-1804",2,"Revolution, 1791-1804",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Revolution, 1791-1804",2,"Revolution, 1791-1804",,local,temporal,,add,,false,LCSH subheading
 mods_subject_temporal_ms,"Revolution, 1895-1898",1,"Cuba--History--Revolution, 1895-1898",http://id.loc.gov/authorities/subjects/sh85034571,lcsh,topic,,split,"Cuba--History--Revolution, 1895-1898",true,
-mods_subject_temporal_ms,"Revolution, 1895-1898",1,"Revolution, 1895-1898",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Revolution, 1895-1898",1,"Revolution, 1895-1898",,local,temporal,,add,,false,LCSH subheading
 mods_subject_temporal_ms,"Revolution, 1917-1921",3,"Soviet Union--History--Revolution, 1917-1921",http://id.loc.gov/authorities/subjects/sh85125808,lcsh,topic,,split,"Soviet Union--History--Revolution, 1917-1921",true,
-mods_subject_temporal_ms,"Revolution, 1917-1921",3,"Revolution, 1917-1921",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Revolution, 1917-1921",3,"Revolution, 1917-1921",,local,temporal,,add,,false,LCSH subheading
 mods_subject_temporal_ms,"Revolution, 1933",1,"Cuba--History--Revolution, 1933",http://id.loc.gov/authorities/subjects/sh85034582,lcsh,topic,,split,"Cuba--History--Revolution, 1933",true,
-mods_subject_temporal_ms,"Revolution, 1933",1,"Revolution, 1933",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Revolution, 1933",1,"Revolution, 1933",,local,temporal,,add,,false,LCSH subheading
 mods_subject_temporal_ms,"Revolution, 1952",2,"Bolivia--History--Revolution, 1952",http://id.loc.gov/authorities/subjects/sh85015399,lcsh,topic,,split,"Bolivia--History--Revolution, 1952",true,
-mods_subject_temporal_ms,"Revolution, 1952",2,"Revolution, 1952",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Revolution, 1952",2,"Revolution, 1952",,local,temporal,,add,,false,LCSH subheading
 mods_subject_topic_ms,"Reynolds Street (Pittsburgh, Pa.)",2,"Reynolds Street (Pittsburgh, Pa.)",,local,thoroughfare,thoroughfare,move,,false,
 mods_subject_geographic_ms,"Reynolds Street (Pittsburgh, Pa.)",1,"Reynolds Street (Pittsburgh, Pa.)",,local,thoroughfare,thoroughfare,move,,false,
 mods_subject_geographic_ms,Reynoldton (Pa.),2,Reynoldton (Pa.),,local,geographic,,,,false,
@@ -13821,7 +13824,7 @@ mods_subject_geographic_ms,Titusville (Pa.),4,Titusville (Pa.),http://id.loc.gov
 mods_subject_temporal_ms,To 1400,1,To 1400,,local,temporal,,,,false,
 mods_subject_temporal_ms,To 1500,1,To 1500,http://id.loc.gov/authorities/subjects/sh2002012483,lcsh,temporal,,,,false,
 mods_subject_temporal_ms,To 1763 (New France),4,Canada--History--To 1763 (New France),http://id.loc.gov/authorities/subjects/sh85019310,lcsh,topic,,split,Canada--History--To 1763 (New France),true,
-mods_subject_temporal_ms,To 1763 (New France),4,To 1763 (New France),,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,To 1763 (New France),4,To 1763 (New France),,local,temporal,,add,,false,LCSH subheading
 mods_subject_temporal_ms,To 1775,18,To 1775,,local,temporal,,,,false,
 mods_subject_temporal_ms,To 1787,1,To 1787,,local,temporal,,,,false,
 mods_subject_temporal_ms,To 1792,6,To 1792,,local,temporal,,,,false,
@@ -14028,13 +14031,13 @@ mods_subject_geographic_ms,Wampum (Pa.),7,Wampum (Pa.),http://id.loc.gov/authori
 mods_subject_geographic_ms,Wantagh (N.Y.),8,Wantagh (N.Y.),http://id.loc.gov/authorities/names/n82105496,naf,geographic,,,,false,
 mods_subject_geographic_ms,Wappingers Falls (N.Y.),4,Wappingers Falls (N.Y.),http://id.loc.gov/authorities/names/n82047973,naf,geographic,,,,false,
 mods_subject_temporal_ms,War of 1812,15,United States--History--War of 1812,http://id.loc.gov/authorities/subjects/sh85140194,lcsh,topic,,split,United States--History--War of 1812,true,
-mods_subject_temporal_ms,War of 1812,15,War of 1812,,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,War of 1812,15,War of 1812,,local,temporal,,add,,false,LCSH subheading
 mods_subject_temporal_ms,"War of Independence, 1810-1822",1,"Colombia--History--War of Independence, 1810-1822",http://id.loc.gov/authorities/subjects/sh85028491,lcsh,topic,,split,"Colombia--History--War of Independence, 1810-1822",true,
-mods_subject_temporal_ms,"War of Independence, 1810-1822",1,"War of Independence, 1810-1822",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"War of Independence, 1810-1822",1,"War of Independence, 1810-1822",,local,temporal,,add,,false,LCSH subheading
 mods_subject_temporal_ms,"War of Independence, 1810-1823",1,"Venezuela--History--War of Independence, 1810-1823",http://id.loc.gov/authorities/subjects/sh85142665,lcsh,topic,,split,"Venezuela--History--War of Independence, 1810-1823",true,
-mods_subject_temporal_ms,"War of Independence, 1810-1823",1,"War of Independence, 1810-1823",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"War of Independence, 1810-1823",1,"War of Independence, 1810-1823",,local,temporal,,add,,false,LCSH subheading
 mods_subject_temporal_ms,"War with Algeria, 1815",1,"United States--History--War with Algeria, 1815",http://id.loc.gov/authorities/subjects/sh85140197,lcsh,topic,,split,"United States--History--War with Algeria, 1815",true,
-mods_subject_temporal_ms,"War with Algeria, 1815",1,"War with Algeria, 1815",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"War with Algeria, 1815",1,"War with Algeria, 1815",,local,temporal,,add,,false,LCSH subheading
 mods_subject_topic_ms,"Warehouses (Pittsburgh, Pa.)",3,Warehouses,http://id.loc.gov/authorities/subjects/sh85145251,lcsh,topic,,replace,Warehouses,true,
 mods_subject_geographic_ms,"Warner Station Poor Farm (Pittsburgh, Pa.)",2,"Warner Station Poor Farm (Pittsburgh, Pa.)",,local,geographic,,,,false,
 mods_subject_topic_ms,Warren (Ohio),2,Warren (Ohio),http://id.loc.gov/authorities/names/n81062634,naf,geographic,,,,false,
@@ -14060,7 +14063,7 @@ mods_subject_topic_ms,"Warrendale-Bayne Road Extension (Marshall Township, Pa.)"
 mods_subject_topic_ms,"Warrendale-Bayne Road Extension (Marshall Township, Pa.)",8,Marshall (Pa. : Township),http://id.loc.gov/authorities/names/n88267853,naf,geographic,,add,Marshall (Pa. : Township),true,
 mods_subject_geographic_ms,"Warrington Park (Pittsburgh, Pa.)",3,"Warrington Park (Pittsburgh, Pa.)",,local,geographic,,,,false,
 mods_subject_temporal_ms,"Wars of Independence, 1806-1830",2,"South America--History--Wars of Independence, 1806-1830",http://id.loc.gov/authorities/subjects/sh85125532,lcsh,topic,,split,"South America--History--Wars of Independence, 1806-1830",true,
-mods_subject_temporal_ms,"Wars of Independence, 1806-1830",2,"Wars of Independence, 1806-1830",,local,temporal,,add,,false,lcsh subheading
+mods_subject_temporal_ms,"Wars of Independence, 1806-1830",2,"Wars of Independence, 1806-1830",,local,temporal,,add,,false,LCSH subheading
 mods_subject_geographic_ms,Warsaw (Poland),21,Warsaw (Poland),http://id.loc.gov/authorities/names/n79018894,naf,geographic,,,,false,
 mods_subject_geographic_ms,Warwood (W. Va.),2,"Warwood (Wheeling, W. Va.)",http://id.loc.gov/authorities/names/no2020001793,naf,geographic,,replace,"Warwood (Wheeling, W. Va.)",true,
 mods_subject_topic_ms,"Washignton Pl. (Pittsburgh, Pa.)",1,"Washington Place (Pittsburgh, Pa.)",,local,thoroughfare,thoroughfare,move,"Washington Place (Pittsburgh, Pa.)",true,
@@ -20185,7 +20188,7 @@ mods_subject_topic_ms,"Pitcairn, Robert, 1836-1909.",2,"Pitcairn, Robert, 1836-1
 mods_subject_name_personal_namePart_ms,"Pitcairn, Robert, 1836-1909",1,"Pitcairn, Robert, 1836-1909",http://id.loc.gov/authorities/names/nr93016204,naf,personal,,,,false,
 mods_subject_topic_ms,Pitt Panthers (Football team).,14,Pitt Panthers (Football team),http://id.loc.gov/authorities/names/n97066354,naf,corporate,,replace,Pitt Panthers (Football team),true,
 mods_subject_name_corporate_namePart_ms,Pitt Panthers (Football team),61,Pitt Panthers (Football team),http://id.loc.gov/authorities/names/n97066354,naf,corporate,,,,false,
-mods_subject_topic_ms,Pitt Stadium.,1,Pitt Stadium,,local,corporate,,replace,Pitt Stadium,true,
+mods_subject_topic_ms,Pitt Stadium.,1,University of Pittsburgh. Pitt Stadium,,local,corporate,,replace,Pitt Stadium,true,
 mods_subject_topic_ms,"Pitt Stadium (Pittsburgh, Pa.)",7,University of Pittsburgh. Pitt Stadium,,local,corporate,,replace,University of Pittsburgh. Pitt Stadium,true,
 mods_subject_topic_ms,"Pitt Stadium (Pittsburgh, Pa.).",12,University of Pittsburgh. Pitt Stadium,,local,corporate,,replace,University of Pittsburgh. Pitt Stadium,true,
 mods_subject_topic_ms,"Pitt, William the Younger, 1759-1806",2,"Pitt, William, 1759-1806",http://id.loc.gov/authorities/names/n50044409,naf,personal,,replace,"Pitt, William, 1759-1806",true,
