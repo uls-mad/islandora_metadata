@@ -189,6 +189,25 @@ def remove_whitespaces(text: str) -> str:
     return ""
 
 
+def dedup(value: str) -> str:
+    """
+    Split a string on unescaped commas, deduplicate the resulting list, 
+    and rejoin the unique values with a comma.
+
+    Args:
+        value (str): The input string with potential duplicates.
+
+    Returns:
+        str: A comma-separated string with unique values.
+    """
+    # Split on commas not preceded by a backslash
+    parts = re.split(r'(?<!\\),', value)
+    # Get unique parts of value
+    unique_parts = list(dict.fromkeys(parts))
+    return ','.join(unique_parts)
+
+
+
 def validate_edtf_date(date: str) -> bool:
     """
     Validates if the given date string is in a valid EDTF (Extended Date/Time Format).
@@ -359,6 +378,34 @@ def add_attributed_names(
     return record
 
 
+def add_geo_field(record: dict, pid: str) -> dict:
+    """
+    Add geographic field values to a record based on a single matching row in GEO_FIELDS_MAPPING.
+
+    Args:
+        record (dict): The record being processed.
+        pid (str): The PID to match against the "PID" column in GEO_FIELDS_MAPPING.
+
+    Returns:
+        dict: The updated record with mapped field values added.
+    """
+    matching_row = GEO_FIELDS_MAPPING.loc[GEO_FIELDS_MAPPING["PID"] == pid]
+
+    if not matching_row.empty:
+        row = matching_row.iloc[0]
+        for field in GEO_FIELDS + ['field_subjects', 'field_subjects_name']:
+            if field == 'field_geographic_features_categories':
+                field = 'field_geographic_features'
+            value = row.get(field)
+            if value:
+                prefix = "corporate:" if field == "field_subjects_name" else None
+                for val in value.split("|"): 
+                    add_value(record, None, field, val, prefix)
+
+    return record
+
+
+
 def process_title(record: dict) -> dict:
     """
     Process title fields in a record and generate a concatenated full title.
@@ -404,20 +451,57 @@ def process_title(record: dict) -> dict:
     return record
 
 
-def process_language(value: str) -> str | None:
+def process_language(pid: str, value: str) -> str:
     """
     Maps a language field code to its corresponding term name using LANGUAGE_MAPPING.
+    If no match is found, logs an exception using `add_exception`.
 
     Args:
+        pid (str): The PID associated with the record.
         value (str): The language field code to look up.
 
     Returns:
-        str | None: The corresponding language term name if found, otherwise None.
+        str: The corresponding language term name if found, otherwise the original value.
     """
     matching_row = LANGUAGE_MAPPING.loc[
         LANGUAGE_MAPPING["field_code"] == value, "term_name"
     ]
-    return matching_row.iloc[0] if not matching_row.empty else None
+    if matching_row.empty:
+        add_exception(
+            pid=pid,
+            field="field_language",
+            value=value,
+            exception=f"No language term found for code: '{value}'"
+        )
+        return value
+    return matching_row.iloc[0]
+
+
+
+def process_country(pid: str, value: str) -> str:
+    """
+    Maps a country field code to its corresponding term name using COUNTRY_MAPPING.
+    If no match is found, logs an exception using `add_exception`.
+
+    Args:
+        pid (str): The PID associated with the record.
+        value (str): The country field code to look up.
+
+    Returns:
+        str: The corresponding country term name if found, otherwise the original value.
+    """
+    matching_row = COUNTRY_MAPPING.loc[
+        COUNTRY_MAPPING["field_code_country"] == value, "term_name"
+    ]
+    if matching_row.empty:
+        add_exception(
+            pid=pid,
+            field="field_place_published_pitt",
+            value=value,
+            exception=f"No country term found for code: '{value}'"
+        )
+        return value
+    return matching_row.iloc[0]
 
 
 
@@ -567,9 +651,12 @@ def process_subject(
             return record
 
         if field:
-            # Use the value in the Working_Heading column as the value
-            new_value = row["Working_Heading"]
+            # Use the value in the Valid_Heading column as the value
+            new_value = row["Valid_Heading"]
             prefix = None
+
+            if row['authority'] == 'aat':
+                field = 'field_genre'
 
             if subject_type == 'personal':
                 prefix = 'person:'
@@ -606,12 +693,23 @@ def process_genre(record: dict, value: str) -> dict:
             if genre_value:  # Ensure the value is not empty or None
                 add_value(record, None, "field_genre", genre_value)
     else:
-        add_exception(
-            record["id"][0],
-            "mods_genre_authority_aat_ms",
-            value,
-            "could not find genre in mapping",
-        )
+        # Check GENRE_JP_MAPPING
+        matching_rows = GENRE_JP_MAPPING[
+            GENRE_JP_MAPPING["term_name"] == value
+        ]
+
+        if not matching_rows.empty:
+            for _, row in matching_rows.iterrows():
+                genre_value = row.get("term_name")
+                if genre_value:
+                    add_value(record, None, "field_genre", genre_value)
+        else:
+            add_exception(
+                record["id"][0],
+                "mods_genre_authority_aat_ms",
+                value,
+                "could not find genre in mapping",
+            )
 
     return record
 
@@ -912,6 +1010,7 @@ def process_records(
                 record = initialize_record()
                 personal_names = {'no_relator': set(), 'has_relator': set()}
                 source_data = {}
+                geo_field = False
 
                 # Add ID to record manually to ensure presence for logging
                 pid = row["PID"]
@@ -942,7 +1041,9 @@ def process_records(
                             record = add_title(record, solr_field, field, value)
                             continue
                         elif field == 'field_language':
-                            value = process_language(value)
+                            value = process_language(pid, value)
+                        elif field == 'field_place_published_pitt':
+                            value = process_country(pid, value)
                         elif field == 'field_linked_agent':
                             record, personal_names = process_name(
                                 record, personal_names, solr_field, field, value
@@ -961,8 +1062,13 @@ def process_records(
                         elif field == 'field_physical_form':
                             record = process_form(record, value)
                             continue
+                        elif field in GEO_FIELDS:
+                            geo_field = True
+                            continue
+                            
                         elif field in SOURCE_FIELDS:
-                            source_data[solr_field] = data
+                            # TODO: Handle where there are multiple dates? 
+                            source_data[solr_field] = dedup(data)
                             continue
                         elif field == 'field_rights_statement':
                             value = process_rights(value)
@@ -1003,6 +1109,10 @@ def process_records(
 
                 # Add attributed personal names
                 record = add_attributed_names(record, personal_names)
+
+                # Add in any map fields
+                if geo_field:
+                    record = add_geo_field(record, pid)
 
                 # Validate record
                 validate_record(record)

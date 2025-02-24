@@ -39,6 +39,13 @@ DATE_FIELDS = [
     'field_date_str'
 ]
 
+GEO_FIELDS = [
+    'field_address',
+    'field_geographic_features',
+    'field_geographic_features_categories'
+    'field_thorougfares'
+]
+
 SOURCE_FIELDS = [
     'field_source_collection_id',
     'field_source_collection',
@@ -197,17 +204,27 @@ EDTF_DATES = create_df(edtf_dates_csv)
 language_mapping_csv = r".\Remediation_Mappings\language_mapping.csv"
 LANGUAGE_MAPPING = create_df(language_mapping_csv)
 
+country_mapping_csv = r".\Remediation_Mappings\country_mapping.csv"
+COUNTRY_MAPPING = create_df(country_mapping_csv)
+
 # Read in subjects mapping
 subject_mapping_csv = r".\Remediation_Mappings\subject_mapping.csv"
 SUBJECT_MAPPING = create_df(subject_mapping_csv)
 
-# Read in genre mapping
+# Read in genre mappings
 genre_mapping_csv = r".\Remediation_Mappings\genre_mapping.csv"
 GENRE_MAPPING = create_df(genre_mapping_csv)
+
+genre_jp_mapping_csv = r".\Remediation_Mappings\genre_japanese_prints_mapping.csv"
+GENRE_JP_MAPPING = create_df(genre_jp_mapping_csv)
 
 # Read in physical form mapping
 physical_form_mapping_csv = r".\Remediation_Mappings\physical_form_mapping.csv"
 FORM_MAPPING = create_df(physical_form_mapping_csv)
+
+# Read in geographic fields mapping
+geo_fields_mapping_csv = r".\Remediation_Mappings\geo_fields_mapping.csv"
+GEO_FIELDS_MAPPING = create_df(geo_fields_mapping_csv)
 
 # Read in source collection mapping
 source_collection_mapping_csv = r".\Remediation_Mappings\source_collection_mapping.csv"
