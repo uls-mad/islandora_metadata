@@ -398,7 +398,7 @@ def add_geo_field(record: dict, pid: str) -> dict:
                 field = 'field_geographic_features'
             value = row.get(field)
             if value:
-                prefix = "corporate:" if field == "field_subjects_name" else None
+                prefix = "corporate_body:" if field == "field_subjects_name" else None
                 for val in value.split("|"): 
                     add_value(record, None, field, val, prefix)
 
