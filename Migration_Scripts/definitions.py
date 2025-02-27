@@ -147,6 +147,13 @@ TYPE_MAPPING = {
     'three dimensional object': 'Artifact'
 }
 
+LINKED_AGENT_TYPES = {
+    'conference': 'conference', 
+    'corporate': 'corporate_body', 
+    'family': 'family',
+    'personal': 'person'
+}
+
 # Subject Type -> I2 field
 SUBJECT_FIELD_MAPPING = {
     'conference': 'field_subjects_name',

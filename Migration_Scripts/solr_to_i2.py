@@ -373,7 +373,7 @@ def add_attributed_names(
             record, 
             'mods_name_personal_namePart_ms', 
             'field_linked_agent', 
-            f'personal:{name}'
+            f'person:{name}'
         )
     return record
 
@@ -541,7 +541,8 @@ def process_name(
         return record, personal_names
 
     for _, row in matching_rows.iterrows():
-        name_type = row["Type"]
+        name_type = LINKED_AGENT_TYPES.get(row["Type"], row["Type"])
+
         if row["Action"] == "remove":
             add_transformation(
                 record["id"][0], solr_field, value, None, 
@@ -564,8 +565,8 @@ def process_name(
         elif 'personal' in solr_field:
             personal_names['has_relator'].add(new_value)
 
-        prefix = f"relator{name_type}:" if name_type in \
-            ["personal", "corporate", "conference", "family"] else "relator"
+        prefix = f"relator{name_type}:" \
+            if name_type in LINKED_AGENT_TYPES.values else "relator"
         add_value(record, solr_field, field, new_value, prefix)
 
     return record, personal_names
@@ -653,19 +654,10 @@ def process_subject(
         if field:
             # Use the value in the Valid_Heading column as the value
             new_value = row["Valid_Heading"]
-            prefix = None
+            prefix = LINKED_AGENT_TYPES.get(subject_type)
 
             if row['authority'] == 'aat':
                 field = 'field_genre'
-
-            if subject_type == 'personal':
-                prefix = 'person:'
-            elif subject_type == 'corporate':
-                prefix = 'corporate_body:'
-            elif subject_type == 'conference':
-                prefix = 'conference:'
-            elif subject_type == 'family':
-                prefix = 'family:'
 
             add_value(record, solr_field, field, new_value, prefix)
 
