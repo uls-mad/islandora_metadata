@@ -271,6 +271,7 @@ def add_value(
         if not field_row.empty:
             prefix = prefix.replace("relator", field_row.iloc[0]["prefix"]) \
                 if prefix else field_row.iloc[0]["prefix"]
+            
 
     if prefix:
         value = f"{prefix}{value}"
@@ -504,7 +505,6 @@ def process_country(pid: str, value: str) -> str:
     return matching_row.iloc[0]
 
 
-
 def process_name(
     record: dict, 
     personal_names: dict, 
@@ -566,7 +566,7 @@ def process_name(
             personal_names['has_relator'].add(new_value)
 
         prefix = f"relator{name_type}:" \
-            if name_type in LINKED_AGENT_TYPES.values else "relator"
+            if name_type in LINKED_AGENT_TYPES.values() else "relator"
         add_value(record, solr_field, field, new_value, prefix)
 
     return record, personal_names
