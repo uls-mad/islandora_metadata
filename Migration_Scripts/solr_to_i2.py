@@ -21,9 +21,6 @@ from definitions import *
 from inventory_manager import *
 from progress_tracker import ProgressTracker
 
-# Silence the warning about downcasting by setting the future option
-pd.set_option('future.no_silent_downcasting', True)
-
 
 """ Global Variables """
 
@@ -989,10 +986,9 @@ def records_to_csv(records: list, destination: str):
     # Convert list of dictionaries to DataFrame
     df = pd.DataFrame.from_dict(records)
 
-    # Replace empty or placeholder values with NaN
-    nan_value = float("NaN")
+    # Replace empty values with NaN
     df.replace(
-        {'': nan_value, '; ': nan_value, '; ; ': nan_value}, 
+        {'': np.nan}, 
         inplace=True
     )
 
