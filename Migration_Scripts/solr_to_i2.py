@@ -232,9 +232,9 @@ def validate_edtf_dates(edtf_dates: List[str]) -> Tuple[List[str], List[str]]:
     valid_dates = []
     invalid_dates = []
     for date in edtf_dates:
-        if date in [
+        if date in {
             '18XX/', '184X/', '186X/1975~', '196X/', '197X/', '19XX/', '19XX/..'
-        ] or validate_edtf_date(date):
+         } or validate_edtf_date(date):
             valid_dates.append(date)
         else:
             invalid_dates.append(date)
@@ -262,16 +262,22 @@ def add_value(
         dict: The updated record.
     """
     if not field:
-        print(f"Solr field: {solr_field} | Value: {value}")
+        add_exception(
+            record['id'][0],
+            None,
+            value, 
+            f"missing I2 field for value from Solr field {solr_field}"
+        )
+        return record
+
     value = remove_whitespaces(value)
     values = record.get(field, [])
 
-    if solr_field and (not prefix or prefix.startswith("relator")):
-        field_row = FIELD_MAPPING[FIELD_MAPPING["solr_field"] == solr_field]
+    if solr_field and (not prefix or prefix.startswith("rlt")):
+        field_row = FIELD_MAPPING[FIELD_MAPPING['solr_field'] == solr_field]
         if not field_row.empty:
-            prefix = prefix.replace("relator", field_row.iloc[0]["prefix"]) \
-                if prefix else field_row.iloc[0]["prefix"]
-            
+            prefix = prefix.replace("rlt", field_row.iloc[0]['prefix']) \
+                if prefix else field_row.iloc[0]['prefix']
 
     if prefix:
         value = f"{prefix}{value}"
@@ -280,6 +286,7 @@ def add_value(
         values.append(value)
 
     record[field] = values
+
     return record
 
 
@@ -305,15 +312,15 @@ def add_title(
     value = remove_whitespaces(value)
 
     if "nonSort" in solr_field:
-        title["nonSort"] = value
+        title['nonSort'] = value
     elif "subTitle" in solr_field:
-        title["subTitle"] = value
+        title['subTitle'] = value
     elif "partNumber" in solr_field:
-        title["partNumber"] = value
+        title['partNumber'] = value
     elif "partName" in solr_field:
-        title["partName"] = value
+        title['partName'] = value
     else:
-        title["title"] = value
+        title['title'] = value
 
     return record
 
@@ -342,7 +349,9 @@ def add_source(
     
     if matching_rows.empty:
         add_exception(
-            record["id"][0], field, value, 
+            record['id'][0],
+            field,
+            value, 
             f"could not find value in column {solr_field}"
         )
         return record
@@ -390,13 +399,13 @@ def add_geo_field(record: dict, pid: str) -> dict:
     Returns:
         dict: The updated record with mapped field values added.
     """
-    matching_row = GEO_FIELDS_MAPPING.loc[GEO_FIELDS_MAPPING["PID"] == pid]
+    matching_row = GEO_FIELDS_MAPPING.loc[GEO_FIELDS_MAPPING['PID'] == pid]
 
     if not matching_row.empty:
         row = matching_row.iloc[0]
         for field in GEO_FIELDS + ['field_subjects', 'field_subjects_name']:
-            if field == 'field_geographic_features_categories':
-                field = 'field_geographic_features'
+            if field == "field_geographic_features_categories":
+                field = "field_geographic_features"
             value = row.get(field)
             if value:
                 prefix = "corporate_body:" if field == "field_subjects_name" else None
@@ -404,6 +413,86 @@ def add_geo_field(record: dict, pid: str) -> dict:
                     add_value(record, None, field, val, prefix)
 
     return record
+
+
+def process_parent_id(record: dict, value: str) -> str | None:
+    """
+    Processes a parent ID by removing the "info:fedora/" prefix and mapping 
+    collection IDs to their corresponding node IDs.
+
+    If the value corresponds to a root PID, it is replaced with None. 
+    If the value represents a collection, its node ID is added to the record 
+    under "field_member_of."
+
+    Args:
+        record (dict): The record being processed.
+        value (str): The original parent ID.
+
+    Returns:
+        str | None: The processed parent ID or None if the value corresponds 
+                    to a root PID.
+    """
+    new_value = value.removeprefix("info:fedora/")
+
+    if new_value in {"pitt:root", "islandora:root"}:
+        return None
+
+    if "collection" in new_value:
+        matching_rows = COLLECTION_NODE_MAPPING.loc[
+            COLLECTION_NODE_MAPPING['id'] == new_value, "node_id"
+        ]
+        if not matching_rows.empty:
+            node_id = matching_rows.iloc[0]
+            add_value(
+                record,
+                "RELS_EXT_isMemberOfCollection_uri_ms",
+                "field_member_of",
+                node_id
+            )
+
+    return new_value
+
+
+
+def process_model(record: dict, solr_field: str, value: str) -> tuple[str | None, bool]:
+    """
+    Processes an object model by mapping it to a predefined type and determining 
+    whether the row should be skipped.
+
+    Args:
+        record (dict): The record being processed.
+        solr_field (str): The Solr field name associated with the value.
+        value (str): The object model identifier.
+
+    Returns:
+        tuple[str | None, bool]: A tuple containing:
+            - The mapped model type, or None if the value is invalid.
+            - A boolean indicating whether the row should be skipped.
+    """
+    skip_row = value not in OBJECT_MAPPING
+
+    if skip_row:
+        add_exception(
+            record["id"][0], 
+            solr_field, 
+            value, 
+            "skipped object due to model type"
+        )
+        return None, skip_row
+
+    # Get object type and model
+    object_type = OBJECT_MAPPING[value]
+    new_value = object_type["model"]
+
+    # Add resource type based on the mapped model
+    add_value(
+        record, 
+        solr_field, 
+        "field_resource_type", 
+        object_type["resource_type"]
+    )
+
+    return new_value, skip_row
 
 
 
@@ -427,27 +516,27 @@ def process_title(record: dict) -> dict:
         title_str = ""
 
         if "nonSort" in title and title.get("nonSort"):
-            title_str += title["nonSort"] + " "
+            title_str += title['nonSort'] + " "
 
         if "title" in title and title.get("title"):
-            title_str += title["title"]
+            title_str += title['title']
 
         if "subTitle" in title and title.get("subTitle"):
-            title_str += ": " + title["subTitle"]
+            title_str += ": " + title['subTitle']
 
         if "partNumber" in title and title.get("partNumber"):
-            title_str += ", " + title["partNumber"]
+            title_str += ", " + title['partNumber']
 
         if "partName" in title and title.get("partName"):
-            title_str += ", " + title["partName"]
+            title_str += ", " + title['partName']
 
         record[field] = [title_str]
 
         if field == "field_full_title":
             record = add_value(record, None, "title", title_str)
 
-    if not record.get("title") and record.get("field_model", [""])[0] != "Page":
-        add_exception(record["id"][0], "title", None, "record missing title")
+    if not record.get("title") and record.get("field_model", [''])[0] != "Page":
+        add_exception(record['id'][0], "title", None, "record missing title")
 
     return record
 
@@ -465,7 +554,7 @@ def process_language(pid: str, value: str) -> str:
         str: The corresponding language term name if found, otherwise the original value.
     """
     matching_row = LANGUAGE_MAPPING.loc[
-        LANGUAGE_MAPPING["field_code"] == value, "term_name"
+        LANGUAGE_MAPPING['field_code'] == value, "term_name"
     ]
     if matching_row.empty:
         add_exception(
@@ -492,7 +581,7 @@ def process_country(pid: str, value: str) -> str:
         str: The corresponding country term name if found, otherwise the original value.
     """
     matching_row = COUNTRY_MAPPING.loc[
-        COUNTRY_MAPPING["field_code_country"] == value, "term_name"
+        COUNTRY_MAPPING['field_code_country'] == value, "term_name"
     ]
     if matching_row.empty:
         add_exception(
@@ -531,42 +620,50 @@ def process_name(
             - Updated personal_names dictionary reflecting changes.
     """
     matching_rows = NAME_MAPPING[
-        (NAME_MAPPING["Solr_Field"] == solr_field) & 
-        (NAME_MAPPING["Original_Name"] == value)
+        (NAME_MAPPING['Solr_Field'] == solr_field) & 
+        (NAME_MAPPING['Original_Name'] == value)
     ]
 
     if matching_rows.empty:
-        add_exception(record["id"][0], solr_field, value, 
+        add_exception(record['id'][0], solr_field, value, 
                       "could not find name in mapping")
         return record, personal_names
 
     for _, row in matching_rows.iterrows():
-        name_type = LINKED_AGENT_TYPES.get(row["Type"], row["Type"])
+        name_type = LINKED_AGENT_TYPES.get(row['Type'], row['Type'])
 
-        if row["Action"] == "remove":
+        if row['Action'] == "remove":
             add_transformation(
-                record["id"][0], solr_field, value, None, 
+                record['id'][0], solr_field, value, None, 
                 f"skipped {name_type} name '{value}'"
             )
             return record, personal_names
 
-        new_value = row["Valid_Name"]
+        new_value = row['Valid_Name']
 
-        if name_type == 'title':
+        if name_type == "title":
             add_value(record, solr_field, "field_subject_title", new_value)
             return record, personal_names
         elif name_type == "geographic":
             add_value(record, solr_field, "field_geographic_subject", new_value)
             return record, personal_names
+        elif name_type == "topic":
+            add_value(record, solr_field, "field_subject", new_value)
+            return record, personal_names
+        
+        relator = row['Relator'] if row['Relator'].strip() else "rlt"
 
-        if solr_field == 'mods_name_personal_namePart_ms':
+        if relator != "rlt":
+            relator = f"relators:{relator}:"
+            personal_names['has_relator'].add(new_value)
+        elif solr_field == "mods_name_personal_namePart_ms":
             personal_names['no_relator'].add(new_value)
             return record, personal_names
-        elif 'personal' in solr_field:
+        elif "personal" in solr_field:
             personal_names['has_relator'].add(new_value)
 
-        prefix = f"relator{name_type}:" \
-            if name_type in LINKED_AGENT_TYPES.values() else "relator"
+        prefix = f"{relator}{name_type}:" \
+            if name_type in LINKED_AGENT_TYPES.values() else "rlt"
         add_value(record, solr_field, field, new_value, prefix)
 
     return record, personal_names
@@ -589,9 +686,9 @@ def process_dates(record: dict) -> dict:
         return record
 
     dates = matching_row.iloc[0]
-    edtf_dates = dates.get('field_edtf_date', '').split('|')
-    cleaned_dates = dates.get('field_date', '').split('|')
-    copyright_dates = dates.get('field_copyright_date', '').split('|')
+    edtf_dates = dates.get("field_edtf_date", "").split("|")
+    cleaned_dates = dates.get("field_date", "").split("|")
+    copyright_dates = dates.get("field_copyright_date", "").split("|")
 
     if edtf_dates == ['']:
         return record
@@ -631,18 +728,18 @@ def process_subject(
     """
     # Filter rows where Solr_Field matches mods_field and Original_Heading matches value
     matching_rows = SUBJECT_MAPPING[
-        (SUBJECT_MAPPING["Solr_Field"] == solr_field) & 
-        (SUBJECT_MAPPING["Original_Heading"] == value)
+        (SUBJECT_MAPPING['Solr_Field'] == solr_field) & 
+        (SUBJECT_MAPPING['Original_Heading'] == value)
     ]
 
     # Iterate through each filtered row
     for _, row in matching_rows.iterrows():
         # Use the value in the Type column as the key in SUBJECT_FIELD_MAPPING to get the field
-        subject_type = row["Type"]
+        subject_type = row['Type']
         field = SUBJECT_FIELD_MAPPING.get(subject_type)
         
         # If Action == "remove", skip processing and return the record
-        if row["Action"] == "remove":
+        if row['Action'] == "remove":
             add_transformation(
                 record['id'][0], 
                 solr_field, 
@@ -653,11 +750,11 @@ def process_subject(
 
         if field:
             # Use the value in the Valid_Heading column as the value
-            new_value = row["Valid_Heading"]
+            new_value = row['Valid_Heading']
             prefix = LINKED_AGENT_TYPES.get(subject_type)
 
-            if row['authority'] == 'aat':
-                field = 'field_genre'
+            if row['authority'] == "aat":
+                field = "field_genre"
 
             add_value(record, solr_field, field, new_value, prefix)
 
@@ -676,7 +773,7 @@ def process_genre(record: dict, value: str) -> dict:
         dict: The updated record with processed genre data.
     """
     matching_rows = GENRE_MAPPING[
-        GENRE_MAPPING["mods_genre_authority_aat_ms"] == value
+        GENRE_MAPPING['mods_genre_authority_aat_ms'] == value
     ]
 
     if not matching_rows.empty:
@@ -687,7 +784,7 @@ def process_genre(record: dict, value: str) -> dict:
     else:
         # Check GENRE_JP_MAPPING
         matching_rows = GENRE_JP_MAPPING[
-            GENRE_JP_MAPPING["term_name"] == value
+            GENRE_JP_MAPPING['term_name'] == value
         ]
 
         if not matching_rows.empty:
@@ -697,7 +794,7 @@ def process_genre(record: dict, value: str) -> dict:
                     add_value(record, None, "field_genre", genre_value)
         else:
             add_exception(
-                record["id"][0],
+                record['id'][0],
                 "mods_genre_authority_aat_ms",
                 value,
                 "could not find genre in mapping",
@@ -718,7 +815,7 @@ def process_form(record: dict, value: str) -> dict:
         dict: The updated record with processed form data.
     """
     matching_rows = FORM_MAPPING[
-        FORM_MAPPING["mods_physicalDescription_form_ms"] == value
+        FORM_MAPPING['mods_physicalDescription_form_ms'] == value
     ]
 
     if not matching_rows.empty:
@@ -739,7 +836,7 @@ def process_form(record: dict, value: str) -> dict:
                     add_value(record, None, "field_extent", extent)
     else:
         add_exception(
-            record["id"][0],
+            record['id'][0],
             "mods_physicalDescription_form_ms",
             value,
             "could not find form in mapping",
@@ -770,14 +867,14 @@ def process_source(record: dict, source_data: dict) -> dict:
             ]
             if not matching_rows.empty:
                 row = matching_rows.iloc[0]
-                source_fields = SOURCE_FIELDS + ["field_related_title_part_of"]
+                source_fields = SOURCE_FIELDS + ['field_related_title_part_of']
                 for source_field in source_fields:
                     source_value = row[source_field]
                     if source_field in row and source_value:
                         add_value(record, None, source_field, source_value)
             else:
                 add_exception(
-                    record["id"][0],
+                    record['id'][0],
                     None,
                     source_data,
                     "could not find matching source collection data",
@@ -786,18 +883,18 @@ def process_source(record: dict, source_data: dict) -> dict:
         identifier = record.get("identifier")
         if identifier:
             matching_rows = SOURCE_COLLECTION_MISSING[
-                SOURCE_COLLECTION_MISSING["PID"] == identifier
+                SOURCE_COLLECTION_MISSING['PID'] == identifier
             ]
             if not matching_rows.empty:
                 row = matching_rows.iloc[0]
-                source_fields = SOURCE_FIELDS + ["field_related_title_part_of"]
+                source_fields = SOURCE_FIELDS + ['field_related_title_part_of']
                 for source_field in source_fields:
                     source_value = row[source_field]
                     if source_field in row and source_value:
                         add_value(record, None, source_field, source_value)
             else:
                 add_exception(
-                    record["id"][0],
+                    record['id'][0],
                     None,
                     None,
                     "could not find source collection data for identifier",
@@ -833,13 +930,13 @@ def validate_record(record: dict) -> None:
         None
     """
     for field, values in record.items():
-        field_manager = FIELDS.loc[FIELDS["Field"] == field].iloc[0]
+        field_manager = FIELDS.loc[FIELDS['Field'] == field].iloc[0]
 
         if field_manager.Field_Type == "Text (plain)":
             for value in values:
                 if len(value) > 255:
                     add_exception(
-                        record["id"][0],
+                        record['id'][0],
                         field,
                         value,
                         "value exceeds character limit",
@@ -847,7 +944,7 @@ def validate_record(record: dict) -> None:
 
         if not field_manager.Repeatable and len(values) > 1:
             add_exception(
-                record["id"][0],
+                record['id'][0],
                 field,
                 values,
                 "multiple values in nonrepeatable field",
@@ -856,7 +953,7 @@ def validate_record(record: dict) -> None:
     for field in REQUIRED_FIELDS:
         if len(record[field]) < 1:
             add_exception(
-                record["id"][0],
+                record['id'][0],
                 field,
                 None,
                 f"record missing required {field}",
@@ -898,7 +995,10 @@ def records_to_csv(records: list, destination: str):
 
     # Replace empty or placeholder values with NaN
     nan_value = float("NaN")
-    df.replace({'': nan_value, '; ': nan_value, '; ; ': nan_value}, inplace=True)
+    df.replace(
+        {'': nan_value, '; ': nan_value, '; ; ': nan_value}, 
+        inplace=True
+    )
 
     # Drop columns where all values are NaN
     df.dropna(how='all', axis=1, inplace=True)
@@ -1005,11 +1105,11 @@ def process_records(
                 geo_field = False
 
                 # Add ID to record manually to ensure presence for logging
-                pid = row["PID"]
+                pid = row['PID']
                 add_value(record, None, "id", pid)
 
                 # Check if record has already been processed
-                skip_row = handle_record(filename, row)
+                skip_row = check_record(filename, row)
                 if skip_row:
                     continue
 
@@ -1025,18 +1125,16 @@ def process_records(
                     
                     for value in values:
                         # Transform values that require remediation
-                        if field == 'parent_id':
-                            value = value.replace('info:fedora/', '')
-                            if value in ['pitt:root', 'islandora:root']:
-                                continue
+                        if field == "parent_id":
+                            value = process_parent_id(record, value)
                         elif field in TITLE_FIELDS:
                             record = add_title(record, solr_field, field, value)
                             continue
-                        elif field == 'field_language':
+                        elif field == "field_language":
                             value = process_language(pid, value)
-                        elif field == 'field_place_published_pitt':
+                        elif field == "field_place_published_pitt":
                             value = process_country(pid, value)
-                        elif field == 'field_linked_agent':
+                        elif field == "field_linked_agent":
                             record, personal_names = process_name(
                                 record, personal_names, solr_field, field, value
                             )
@@ -1046,43 +1144,32 @@ def process_records(
                         elif field in SUBJECT_FIELDS:
                             record = process_subject(record, solr_field, value)
                             continue
-                        elif field == 'field_genre':
+                        elif field == "field_genre":
                             record = process_genre(record, value)
                             continue
-                        elif field == 'field_type_of_resources_legacy':
+                        elif field == "field_type_of_resources_legacy":
                             value = TYPE_MAPPING[value]
-                        elif field == 'field_physical_form':
+                        elif field == "field_physical_form":
                             record = process_form(record, value)
                             continue
                         elif field in GEO_FIELDS:
                             geo_field = True
                             continue
-                            
                         elif field in SOURCE_FIELDS:
-                            # TODO: Handle where there are multiple dates? 
                             source_data[solr_field] = dedup(data)
                             continue
-                        elif field == 'field_rights_statement':
+                        elif field == "field_rights_statement":
                             value = process_rights(value)
-                        elif field == 'field_model':
-                            if value not in OBJECT_MAPPING:
-                                add_exception(
-                                    pid, solr_field, value,
-                                    "skipped object due to model type")
-                                skip_row = True
-                                break  
-                            object_type = OBJECT_MAPPING.get(value, '')
-                            value = object_type['model']
-                            resource_type = object_type['resource_type']
-                            add_value(
-                                record, None, 'field_resource_type', 
-                                resource_type
-                                )
-                        elif field == 'field_domain_access':
-                            value = DOMAIN_MAPPING.get(value, '')
+                        elif field == "field_model":
+                            value, skip_row = process_model(
+                                record, solr_field, value
+                            )
+                        elif field == "field_domain_access":
+                            value = DOMAIN_MAPPING.get(value, "")
 
                         # Add Solr data to I2 field
-                        add_value(record, None, field, value)
+                        if value and not skip_row:
+                            add_value(record, solr_field, field, value)
 
                     if skip_row:
                         break
