@@ -172,13 +172,13 @@ SUBJECT_FIELD_MAPPING = {
 
 # RELS_EXT_isMemberOfSite_uri_ms -> domain
 DOMAIN_MAPPING = {
-    'info:fedora/': 'digital.library.pitt.edu',
-    'info:fedora/pitt:site.admin': 'digital.library.pitt.edu',
-    'info:fedora/pitt:site.american-music': 'americanmusic.library.pitt.edu',
-    'info:fedora/pitt:site.documenting-pitt': 'documenting.pitt.edu',
-    'info:fedora/pitt:site.historic-pittsburgh': 'historicpittsburgh.org',
-    'info:fedora/pitt:site.uls-digital-collections': 'digital.library.pitt.edu',
-    'info:fedora/pitt:uls-digital-collections': 'digital.library.pitt.edu',
+    'info:fedora/': 'digital_library_pitt_edu',
+    'info:fedora/pitt:site.admin': 'digital_library_pitt_edu',
+    'info:fedora/pitt:site.american-music': 'americanmusic_library_pitt_edu',
+    'info:fedora/pitt:site.documenting-pitt': 'documenting_pitt_edu',
+    'info:fedora/pitt:site.historic-pittsburgh': 'historicpittsburgh_org',
+    'info:fedora/pitt:site.uls-digital-collections': 'digital_library_pitt_edu',
+    'info:fedora/pitt:uls-digital-collections': 'digital_library_pitt_edu',
 }
 
 # dc.rights -> rights_statement
@@ -240,3 +240,7 @@ SOURCE_COLLECTION_MAPPING = create_df(source_collection_mapping_csv)
 # Read in missing source collection mapping
 source_collection_missing_csv = r".\Remediation_Mappings\source_collection_missing.csv"
 SOURCE_COLLECTION_MISSING = create_df(source_collection_missing_csv)
+
+# Read in collection node mapping
+collection_node_mapping_csv = r".\Remediation_Mappings\collection_node_mapping.csv"
+COLLECTION_NODE_MAPPING = create_df(collection_node_mapping_csv)
