@@ -35,7 +35,7 @@ mods_titleInfo_title_ms + """":"""" + mods_titleInfo_subtitle_ms + """","""" + m
 mods_titleInfo_subTitle_ms,field_full_title,,Full Title,,Copy to Full Title
 ,title,,Title,,Displays as title in header and list views - note that this sometimes differs from i7. Composed of: mods_titleInfo_nonSort_ms + mods_titleInfo_title_ms + mods_titleInfo_partNumber_ms + mods_titleInfo_partName_ms
 mods_name_personal_arranger_namePart_ms,field_linked_agent,,Contributors,relators:arr:,Copy to Linked Agent w/ relators:arr:person:
-mods_name_personal_editor_ms,field_linked_agent,,Contributors,relators:edt:,Copy to Linked Agent w/ relators:edt:person:
+mods_name_personal_editor_ms,,,Contributors,relators:edt:,no longer migrating
 mods_originInfo_eventType_publication_publisher_ms,field_publisher_pitt,,Publisher,,"Custom plain text, long"
 mods_originInfo_eventType_publisher_place_placeTerm_text_ms,field_place_publication,,Publication Place,,Copy to Publication Place
 mods_originInfo_eventType_producer_place_placeTerm_text_ms,field_place_production,,Production Place,,"Custom plain text, long"
@@ -182,7 +182,7 @@ mods_note_performers_ms,field_note,,Note,Performers:,Copy to Note
 mods_note_reproduction_ms,field_note,,Note,Repoduction:,Copy to Note
 mods_note_thesis_ms,field_note,,Note,Thesis:,Copy to Note
 mods_note_venue_ms,field_note,,Note,Venue:,Copy to Note
-mods_note_features_ms,field_geo_feature,,Geographic Features,,Copy to Geographic Features
+mods_note_features_ms,field_geographic_features,,Geographic Features,,Copy to Geographic Features
 mods_note_streets_ms,field_thoroughfare,,Thoroughfares,,Copy to Thoroughfares
 mods_relatedItem_series_note_numbering_ms,field_note,,Note,Numbering:,Copy to Note
 mods_accessCondition_copyright_rights.holder_name_ms,field_copyright_holder,,Copyright Holder,,"Custom plain text field, long"
