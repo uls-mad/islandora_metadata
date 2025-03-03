@@ -47,8 +47,59 @@ COLLECTIONS_TO_HOLD = [
     'pitt_collection_241.csv',
     'pitt_collection_123.csv',
     'pitt_collection_153.csv',
-    'pitt_collection_373.csv'
+    'pitt_collection_373.csv',
     'null_collection_objects.csv',
+]
+
+COLLECTIONS_TO_IGNORE = [
+    'pitt_collection_131.csv',
+    'pitt_collection_158.csv',
+    'pitt_collection_165.csv',
+    'pitt_collection_166.csv',
+    'pitt_collection_167.csv',
+    'pitt_collection_178.csv',
+    'pitt_collection_189.csv',
+    'pitt_collection_206.csv',
+    'pitt_collection_208.csv',
+    'pitt_collection_209.csv',
+    'pitt_collection_210.csv',
+    'pitt_collection_211.csv',
+    'pitt_collection_220.csv',
+    'pitt_collection_221.csv',
+    'pitt_collection_222.csv',
+    'pitt_collection_224.csv',
+    'pitt_collection_227.csv',
+    'pitt_collection_242.csv',
+    'pitt_collection_248.csv',
+    'pitt_collection_255.csv',
+    'pitt_collection_260.csv',
+    'pitt_collection_264.csv',
+    'pitt_collection_265.csv',
+    'pitt_collection_267.csv',
+    'pitt_collection_268.csv',
+    'pitt_collection_271.csv',
+    'pitt_collection_272.csv',
+    'pitt_collection_276.csv',
+    'pitt_collection_277.csv',
+    'pitt_collection_280.csv',
+    'pitt_collection_284.csv',
+    'pitt_collection_297.csv',
+    'pitt_collection_301.csv',
+    'pitt_collection_307.csv',
+    'pitt_collection_348.csv',
+    'pitt_collection_364.csv',
+    'pitt_collection_371.csv',
+    'pitt_collection_387.csv',
+    'pitt_collection_39.csv',
+    'pitt_collection_398.csv',
+    'pitt_collection_406.csv',
+    'pitt_collection_413.csv',
+    'pitt_collection_414.csv',
+    'pitt_collection_419.csv',
+    'pitt_collection_424.csv',
+    'pitt_collection_429.csv',
+    'pitt_collection_439.csv',
+    'pitt_collection_614.csv',
 ]
 
 PAGE_MODELS = [
@@ -81,24 +132,27 @@ def load_inventories():
 
 def order_files(files: list) -> list:
     """
-    Reorders a list of filenames by moving specified files to the end while preserving their order.
+    Reorders a list of filenames by moving specified files to the end while removing ignored files.
 
-    This function separates files that are listed in the `COLLECTIONS_TO_HOLD` 
-    constant and moves them to the end of the list while preserving the order 
-    of both the remaining files and the held files.
+    This function:
+    - Moves files listed in `COLLECTIONS_TO_HOLD` to the end while preserving their order.
+    - Removes files listed in `COLLECTIONS_TO_IGNORE`.
 
     Args:
         files (list): A list of filenames.
 
     Returns:
-        list: A reordered list with `COLLECTIONS_TO_HOLD` files at the end in their original order.
+        list: A reordered list with `COLLECTIONS_TO_HOLD` files at the end and `COLLECTIONS_TO_IGNORE` files removed.
     """
-    hold_files = [f for f in COLLECTIONS_TO_HOLD if f in files]
-    other_files = [f for f in files if f not in COLLECTIONS_TO_HOLD]
+    migrated_files = [f for f in files if f not in COLLECTIONS_TO_IGNORE]
+    hold_files = [f for f in COLLECTIONS_TO_HOLD if f in migrated_files]
+    other_files = [f for f in migrated_files if f not in COLLECTIONS_TO_HOLD]
+    
     return other_files + hold_files
 
 
-def process_parent_id(value: str) -> str:
+
+def handle_parent_id(value: str) -> str:
     """
     Process a comma-separated string of values by removing Fedora prefixes, 
     deduplicating, sorting, and joining the values with a pipe ('|') separator.
@@ -120,6 +174,39 @@ def process_parent_id(value: str) -> str:
     return "|".join(processed_values)
 
 
+def check_record(file: str, record: pd.Series) -> bool:
+    """
+    Checks if a record should be skipped based on its PID and file association.
+
+    This function determines whether a given record should be skipped by checking 
+    if its PID (or parent PID for pages) exists in the global `object_inventory` 
+    DataFrame. If the PID is found but is associated with a different file, 
+    the record is marked to be skipped.
+
+    Args:
+        file (str): The filename currently being processed.
+        record (pd.Series): A Pandas Series representing the record.
+
+    Returns:
+        bool: True if the record should be skipped, False otherwise.
+    """
+    global object_inventory
+    pid = record['PID']
+    object_model = handle_parent_id(record['RELS_EXT_hasModel_uri_ms'])
+    skip = False
+
+    if object_model in PAGE_MODELS:
+        pid = record['RELS_EXT_isMemberOf_uri_ms'].replace('info:fedora/', '')
+
+    matching_rows = object_inventory.loc[object_inventory['PID'] == pid]
+
+    if not matching_rows.empty:
+        inventory_file = matching_rows.iloc[0]['File']
+        skip = (inventory_file != file)
+
+    return skip
+
+
 
 def handle_record(file: str, record: pd.Series):
     """
@@ -138,8 +225,8 @@ def handle_record(file: str, record: pd.Series):
     global object_inventory
 
     pid = record['PID']
-    collection = process_parent_id(record['RELS_EXT_isMemberOfCollection_uri_ms'])
-    object_model = process_parent_id(record['RELS_EXT_hasModel_uri_ms'])
+    collection = handle_parent_id(record['RELS_EXT_isMemberOfCollection_uri_ms'])
+    object_model = handle_parent_id(record['RELS_EXT_hasModel_uri_ms'])
     page = object_model in PAGE_MODELS
     skip = False
 
@@ -148,9 +235,9 @@ def handle_record(file: str, record: pd.Series):
 
     if pid in object_inventory['PID'].values:
         row_index = object_inventory.index[object_inventory['PID'] == pid][0]
-        inv_file = object_inventory.at[row_index, 'File']
+        inventory_file = object_inventory.at[row_index, 'File']
 
-        if inv_file == file:
+        if inventory_file == file:
             # If PID exists in inventory, update Num_Pages if it's a page
             if page:
                 object_inventory.at[row_index, 'Num_Pages'] = int(
@@ -166,7 +253,7 @@ def handle_record(file: str, record: pd.Series):
                     for field in OBJECT_INVENTORY_FIELDS[2:-1]:
                         value = record.get(field, None)
                         if 'RELS_EXT' in field:
-                            value = process_parent_id(value)
+                            value = handle_parent_id(value)
                         object_inventory.at[
                             row_index, field
                         ] = record.get(field, None)
