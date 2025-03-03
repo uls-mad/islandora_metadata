@@ -151,7 +151,6 @@ def order_files(files: list) -> list:
     return other_files + hold_files
 
 
-
 def handle_parent_id(value: str) -> str:
     """
     Process a comma-separated string of values by removing Fedora prefixes, 
@@ -172,6 +171,19 @@ def handle_parent_id(value: str) -> str:
 
     # Rejoin values with a pipe separator
     return "|".join(processed_values)
+
+
+def check_file(file: str) -> bool:
+    """
+    Checks whether a given file exists in the 'File' column of the `object_inventory` DataFrame.
+
+    Args:
+        file (str): The filename to check.
+
+    Returns:
+        bool: True if the file exists in `object_inventory`, False otherwise.
+    """
+    return file in object_inventory['File'].values
 
 
 def check_record(file: str, record: pd.Series) -> bool:
@@ -205,7 +217,6 @@ def check_record(file: str, record: pd.Series) -> bool:
         skip = (inventory_file != file)
 
     return skip
-
 
 
 def handle_record(file: str, record: pd.Series):

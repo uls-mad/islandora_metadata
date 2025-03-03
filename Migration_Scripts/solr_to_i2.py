@@ -207,7 +207,6 @@ def dedup(value: str) -> str:
     return ','.join(unique_parts)
 
 
-
 def validate_edtf_date(date: str) -> bool:
     """
     Validates if the given date string is in a valid EDTF (Extended Date/Time Format).
@@ -453,7 +452,6 @@ def process_parent_id(record: dict, value: str) -> str | None:
     return new_value
 
 
-
 def process_model(record: dict, solr_field: str, value: str) -> tuple[str | None, bool]:
     """
     Processes an object model by mapping it to a predefined type and determining 
@@ -493,7 +491,6 @@ def process_model(record: dict, solr_field: str, value: str) -> tuple[str | None
     )
 
     return new_value, skip_row
-
 
 
 def process_title(record: dict) -> dict:
@@ -565,7 +562,6 @@ def process_language(pid: str, value: str) -> str:
         )
         return value
     return matching_row.iloc[0]
-
 
 
 def process_country(pid: str, value: str) -> str:
@@ -1009,7 +1005,8 @@ def records_to_csv(records: list, destination: str):
     # Write the resulting DataFrame to a CSV file
     df.to_csv(destination, index=False, header=True, encoding='utf-8')
 
-    print(f"CSV file has been saved to {destination.replace('\\', '/')}")
+    formatted_path = destination.replace("\\", "/")
+    print(f"CSV file has been saved to {formatted_path}")
 
 
 def write_reports(output_dir: str, timestamp: str):
@@ -1216,7 +1213,6 @@ def process_records(
         print(f"Critical error in processing {filename}: {e}")
 
 
-
 def process_files(tracker: ProgressTracker, input_dir: str, output_dir: str):
     """
     Process all CSV files in the input directory and save the processed records to the output directory.
@@ -1249,9 +1245,12 @@ def process_files(tracker: ProgressTracker, input_dir: str, output_dir: str):
 
             global current_file
             current_file = filename
-            process_records(
-                tracker, input_dir, output_dir, filename, timestamp
-            )
+            if check_file(current_file):
+                process_records(
+                    tracker, input_dir, output_dir, filename, timestamp
+                )
+            else:
+                print(f"Skipping unknown file {current_file}")
             tracker.update_processed_files()
 
     except Exception as e:
@@ -1264,7 +1263,6 @@ def process_files(tracker: ProgressTracker, input_dir: str, output_dir: str):
 
     # Save inventory of processed records
     save_inventories()
-
 
 
 """ Driver Code """
