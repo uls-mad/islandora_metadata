@@ -17,14 +17,15 @@ REQUIRED_FIELDS = [
     'id',
     'field_model',
     'field_resource_type',
-    #'field_member_of', # only if ingesting into a pre-existing collection in I2
+    'field_member_of'
 ]
 
 UNMAPPED_FIELDS = [
     'fedora_datastream_info_HOCR_ID_ms',
     'fedora_datastream_info_JP2_ID_ms',
     'fedora_datastream_info_TRANSCRIPT_ID_ms',
-    'mods_name_namePart_ms'
+    'mods_name_namePart_ms',
+    'mods_name_personal_editor_ms'
 ]
 
 TITLE_FIELDS = [
