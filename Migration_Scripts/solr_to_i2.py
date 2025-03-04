@@ -751,7 +751,8 @@ def process_subject(
         if field:
             # Use the value in the Valid_Heading column as the value
             new_value = row['Valid_Heading']
-            prefix = LINKED_AGENT_TYPES.get(subject_type) + ":"
+            prefix = LINKED_AGENT_TYPES.get(subject_type)
+            prefix = f"{prefix}:" if prefix else prefix
 
             if row['authority'] == "aat":
                 field = "field_genre"
