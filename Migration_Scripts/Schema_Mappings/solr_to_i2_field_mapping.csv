@@ -163,7 +163,7 @@ RELS_EXT_dateIssued_literal_ms,field_edtf_date,,Date,,Copy to Date
 mods_subject_cartographics_coordinates_ms,field_coordinates_text,,Coordinates (Text),,
 mods_subject_name_conference_namePart_ms,field_subjects_name,,Subject (Name),conference:,Copy to Subject (Name) with prefix of conference: (Added Conference taxonomy to this field.)
 mods_subject_name_corporate_namePart_ms,field_subjects_name,,Subject (Name),corporate_body:,Copy to Subject (Name) with prefix of corporate_body:
-mods_subject_name_namePart_ms,field_subjects_name,,Subject (Name),person:|corporate_body:,"Copy to Subject (Name) field, need to manually check if person or corporate_body prefix."
+mods_subject_name_namePart_ms,field_subjects_name,,Subject (Name),,"Copy to Subject (Name) field, need to manually check if person or corporate_body prefix."
 mods_identifier_isbn_ms,field_isbn,,ISBN,,
 mods_note_address_ms,field_address,,Addresses,,Copy to Address
 mods_note_acquisition_ms,field_note,,Note,Acquisition:,Copy to Note

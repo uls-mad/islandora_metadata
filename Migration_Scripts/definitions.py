@@ -1,14 +1,5 @@
-# Import modules
-import pandas as pd
-
-
-""" HELPER FUNCTION """
-
-def create_df(filepath: str):
-    df = pd.read_csv(
-        filepath, dtype=str, keep_default_na=False, na_filter=False
-    )
-    return df
+# Import local module
+from utilities import create_df
 
 
 """ FIELD LISTS """
@@ -53,16 +44,12 @@ SOURCE_FIELDS = [
 ]
 
 SUBJECT_FIELDS = [
-    'mods_subject_genre_ms',
-    'mods_subject_geographic_ms',
-    'mods_subject_name_conference_namePart_ms',
-    'mods_subject_name_corporate_namePart_ms',
-    'mods_subject_name_namePart_ms',
-    'mods_subject_name_personal_namePart_ms',
-    'mods_subject_temporal_ms',
-    'mods_subject_titleInfo_partName_ms',
-    'mods_subject_titleInfo_title_ms',
-    'mods_subject_topic_ms'
+    'field_geographic_subject,'
+    'field_subject,'
+    'field_subject_genre,'
+    'field_subject_title',
+    'field_subjects_name',
+    'field_temporal_subject,'
 ]
 
 
@@ -187,6 +174,13 @@ RIGHTS_MAPPING = {
     'http://rightsstatements.org/vocab/NoC-US/1.0/': 'No Copyright - United States',
     'http://rightsstatements.org/vocab/InC/1.0/': 'In Copyright'
 }
+
+DATASTREAMS = {
+    'fedora_datastream_info_HOCR_ID_ms': ['HOCR'],
+    'fedora_datastream_info_JP2_ID_ms': ['JP2'],
+    'fedora_datastream_info_TRANSCRIPT_ID_ms': ['TRANSCRIPT']
+}
+
 
 
 """ IMPORTED MAPPINGS """

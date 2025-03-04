@@ -7,7 +7,6 @@ import re
 import threading
 import traceback
 import tkinter as tk
-from tkinter import filedialog
 from datetime import datetime
 from typing import List, Tuple, Union
 
@@ -17,6 +16,7 @@ import pandas as pd
 from edtf import parse_edtf
 
 # Import local modules
+from utilities import *
 from definitions import *
 from inventory_manager import *
 from progress_tracker import ProgressTracker
@@ -35,27 +35,6 @@ current_file = None
 
 
 """ Helper Functions """
-
-def get_directory(io_type: str, title: str) -> str:
-    """
-    Prompt the user to select a directory of a given I/O type.
-
-    Args:
-        io_type (str): The I/O type of the directory (input or output)
-        title: The title for the file dialog.
-
-    Returns:
-        str: Path to the selected directory.
-
-    Raises:
-        SystemExit: If the user does not select a directory.
-    """
-    dir = filedialog.askdirectory(title=title)
-    if not dir:
-        print(f"No directory {io_type} selected.")
-        exit(0)
-    return dir
-
 
 def initialize_record() -> dict:
     """
@@ -679,6 +658,7 @@ def process_name(
 
         prefix = f"{relator}{name_type}:" \
             if name_type in LINKED_AGENT_TYPES.values() else "rlt"
+        
         add_value(record, solr_field, field, new_value, prefix)
 
     return record, personal_names
@@ -746,6 +726,11 @@ def process_subject(
         (SUBJECT_MAPPING['Solr_Field'] == solr_field) & 
         (SUBJECT_MAPPING['Original_Heading'] == value)
     ]
+
+    if matching_rows.empty:
+        add_exception(record['id'][0], solr_field, value, 
+                      "could not find subject in mapping")
+        return record
 
     # Iterate through each filtered row
     for _, row in matching_rows.iterrows():
@@ -1018,7 +1003,6 @@ def complete_record(record: dict) -> dict:
     return record
 
 
-
 def records_to_csv(records: list, destination: str):
     """
     Converts a list of dictionaries to a CSV file, dropping empty columns.
@@ -1058,6 +1042,26 @@ def write_reports(output_dir: str, timestamp: str):
         None
     """
     # Save exceptions to DataFrame
+    if transformations:
+        transformations_df = pd.DataFrame.from_dict(transformations)
+    else:
+        transformations_df = pd.DataFrame(
+            ['no transformations were made'],
+            columns=['msg']
+        )
+    
+    # Write DataFrame to CSV
+    transformations_filepath = os.path.join(
+        output_dir,
+        f'{timestamp}_transformations.csv'
+    )
+    transformations_df.to_csv(
+        transformations_filepath,
+        index=False,
+        encoding='utf-8'
+    )
+
+    # Save exceptions to DataFrame
     if exceptions:
         exceptions_df = pd.DataFrame.from_dict(exceptions)
     else:
@@ -1079,9 +1083,6 @@ def write_reports(output_dir: str, timestamp: str):
 
 
 """ Key Functions """
-
-import pandas as pd
-import os
 
 def process_records(
     tracker: ProgressTracker,  
@@ -1112,12 +1113,9 @@ def process_records(
     output_filepath = os.path.join(output_dir, output_filename)
 
     # Convert table into a DataFrame
-    df = pd.read_csv(
-        input_path,
-        dtype=str,
-        keep_default_na=False,
-        na_filter=False
-    )
+    df = pd.read_csv(input_path, dtype=str).\
+        replace('', pd.NA).\
+        dropna(axis=1, how='all')
 
     # Initialize records
     records = []
@@ -1149,11 +1147,11 @@ def process_records(
 
                 # Process values in each field
                 for solr_field, data in row.items():
-                    # Confirm that Solr field is mapped to an I2 field
+                    # Confirm that Solr field is mapped and data exists in field
                     field = get_mapped_field(pid, solr_field, data)
-                    if not field:
+                    if not field or pd.isna(data):
                         continue
-                    
+
                     # Preproccess values
                     values = split_and_clean(data)
                     
