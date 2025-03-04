@@ -21,11 +21,9 @@ REQUIRED_FIELDS = [
 ]
 
 UNMAPPED_FIELDS = [
-    'fedora_datastream_info_HOCR_ID_ms',
-    'fedora_datastream_info_JP2_ID_ms',
-    'fedora_datastream_info_TRANSCRIPT_ID_ms',
+    'ancestors_ms',
     'mods_name_namePart_ms',
-    'mods_name_personal_editor_ms'
+    'mods_name_personal_editor_ms',
 ]
 
 TITLE_FIELDS = [

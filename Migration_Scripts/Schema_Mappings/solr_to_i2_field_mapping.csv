@@ -1,19 +1,15 @@
 solr_field,machine_name,required,label,prefix,notes
 ,id,yes,,,Copy PID
 PID,field_pid,,,,
-ancestors_ms,parent_id,,,,Used for batching records by collection; can delete this column after exporting data from Solr.
+ancestors_ms,,,,,Used for batching records by collection; can delete this column after exporting data from Solr.
 RELS_EXT_isSequenceNumber_literal_ms,field_weight,,,,Remove leading 0's.
-,transcript,,,,Transcript file
-,hocr,,,,HOCR file
-fedora_datastream_info_JP2_ID_ms,,,,,"If JP2, add link to file in ""file"" column. Then delete this column."
-fedora_datastream_info_HOCR_ID_ms,,,,,"If HOCR, add link to file in ""hocr"" column. Then delete this column."
-fedora_datastream_info_TRANSCRIPT_ID_ms,,,,,"If TRANSCRIPT, add link to file in ""transcript"" column. Then delete this column."
+fedora_datastream_info_TRANSCRIPT_ID_ms,transcript,,,,Transcript file
+fedora_datastream_info_HOCR_ID_ms,hocr,,,,HOCR file
 RELS_EXT_hasModel_uri_ms,field_model,yes,Model*,,"Use for determining Resource Type, then delete
 
 Use for determining display logic, along with Model. Terms come from Islandora Models vocab."
 RELS_EXT_isConstituentOf_uri_ms,parent_id,,,,Use to fill in parent_id column; then delete.
 RELS_EXT_isMemberOf_uri_ms,parent_id,,,,Use to fill in parent_id column; then delete.
-RELS_EXT_isMemberOfCollection_uri_ms,parent_id,,,,Use to fill in parent_id column; then delete.
 mods_typeOfResource_ms,field_type_of_resource,,Type of Resource,,Use for metadata display
 mods_typeOfResource_ms,field_resource_type,yes,"Type* (change from ""Resource Type"")",,"Use for determining Resource Type, then delete
 
@@ -35,7 +31,7 @@ mods_titleInfo_title_ms + """":"""" + mods_titleInfo_subtitle_ms + """","""" + m
 mods_titleInfo_subTitle_ms,field_full_title,,Full Title,,Copy to Full Title
 ,title,,Title,,Displays as title in header and list views - note that this sometimes differs from i7. Composed of: mods_titleInfo_nonSort_ms + mods_titleInfo_title_ms + mods_titleInfo_partNumber_ms + mods_titleInfo_partName_ms
 mods_name_personal_arranger_namePart_ms,field_linked_agent,,Contributors,relators:arr:,Copy to Linked Agent w/ relators:arr:person:
-mods_name_personal_editor_ms,,,Contributors,relators:edt:,no longer migrating
+mods_name_personal_editor_ms,,,Contributors,relators:edt:,No longer migrating
 mods_originInfo_eventType_publication_publisher_ms,field_publisher_pitt,,Publisher,,"Custom plain text, long"
 mods_originInfo_eventType_publisher_place_placeTerm_text_ms,field_place_publication,,Publication Place,,Copy to Publication Place
 mods_originInfo_eventType_producer_place_placeTerm_text_ms,field_place_production,,Production Place,,"Custom plain text, long"
@@ -211,9 +207,9 @@ mods_relatedItem_host_note_subseries_ms,field_series_information,,Series Informa
 mods_subject_titleInfo_title_ms,field_subject_title,,Subject (Title),,"Custom taxonomy, repeatable"
 mods_subject_titleInfo_partName_ms,field_subject_title,,Subject (Title),,Copy to Subject (Title)
 ,field_access_terms,,Access Control,,Controls access via Groups. Terms come from Islandora Access taxonomy.
-,field_member_of,yes,Member of,,"If ingesting into a pre-existing collection in Drupal, put its node ID here. Otherwise, leave blank. This column is required by Workbench (even if empty)."
+RELS_EXT_isMemberOfCollection_uri_ms,field_member_of,yes,Member of,,"If ingesting into a pre-existing collection in Drupal, put its node ID here. Otherwise, leave blank. This column is required by Workbench (even if empty)."
 ,field_display_hints,,,,Controls how objects display. Terms come from Islandora Display taxonomy.
-,file,,,,Path to main file (original file from which derivatives will be made).
+fedora_datastream_info_JP2_ID_ms,file,,,,Path to main file (original file from which derivatives will be made).
 RELS_EXT_isMemberOfSite_uri_ms,field_domain_access,,Domain,,"Use to fill in Domain column; then delete.
 
 Determines on which domain(s) an object will display to anonymous users. Example entry is: historicpittsburgh_org|digital_library_pitt_edu"

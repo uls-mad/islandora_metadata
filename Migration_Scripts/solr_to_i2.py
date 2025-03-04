@@ -411,7 +411,7 @@ def add_geo_field(record: dict, pid: str) -> dict:
     return record
 
 
-def process_parent_id(record: dict, value: str) -> str | None:
+def process_parent_id(value: str) -> str | None:
     """
     Processes a parent ID by removing the "info:fedora/" prefix and mapping 
     collection IDs to their corresponding node IDs.
@@ -429,24 +429,46 @@ def process_parent_id(record: dict, value: str) -> str | None:
                     to a root PID.
     """
     new_value = value.removeprefix("info:fedora/")
-
     if new_value in {"pitt:root", "islandora:root"}:
         return None
-
-    if "collection" in new_value:
-        matching_rows = COLLECTION_NODE_MAPPING.loc[
-            COLLECTION_NODE_MAPPING['id'] == new_value, "node_id"
-        ]
-        if not matching_rows.empty:
-            node_id = matching_rows.iloc[0]
-            add_value(
-                record,
-                "RELS_EXT_isMemberOfCollection_uri_ms",
-                "field_member_of",
-                node_id
-            )
-
     return new_value
+
+
+def process_collection_id(
+    record: dict, 
+    solr_field: str, 
+    value: str
+) -> str | None:
+    """
+    Processes a collection ID by mapping it to its corresponding node ID.
+
+    If the collection ID is found in `COLLECTION_NODE_MAPPING`, the corresponding `node_id` is returned.
+    Otherwise, an exception is logged, and `None` is returned.
+
+    Args:
+        record (dict): The record being processed, containing metadata fields.
+        solr_field (str): The name of the Solr field being processed.
+        value (str): The collection ID to be mapped.
+
+    Returns:
+        str | None: The corresponding node ID if found, otherwise None.
+    """
+    new_value = process_parent_id(value)
+    matching_rows = COLLECTION_NODE_MAPPING.loc[
+        COLLECTION_NODE_MAPPING["id"] == new_value, "node_id"
+    ]
+
+    node_id = matching_rows.iloc[0] if not matching_rows.empty else None
+
+    if node_id is None:
+        add_exception(
+            record["id"][0],
+            solr_field,
+            value,
+            f"Node not found for collection {value}"
+        )
+
+    return node_id
 
 
 def process_model(record: dict, solr_field: str, value: str) -> tuple[str | None, bool]:
@@ -773,7 +795,13 @@ def process_genre(record: dict, value: str) -> dict:
         for _, row in matching_rows.iterrows():
             genre_value = row.get("field_genre")
             if genre_value:  # Ensure the value is not empty or None
-                add_value(record, None, "field_genre", genre_value)
+                add_value(
+                    record, 
+                    None, 
+                    "field_genre", 
+                    genre_value, 
+                    "genre:"
+                )
     else:
         # Check GENRE_JP_MAPPING
         matching_rows = GENRE_JP_MAPPING[
@@ -784,7 +812,13 @@ def process_genre(record: dict, value: str) -> dict:
             for _, row in matching_rows.iterrows():
                 genre_value = row.get("term_name")
                 if genre_value:
-                    add_value(record, None, "field_genre", genre_value)
+                    add_value(
+                        record, 
+                        None, 
+                        "field_genre", 
+                        genre_value, 
+                        "genre_japanese_prints:"
+                    )
         else:
             add_exception(
                 record['id'][0],
@@ -934,8 +968,18 @@ def validate_record(record: dict) -> None:
                         value,
                         "value exceeds character limit",
                     )
+        
+        if field_manager.Field_Type == "Number (integer)":
+            for value in values:
+                if not isinstance(value, int):
+                    add_exception(
+                        record['id'][0],
+                        field,
+                        value,
+                        f"expected an integer, but got {type(value).__name__}",
+                    )
 
-        if not field_manager.Repeatable and len(values) > 1:
+        if field_manager.Repeatable == "FALSE" and len(values) > 1:
             add_exception(
                 record['id'][0],
                 field,
@@ -955,18 +999,24 @@ def validate_record(record: dict) -> None:
 
 def complete_record(record: dict) -> dict:
     """
-    Finalize the record by converting list values to pipe-separated strings.
+    Finalize the record by converting list values to pipe-separated strings and 
+    removing keys with empty lists.
 
     Args:
         record (dict): The record to finalize.
 
     Returns:
-        dict: The finalized record.
+        dict: The finalized record with empty list values removed.
     """
     for field, values in list(record.items()):
-        if isinstance(record[field], list):
-            record[field] = "|".join(values)
+        if isinstance(values, list):
+            if values:  # If the list is not empty, convert it
+                record[field] = "|".join(values)
+            else:  # If the list is empty, remove the key
+                del record[field]
+    
     return record
+
 
 
 def records_to_csv(records: list, destination: str):
@@ -985,15 +1035,6 @@ def records_to_csv(records: list, destination: str):
 
     # Convert list of dictionaries to DataFrame
     df = pd.DataFrame.from_dict(records)
-
-    # Replace empty values with NaN
-    df.replace(
-        {'': np.nan}, 
-        inplace=True
-    )
-
-    # Drop columns where all values are NaN
-    df.dropna(how='all', axis=1, inplace=True)
 
     # Ensure the destination directory exists
     os.makedirs(os.path.dirname(destination), exist_ok=True)
@@ -1118,8 +1159,12 @@ def process_records(
                     
                     for value in values:
                         # Transform values that require remediation
-                        if field == "parent_id":
-                            value = process_parent_id(record, value)
+                        if field == "field_member_of":
+                            value = process_collection_id(
+                                record, solr_field, value
+                            )
+                        elif field == "parent_id":
+                            value = process_parent_id(value)
                         elif field in TITLE_FIELDS:
                             record = add_title(record, solr_field, field, value)
                             continue
@@ -1159,6 +1204,8 @@ def process_records(
                             )
                         elif field == "field_domain_access":
                             value = DOMAIN_MAPPING.get(value, "")
+                        elif field == "field_preservica_date":
+                            value = value[:10]
 
                         # Add Solr data to I2 field
                         if value and not skip_row:
@@ -1200,6 +1247,7 @@ def process_records(
 
             except Exception as e:
                 print(f"Error processing row {pid}: {e}")
+                print(traceback.format_exc())
                 add_exception(pid, "row_error", "", str(e))
 
         # Save records to a CSV file in the output folder 
@@ -1207,6 +1255,7 @@ def process_records(
 
     except Exception as e:
         print(f"Critical error in processing {filename}: {e}")
+        print(traceback.format_exc())
 
 
 def process_files(tracker: ProgressTracker, input_dir: str, output_dir: str):
