@@ -135,9 +135,9 @@ def process_csv_files(csv_dir: str, media_dir: str):
             )
             
             # Log output file creation
-            print(f"CSV file processed successfully: {
-                output_filepath.replace('\\', '/')
-            }")
+            print("CSV file processed successfully: " + 
+                  output_filepath.replace('\\', '/')
+            )
 
     except Exception as e:
         print(f"Error during processing: {e}")
