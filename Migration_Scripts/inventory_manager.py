@@ -1,17 +1,11 @@
 """ Modules """
 
-import pandas as pd
 import os
+from pathlib import Path
+import pandas as pd
 
 
-"""  LISTS """
-
-BATCH_INVENTORY_FIELDS = [
-    'File',
-    'Collection',
-    'Collection_Count'
-    'Batch_Count'
-]
+""" CONSTANTS/VARIABLES """
 
 OBJECT_INVENTORY_FIELDS = [
     'File',
@@ -108,10 +102,8 @@ PAGE_MODELS = [
     'info:fedora/islandora:newspaperPageCModel'
 ]
 
-""" VARIABLES """
-
 # Load or create inventory DataFrame
-OBJECT_INVENTORY_FILE = "object_inventory.csv"
+OBJECT_INVENTORY_FILE = Path("Utility_Files") / "object_inventory.csv"
 
 # Initialize inventory variables
 object_inventory = None
@@ -119,9 +111,8 @@ object_inventory = None
 
 """ FUNCTIONS """
 
-def load_inventories():
+def load_inventory():
     global object_inventory
-    global batch_inventory
     if os.path.exists(OBJECT_INVENTORY_FILE):
         object_inventory = pd.read_csv(
             OBJECT_INVENTORY_FILE, dtype=str
@@ -300,5 +291,5 @@ def handle_record(file: str, record: pd.Series):
 
 
 # Save the updated inventory to CSV
-def save_inventories():
+def save_inventory():
     object_inventory.to_csv(OBJECT_INVENTORY_FILE, index=False)

@@ -18,6 +18,7 @@ from edtf import parse_edtf
 # Import local modules
 from utilities import *
 from definitions import *
+from batch_manager import *
 from inventory_manager import *
 from progress_tracker import ProgressTracker
 
@@ -756,6 +757,7 @@ def process_subject(
 
             if row['authority'] == "aat":
                 field = "field_genre"
+                prefix = "genre:"
 
             add_value(record, solr_field, field, new_value, prefix)
 
@@ -840,8 +842,9 @@ def process_form(record: dict, value: str) -> dict:
 
             genre_value = row.get("field_genre")
             if genre_value:
+                prefix = "genre:"
                 for genre in genre_value.split("|"):
-                    add_value(record, None, "field_genre", genre)
+                    add_value(record, None, "field_genre", genre, prefix)
 
             extent_value = row.get("field_extent")
             if extent_value:
@@ -1030,6 +1033,8 @@ def records_to_csv(records: list, destination: str):
     formatted_path = destination.replace("\\", "/")
     print(f"CSV file has been saved to {formatted_path}")
 
+    return df
+
 
 """ Key Functions """
 
@@ -1198,7 +1203,10 @@ def process_records(
                 add_exception(pid, "row_error", "", str(e))
 
         # Save records to a CSV file in the output folder 
-        records_to_csv(records, output_filepath)
+        df = records_to_csv(records, output_filepath)
+
+        # Save PIDs for media export
+        save_pids_for_media(input_dir, df, DATASTREAMS_MAPPING)
 
     except Exception as e:
         print(f"Critical error in processing {filename}: {e}")
@@ -1227,7 +1235,7 @@ def process_files(tracker: ProgressTracker, input_dir: str, output_dir: str):
     timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
 
     # Load/Initialize inventory for processed records
-    load_inventories()
+    load_inventory()
 
     # Process files
     try:
@@ -1242,7 +1250,7 @@ def process_files(tracker: ProgressTracker, input_dir: str, output_dir: str):
                     tracker, input_dir, output_dir, filename, timestamp
                 )
             else:
-                print(f"Skipping unknown file {current_file}")
+                print(f"Skipping unexpected file {current_file}")
             tracker.update_processed_files()
 
     except Exception as e:
@@ -1251,10 +1259,11 @@ def process_files(tracker: ProgressTracker, input_dir: str, output_dir: str):
         sys.exit(1)
     
     # Write reports
-    write_reports(output_dir, timestamp, transformations, exceptions)
+    log_dir = os.path.join(input_dir, "logs")
+    write_reports(log_dir, timestamp, transformations, exceptions)
 
     # Save inventory of processed records
-    save_inventories()
+    # save_inventory()
 
 
 """ Driver Code """
@@ -1264,9 +1273,16 @@ if __name__ == "__main__":
     root = tk.Tk()
     root.withdraw()
 
-    # Get input and output directories
-    input_dir = get_directory('input', 'Select Folder with Input CSV Files')
-    output_dir = get_directory('output', 'Select Folder to Save CSV Files')
+    # Get input directory
+    input_dir = get_directory(
+        'input', 'Select Batch Folder with Input CSV Files'
+    )
+
+    # Set up batch directory
+    setup_batch_directory(input_dir)
+
+    # Set output directory
+    output_dir = os.path.join(input_dir, "metadata")
 
     # Initialize progress tracker
     tracker = ProgressTracker(root)
