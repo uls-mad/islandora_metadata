@@ -111,7 +111,7 @@ def process_csv_files(csv_dir: str, media_dir: str):
             # Set filepaths
             current_file = filename
             csv_path = os.path.join(csv_dir, filename)
-            output_filename = filename.replace('.csv', '_w_media.csv')
+            output_filename = filename.replace('.csv', '_media.csv')
             output_filepath = os.path.join(media_dir, output_filename)
 
             # Load CSV into DataFrame
