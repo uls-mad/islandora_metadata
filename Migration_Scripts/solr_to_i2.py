@@ -1274,15 +1274,15 @@ if __name__ == "__main__":
     root.withdraw()
 
     # Get input directory
-    input_dir = get_directory(
+    batch_dir = get_directory(
         'input', 'Select Batch Folder with Input CSV Files'
     )
 
     # Set up batch directory
-    setup_batch_directory(input_dir)
+    setup_batch_directory(batch_dir)
 
     # Set output directory
-    output_dir = os.path.join(input_dir, "metadata")
+    output_dir = os.path.join(batch_dir, "metadata")
 
     # Initialize progress tracker
     tracker = ProgressTracker(root)
@@ -1290,7 +1290,7 @@ if __name__ == "__main__":
     # Run file/record processing in a separate thread
     processing_thread = threading.Thread(
         target=process_files, 
-        args=(tracker, input_dir, output_dir)
+        args=(tracker, batch_dir, output_dir)
     )
     processing_thread.start()
 

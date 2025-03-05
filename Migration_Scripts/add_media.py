@@ -156,15 +156,19 @@ if __name__ == "__main__":
 
     try:
         # Get directories and timestamp for file handling
-        csv_dir = get_directory('input', 'Select Folder with Import CSV Files')
-        media_dir = get_directory('input', 'Select Folder with Media Files')
+        batch_dir = get_directory(
+            'input', 'Select Batch Folder with Input CSV Files'
+        )
+        metadata_dir = os.path.join(batch_dir, "metadata")
+        media_dir = os.path.join(batch_dir, "import")
+        log_dir = os.path.join(batch_dir, "logs")
         timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
 
         # Process CSV files
-        exceptions = process_csv_files(csv_dir, media_dir)
+        exceptions = process_csv_files(metadata_dir, media_dir)
 
         # Report exceptions, if any
-        write_reports(media_dir, timestamp, [], exceptions)
+        write_reports(log_dir, timestamp, [], exceptions)
 
     except Exception as e:
         print(f"Unexpected error: {e}")
