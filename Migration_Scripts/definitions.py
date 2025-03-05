@@ -175,10 +175,10 @@ RIGHTS_MAPPING = {
     'http://rightsstatements.org/vocab/InC/1.0/': 'In Copyright'
 }
 
-DATASTREAMS = {
-    'fedora_datastream_info_HOCR_ID_ms': ['HOCR'],
-    'fedora_datastream_info_JP2_ID_ms': ['JP2'],
-    'fedora_datastream_info_TRANSCRIPT_ID_ms': ['TRANSCRIPT']
+DATASTREAMS_MAPPING = {
+    'hocr': ['HOCR'],
+    'file': ['JP2'],
+    'transcript': ['TRANSCRIPT']
 }
 
 

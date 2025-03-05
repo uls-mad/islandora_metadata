@@ -1031,58 +1031,6 @@ def records_to_csv(records: list, destination: str):
     print(f"CSV file has been saved to {formatted_path}")
 
 
-def write_reports(output_dir: str, timestamp: str):
-    """
-    Writes two CSV reports: one for transformations and one for exceptions.
-
-    Args:
-        output_dir (str): Path to the folder where reports will be saved.
-        timestamp (str): Timestamp to include in the filenames of the reports.
-
-    Returns:
-        None
-    """
-    # Save exceptions to DataFrame
-    if transformations:
-        transformations_df = pd.DataFrame.from_dict(transformations)
-    else:
-        transformations_df = pd.DataFrame(
-            ['no transformations were made'],
-            columns=['msg']
-        )
-    
-    # Write DataFrame to CSV
-    transformations_filepath = os.path.join(
-        output_dir,
-        f'{timestamp}_transformations.csv'
-    )
-    transformations_df.to_csv(
-        transformations_filepath,
-        index=False,
-        encoding='utf-8'
-    )
-
-    # Save exceptions to DataFrame
-    if exceptions:
-        exceptions_df = pd.DataFrame.from_dict(exceptions)
-    else:
-        exceptions_df = pd.DataFrame(
-            ['no exceptions were encountered'],
-            columns=['msg']
-        )
-    
-    # Write DataFrame to CSV
-    exceptions_filepath = os.path.join(
-        output_dir,
-        f'{timestamp}_exceptions.csv'
-    )
-    exceptions_df.to_csv(
-        exceptions_filepath,
-        index=False,
-        encoding='utf-8'
-    )
-
-
 """ Key Functions """
 
 def process_records(
@@ -1303,7 +1251,7 @@ def process_files(tracker: ProgressTracker, input_dir: str, output_dir: str):
         sys.exit(1)
     
     # Write reports
-    write_reports(output_dir, timestamp)
+    write_reports(output_dir, timestamp, transformations, exceptions)
 
     # Save inventory of processed records
     save_inventories()
