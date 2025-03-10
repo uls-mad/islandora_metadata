@@ -159,13 +159,13 @@ if __name__ == "__main__":
         batch_dir = get_directory(
             'input', 'Select Batch Folder with Input CSV Files'
         )
-        metadata_dir = os.path.join(batch_dir, "metadata")
+        csv_dir = os.path.join(batch_dir, "metadata")
         media_dir = os.path.join(batch_dir, "import")
         log_dir = os.path.join(batch_dir, "logs")
         timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
 
         # Process CSV files
-        exceptions = process_csv_files(metadata_dir, media_dir)
+        exceptions = process_csv_files(csv_dir, media_dir)
 
         # Report exceptions, if any
         write_reports(log_dir, timestamp, [], exceptions)
