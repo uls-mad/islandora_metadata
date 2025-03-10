@@ -970,12 +970,15 @@ def validate_record(record: dict) -> None:
         
         if field_manager.Field_Type == "Number (integer)":
             for value in values:
-                if not isinstance(value, int):
+                try:
+                    int_value = int(value)
+                except (ValueError, TypeError):
                     add_exception(
-                        record['id'][0],
+                        record["id"][0],
                         field,
                         value,
-                        f"expected an integer, but got {type(value).__name__}",
+                        f"Expected an integer, but got " +
+                        f"{type(value).__name__}: {value}",
                     )
 
         if field_manager.Repeatable == "FALSE" and len(values) > 1:
@@ -987,6 +990,9 @@ def validate_record(record: dict) -> None:
             )
 
     for field in REQUIRED_FIELDS:
+        constituent_object = record.get('parent_id')
+        if field == "field_member_of" and constituent_object:
+            continue
         if len(record[field]) < 1:
             add_exception(
                 record['id'][0],
@@ -1292,10 +1298,11 @@ if __name__ == "__main__":
     root = tk.Tk()
     root.withdraw()
 
-    # Get input directory
+    # Get batch directory
     batch_dir = get_directory(
         'input', 'Select Batch Folder with Input CSV Files'
     )
+    print(f"Processing batch directory: {batch_dir}")
 
     # Set up batch directory
     setup_batch_directory(batch_dir)
