@@ -115,6 +115,15 @@ OBJECT_MAPPING = {
     },
 }
 
+DISPLAY_HINTS_MAPPING = {
+    'Paged Content': 'Mirador',
+    'Page': 'Mirador',
+    'Image': 'Mirador',
+    'Publication Issue': 'Mirador',
+    'Newspaper': 'Mirador',
+    'Digital Document': 'PDFjs',
+}
+
 # mods_typeOfResource_ms -> resource_types
 TYPE_MAPPING = {
     'cartographic': 'Cartographic',
@@ -175,12 +184,12 @@ RIGHTS_MAPPING = {
     'http://rightsstatements.org/vocab/InC/1.0/': 'In Copyright'
 }
 
+
 DATASTREAMS_MAPPING = {
     'hocr': ['HOCR'],
     'file': ['JP2'],
     'transcript': ['TRANSCRIPT']
 }
-
 
 
 """ IMPORTED MAPPINGS """

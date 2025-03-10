@@ -479,17 +479,27 @@ def process_model(record: dict, solr_field: str, value: str) -> tuple[str | None
 
     # Get object type and model
     object_type = OBJECT_MAPPING[value]
-    new_value = object_type["model"]
+    model_type = object_type["model"]
 
     # Add resource type based on the mapped model
+    resource_type = object_type.get("resource_type")
     add_value(
         record, 
         solr_field, 
         "field_resource_type", 
-        object_type["resource_type"]
+        resource_type
     )
 
-    return new_value, skip_row
+    # Add display hints based on model
+    display_hint = DISPLAY_HINTS_MAPPING.get(model_type)
+    add_value(
+        record, 
+        solr_field, 
+        "field_display_hints", 
+        display_hint
+    )
+
+    return model_type, skip_row
 
 
 def process_title(record: dict) -> dict:
@@ -1023,6 +1033,15 @@ def records_to_csv(records: list, destination: str):
 
     # Convert list of dictionaries to DataFrame
     df = pd.DataFrame.from_dict(records)
+
+    # Sort records so that parent objects are first
+    if "parent_id" in df.columns:
+        df.sort_values(
+            by="parent_id", 
+            ascending=True, 
+            na_position="first", 
+            inplace=True
+        )
 
     # Ensure the destination directory exists
     os.makedirs(os.path.dirname(destination), exist_ok=True)
