@@ -165,7 +165,7 @@ mods_subject_name_conference_namePart_ms,field_subjects_name,,Subject (Name),con
 mods_subject_name_corporate_namePart_ms,field_subjects_name,,Subject (Name),corporate_body:,Copy to Subject (Name) with prefix of corporate_body:
 mods_subject_name_namePart_ms,field_subjects_name,,Subject (Name),,"Copy to Subject (Name) field, need to manually check if person or corporate_body prefix."
 mods_identifier_isbn_ms,field_isbn,,ISBN,,
-mods_note_address_ms,field_address,,Addresses,,Copy to Address
+mods_note_address_ms,field_addresses,,Addresses,,Copy to Addresses
 mods_note_acquisition_ms,field_note,,Note,Acquisition:,Copy to Note
 mods_note_bibliography_ms,field_note,,Note,Bibliography:,Copy to Note
 mods_note_creation/production_credits_ms,field_note,,Note,Production Credits:,Copy to Note
