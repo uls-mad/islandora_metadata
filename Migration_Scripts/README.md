@@ -41,10 +41,9 @@ Manages the inventory and batching of processed digital objects, ensuring dedupl
 
 ## How to Run the Application
 1. Run `solr_to_i2.py`.
-2. Select the input directory containing CSV files.
-3. Select the output directory where processed files will be saved.
-4. Monitor progress in the GUI.
-5. Processed files will be saved with a timestamped filename.
+2. Select the input directory containing the batch CSV file(s).
+3. Monitor progress in the GUI and terminal.
+4. Processed files will be saved with a timestamped filename.
 
 ## Dependencies
 - Python 3.x
