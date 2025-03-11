@@ -3,7 +3,7 @@ host: "https://i2.digital.library.pitt.edu/"
 username: ingester
 password: Y6yTUpGzD8WKw4wW
 input_dir: /workbench/batches/[BATCH_DIRECTORY]/import
-input_csv: /workbench/batches/[BATCH_DIRECTORY]/import/pitt_[BATCH_CSV].csv
+input_csv: /workbench/batches/[BATCH_DIRECTORY]/import/[IMPORT_BATCH_CSV]
 output_csv: /workbench/batches/[BATCH_DIRECTORY]/export/output_[BATCH_DIRECTORY].csv
 log_file_path: /workbench/batches/[BATCH_DIRECTORY]/logs/workbench.log
 temp_dir: /workbench/batches/[BATCH_DIRECTORY]/tmp/
@@ -20,11 +20,11 @@ http_cache_storage: memory
 http_cache_storage_expire_after: 600
 columns_with_term_names:
  - field_temporal
+#allow_adding_terms: true
 #additional_files:
 # - hocr: 41
 # - transcript: 9
 #validate_terms_exist: false
-#allow_adding_terms: true
 #log_term_creation: false
 #query_csv_id_to_node_id_map_for_parents: false
 #field_for_media_title: [machine name of some field that has a unique identifier unless you just want to use Title, then leave this out]
