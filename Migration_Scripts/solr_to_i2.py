@@ -469,10 +469,11 @@ def process_model(record: dict, solr_field: str, value: str) -> tuple[str | None
     skip_row = value not in OBJECT_MAPPING
 
     if skip_row:
-        add_exception(
+        add_transformation(
             record["id"][0], 
             solr_field, 
-            value, 
+            value,
+            None,
             "skipped object due to model type"
         )
         return None, skip_row
@@ -739,8 +740,12 @@ def process_subject(
     ]
 
     if matching_rows.empty:
-        add_exception(record['id'][0], solr_field, value, 
-                      "could not find subject in mapping")
+        add_exception(
+            record['id'][0], 
+            solr_field, 
+            value,
+            "could not find subject in mapping"
+        )
         return record
 
     # Iterate through each filtered row
@@ -765,7 +770,7 @@ def process_subject(
             prefix = LINKED_AGENT_TYPES.get(subject_type)
             prefix = f"{prefix}:" if prefix else prefix
 
-            if row['authority'] == "aat":
+            if row['Authority'] == "aat":
                 field = "field_genre"
                 prefix = "genre:"
 
@@ -1128,6 +1133,7 @@ def process_records(
                 for solr_field, data in row.items():
                     # Confirm that Solr field is mapped and data exists in field
                     field = get_mapped_field(pid, solr_field, data)
+
                     if not field or pd.isna(data):
                         continue
 

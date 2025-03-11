@@ -44,12 +44,12 @@ SOURCE_FIELDS = [
 ]
 
 SUBJECT_FIELDS = [
-    'field_geographic_subject,'
-    'field_subject,'
-    'field_subject_genre,'
+    'field_geographic_subject',
+    'field_subject',
+    'field_subject_genre',
     'field_subject_title',
     'field_subjects_name',
-    'field_temporal_subject,'
+    'field_temporal_subject',
 ]
 
 
