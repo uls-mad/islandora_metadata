@@ -45,7 +45,7 @@ field_physical_form,Form,Entity reference,TRUE
 field_extent,Extent,Text (plain),TRUE
 field_addresses,Addresses,"Text (plain, long)",TRUE
 field_thoroughfare,Thoroughfares,"Text (plain, long)",TRUE
-field_geo_feature,Geographic Features,"Text (plain, long)",TRUE
+field_geographic_features,Geographic Features,"Text (plain, long)",TRUE
 field_scale,Scale,Text (plain),TRUE
 field_coordinates_text,Coordinates (Text),Text (plain),TRUE
 field_land_grantor,Land Grantor,"Text (plain, long)",TRUE
