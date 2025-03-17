@@ -1,5 +1,13 @@
 # Islandora 7 to Islandora 2.0 Migration Scripts
 
+## Contents
+- [Overview](#overview)
+- [Files Found Here](#files-found-here)
+- [How to Run the Application](#how-to-run-the-application)
+- [Dependencies](#dependencies)
+- [License](#license)
+
+
 ## Overview  
 This repository contains scripts and mapping files for extracting and transforming metadata between Islandora 7 (via CSV files exported from Solr) and Islandora 2 (I2). The project includes tools for processing, remediating, and validating metadata to ensure accurate metadata migration.  
 
