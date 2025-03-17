@@ -32,7 +32,7 @@ DATE_FIELDS = [
 ]
 
 GEO_FIELDS = [
-    'field_address',
+    'field_addresses',
     'field_geographic_features',
     'field_geographic_features_categories'
     'field_thorougfares'
@@ -169,9 +169,9 @@ SUBJECT_FIELD_MAPPING = {
     'temporal': 'field_temporal_subject',
     'title': 'field_subject_title',
     'topic': 'field_subject',
-    'address': 'field_address',
-    'thoroughfare': 'field_thoroughfare',
-    'feature': 'field_geo_feature',
+    'address': 'field_addresses',
+    'thoroughfare': 'field_thoroughfares',
+    'feature': 'field_geographic_features',
 }
 
 # RELS_EXT_isMemberOfSite_uri_ms -> domain
