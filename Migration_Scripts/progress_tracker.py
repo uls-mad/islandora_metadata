@@ -1,8 +1,13 @@
+""" Modules """
+
+# Import standard modules
 import os
 import threading
 import tkinter as tk
 from tkinter import ttk
 
+
+""" Class """
 
 class ProgressTracker:
     def __init__(self, root):

@@ -1,5 +1,7 @@
+""" Module """
+
 # Import local module
-from utilities import create_df
+from file_utils import create_df
 
 
 """ FIELD LISTS """
@@ -141,6 +143,13 @@ TYPE_MAPPING = {
     'text': 'Text',
     'three dimensional object': 'Artifact'
 }
+
+ISSUANCE_MAPPING = {
+    'continuing': 'serial',
+    'monographic': 'single unit',
+    'serial': 'serial',
+}
+
 
 LINKED_AGENT_TYPES = {
     'conference': 'conference', 

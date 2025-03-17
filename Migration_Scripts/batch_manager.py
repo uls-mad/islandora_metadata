@@ -1,3 +1,6 @@
+""" Modules """
+
+# Import standard modules
 import os
 import shutil
 from pathlib import Path

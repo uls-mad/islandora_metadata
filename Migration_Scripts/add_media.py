@@ -9,7 +9,7 @@ import traceback
 import pandas as pd
 
 # Import local modules
-from utilities import *
+from file_utils import *
 from definitions import DATASTREAMS_MAPPING
 
 

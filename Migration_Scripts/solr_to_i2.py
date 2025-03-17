@@ -16,7 +16,7 @@ import pandas as pd
 from edtf import parse_edtf
 
 # Import local modules
-from utilities import *
+from file_utils import *
 from definitions import *
 from batch_manager import *
 from inventory_manager import *
@@ -600,6 +600,37 @@ def process_country(pid: str, value: str) -> str:
     return matching_row.iloc[0]
 
 
+def process_issuance(pid: str, solr_field: str, value: str) -> str:
+    """
+    Process the mode of issuance for a given record by mapping it to a predefined value.
+
+    Args:
+        pid (str): The persistent identifier of the record.
+        solr_field (str): The name of the Solr field being processed.
+        value (str): The original issuance value.
+
+    Returns:
+        str: The mapped issuance value if found; otherwise, the original value.
+
+    Notes:
+        - If the value is not found in `ISSUANCE_MAPPING`, an exception is logged,
+          and the original value is returned.
+    """
+    new_value = ISSUANCE_MAPPING.get(value)
+
+    if not new_value:
+        add_exception(
+            pid,
+            solr_field,
+            value,
+            "could not find mode of issuance in mapping"
+        )
+        return value
+
+    return new_value
+
+
+
 def process_name(
     record: dict, 
     personal_names: dict, 
@@ -1162,6 +1193,8 @@ def process_records(
                             continue
                         elif field in DATE_FIELDS:
                             continue
+                        elif field == "field_mode_of_issuance":
+                            value = process_issuance(pid, solr_field, value)
                         elif field in SUBJECT_FIELDS:
                             record = process_subject(record, solr_field, value)
                             continue
