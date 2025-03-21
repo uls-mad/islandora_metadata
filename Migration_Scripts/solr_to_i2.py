@@ -1350,12 +1350,14 @@ if __name__ == "__main__":
 
         # Initialize progress tracker
         tracker = ProgressTrackerFactory(root)
+        title = 'Select Batch Folder with Input CSV Files'
     else:
         tracker = ProgressTrackerFactory(None)
+        title = 'Enter Batch Folder with Input CSV Files'
 
     # Get batch directory
     batch_dir = get_directory(
-        'input', 'Select Batch Folder with Input CSV Files', TK_AVAILABLE
+        'input', title, TK_AVAILABLE
     )
     print(f"Processing batch directory: {batch_dir}")
 
@@ -1372,4 +1374,5 @@ if __name__ == "__main__":
     )
     processing_thread.start()
 
-    root.mainloop()
+    if TK_AVAILABLE:
+        root.mainloop()
