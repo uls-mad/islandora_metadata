@@ -221,7 +221,7 @@ class ProgressTrackerCLI:
 
 """ Factory Function """
 
-def ProgressTrackerFactory(root: tk.Tk | None):
+def ProgressTrackerFactory(root):
     """
     Returns the appropriate progress tracker (GUI or CLI) based on system capability.
 
