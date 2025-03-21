@@ -235,4 +235,4 @@ def ProgressTrackerFactory(root):
         root = tk.Tk()
         return ProgressTrackerGUI(root) 
     else:
-        return ProgressTrackerCLI()
+        return ProgressTrackerCLI(None)
