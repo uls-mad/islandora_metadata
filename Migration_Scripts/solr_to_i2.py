@@ -1351,7 +1351,7 @@ if __name__ == "__main__":
         # Initialize progress tracker
         tracker = ProgressTrackerFactory(root)
     else:
-        tracker = ProgressTrackerFactory()
+        tracker = ProgressTrackerFactory(None)
 
     # Get batch directory
     batch_dir = get_directory(
