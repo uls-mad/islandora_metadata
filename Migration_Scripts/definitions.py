@@ -1,6 +1,9 @@
 #!/bin/python3 
 
-""" Module """
+""" Modules """
+
+# Import standard module
+import os
 
 # Import local module
 from file_utils import create_df
@@ -206,54 +209,82 @@ DATASTREAMS_MAPPING = {
 """ IMPORTED MAPPINGS """
 
 # Read in Fields
-fields_csv = r".\Schema_Mappings\i2_field_schema.csv"
+fields_csv = os.path.join(
+    "Schema_Mappings", "i2_field_schema.csv"
+)
 FIELDS = create_df(fields_csv)
 
 # Read in Solr-to-I2 field mapping
-field_mapping_csv = r".\Schema_Mappings\solr_to_i2_field_mapping.csv"
+field_mapping_csv =  os.path.join(
+    "Schema_Mappings", "solr_to_i2_field_mapping.csv"
+)
 FIELD_MAPPING = create_df(field_mapping_csv)
 
 # Read in subjects mapping
-name_mapping_csv = r".\Remediation_Mappings\name_mapping.csv"
+name_mapping_csv = os.path.join(
+    "Remediation_Mappings", "name_mapping.csv"
+)
 NAME_MAPPING = create_df(name_mapping_csv)
 
 # Read in dates mapping
-edtf_dates_csv = r".\Remediation_Mappings\edtf_dates.csv"
+edtf_dates_csv = os.path.join(
+    "Remediation_Mappings", "edtf_dates.csv"
+)
 EDTF_DATES = create_df(edtf_dates_csv)
 
-language_mapping_csv = r".\Remediation_Mappings\language_mapping.csv"
+language_mapping_csv = os.path.join(
+    "Remediation_Mappings", "language_mapping.csv"
+)
 LANGUAGE_MAPPING = create_df(language_mapping_csv)
 
-country_mapping_csv = r".\Remediation_Mappings\country_mapping.csv"
+country_mapping_csv = os.path.join(
+    "Remediation_Mappings", "country_mapping.csv"
+)
 COUNTRY_MAPPING = create_df(country_mapping_csv)
 
 # Read in subjects mapping
-subject_mapping_csv = r".\Remediation_Mappings\subject_mapping.csv"
+subject_mapping_csv = os.path.join(
+    "Remediation_Mappings", "subject_mapping.csv"
+)
 SUBJECT_MAPPING = create_df(subject_mapping_csv)
 
 # Read in genre mappings
-genre_mapping_csv = r".\Remediation_Mappings\genre_mapping.csv"
+genre_mapping_csv = os.path.join(
+    "Remediation_Mappings", "genre_mapping.csv"
+)
 GENRE_MAPPING = create_df(genre_mapping_csv)
 
-genre_jp_mapping_csv = r".\Remediation_Mappings\genre_japanese_prints_mapping.csv"
+genre_jp_mapping_csv = os.path.join(
+    "Remediation_Mappings", "genre_japanese_prints_mapping.csv"
+)
 GENRE_JP_MAPPING = create_df(genre_jp_mapping_csv)
 
 # Read in physical form mapping
-physical_form_mapping_csv = r".\Remediation_Mappings\physical_form_mapping.csv"
+physical_form_mapping_csv = os.path.join(
+    "Remediation_Mappings", "physical_form_mapping.csv"
+)
 FORM_MAPPING = create_df(physical_form_mapping_csv)
 
 # Read in geographic fields mapping
-geo_fields_mapping_csv = r".\Remediation_Mappings\geo_fields_mapping.csv"
+geo_fields_mapping_csv = os.path.join(
+    "Remediation_Mappings", "geo_fields_mapping.csv"
+)
 GEO_FIELDS_MAPPING = create_df(geo_fields_mapping_csv)
 
 # Read in source collection mapping
-source_collection_mapping_csv = r".\Remediation_Mappings\source_collection_mapping.csv"
+source_collection_mapping_csv = os.path.join(
+    "Remediation_Mappings", "source_collection_mapping.csv"
+)
 SOURCE_COLLECTION_MAPPING = create_df(source_collection_mapping_csv)
 
 # Read in missing source collection mapping
-source_collection_missing_csv = r".\Remediation_Mappings\source_collection_missing.csv"
+source_collection_missing_csv = os.path.join(
+    "Remediation_Mappings", "source_collection_missing.csv"
+)
 SOURCE_COLLECTION_MISSING = create_df(source_collection_missing_csv)
 
 # Read in collection node mapping
-collection_node_mapping_csv = r".\Remediation_Mappings\collection_node_mapping.csv"
+collection_node_mapping_csv = os.path.join(
+    "Remediation_Mappings", "collection_node_mapping.csv"
+)
 COLLECTION_NODE_MAPPING = create_df(collection_node_mapping_csv)
