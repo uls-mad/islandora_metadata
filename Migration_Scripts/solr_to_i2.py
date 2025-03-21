@@ -26,9 +26,7 @@ from file_utils import *
 from definitions import *
 from batch_manager import *
 from inventory_manager import *
-
-if TK_AVAILABLE:
-    from progress_tracker import ProgressTracker
+from progress_tracker import *
 
 
 """ Global Variables """
@@ -1108,7 +1106,7 @@ def records_to_csv(records: list, destination: str):
 """ Key Functions """
 
 def process_records(
-    tracker: ProgressTracker,  
+    tracker: ProgressTrackerCLI | ProgressTrackerGUI,  
     input_dir: str, 
     output_dir: str, 
     filename: str,
@@ -1285,7 +1283,11 @@ def process_records(
         print(traceback.format_exc())
 
 
-def process_files(tracker: ProgressTracker, input_dir: str, output_dir: str):
+def process_files(
+    tracker: ProgressTrackerCLI | ProgressTrackerGUI, 
+    input_dir: str, 
+    output_dir: str
+):
     """
     Process all CSV files in the input directory and save the processed records to the output directory.
 
@@ -1346,6 +1348,11 @@ if __name__ == "__main__":
         root = tk.Tk()
         root.withdraw()
 
+        # Initialize progress tracker
+        tracker = ProgressTrackerFactory(root)
+    else:
+        tracker = ProgressTrackerFactory()
+
     # Get batch directory
     batch_dir = get_directory(
         'input', 'Select Batch Folder with Input CSV Files', TK_AVAILABLE
@@ -1357,9 +1364,6 @@ if __name__ == "__main__":
 
     # Set output directory
     output_dir = os.path.join(batch_dir, "metadata")
-
-    # Initialize progress tracker
-    tracker = ProgressTracker(root)
 
     # Run file/record processing in a separate thread
     processing_thread = threading.Thread(

@@ -2,6 +2,7 @@
 
 # Import standard modules
 import os
+import sys
 import threading
 import tkinter as tk
 from tkinter import ttk
@@ -9,7 +10,7 @@ from tkinter import ttk
 
 """ Class """
 
-class ProgressTracker:
+class ProgressTrackerGUI:
     def __init__(self, root):
         """
         Initialize the ProgressTracker GUI.
@@ -169,3 +170,66 @@ class ProgressTracker:
         print("Processing canceled by the user.")
         self.root.destroy()
         os._exit(0) 
+
+
+class ProgressTrackerCLI:
+    def __init__(self):
+        """
+        Initialize the CLI-based ProgressTracker.
+        """
+        self.current_file = "No file is being processed."
+        self.total_records = 0
+        self.processed_records = 0
+        self.total_files = 0
+        self.processed_files = 0
+        self.cancel_requested = threading.Event()
+
+    def update_progress_texts(self):
+        """Update and print progress for files and records."""
+        print(f"\rFiles Processed: {self.processed_files}/{self.total_files} | Records Processed: {self.processed_records}/{self.total_records}", end="", flush=True)
+
+    def set_total_files(self, total_files):
+        self.total_files = total_files
+        self.processed_files = 0
+        print(f"\nTotal files to process: {self.total_files}")
+
+    def set_current_file(self, current_file, total_records):
+        self.current_file = current_file
+        self.total_records = total_records
+        self.processed_records = 0
+        print(f"\nProcessing file: {self.current_file} ({self.total_records} records)")
+
+    def update_processed_records(self):
+        self.processed_records += 1
+        self.update_progress_texts()
+
+    def update_processed_files(self):
+        self.processed_files += 1
+        self.update_progress_texts()
+
+        if self.processed_files == self.total_files:
+            print("\nAll files have been processed.")
+
+    def cancel_process(self):
+        self.cancel_requested.set()
+        print("\nProcessing canceled by the user.")
+        os._exit(0)
+
+
+""" Factory Function """
+
+def ProgressTrackerFactory(root: tk.Tk | None):
+    """
+    Returns the appropriate progress tracker (GUI or CLI) based on system capability.
+
+    Args:
+        root (tk.Tk) | None: The root tkinter window or None, if tkinter is not available.
+
+    Returns:
+        ProgressTrackerGUI or ProgressTrackerCLI instance
+    """
+    if sys.stdout.isatty(): 
+        return ProgressTrackerCLI()
+    else:
+        root = tk.Tk()
+        return ProgressTrackerGUI(root)
