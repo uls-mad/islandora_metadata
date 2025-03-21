@@ -4,8 +4,11 @@
 import os
 import sys
 import threading
-import tkinter as tk
-from tkinter import ttk
+try:
+    import tkinter as tk
+    TK_AVAILABLE = True
+except ImportError:
+    TK_AVAILABLE = False
 
 
 """ Class """
@@ -228,8 +231,8 @@ def ProgressTrackerFactory(root: tk.Tk | None):
     Returns:
         ProgressTrackerGUI or ProgressTrackerCLI instance
     """
-    if sys.stdout.isatty(): 
-        return ProgressTrackerCLI()
-    else:
+    if TK_AVAILABLE:
         root = tk.Tk()
-        return ProgressTrackerGUI(root)
+        return ProgressTrackerGUI(root) 
+    else:
+        return ProgressTrackerCLI()
