@@ -183,7 +183,7 @@ if __name__ == "__main__":
         print(traceback.format_exc())
         sys.exit(1)
 
-    # Close GUI window
     finally:
-        root.destroy() 
-        sys.exit(0)
+        if TK_AVAILABLE:
+            # Close GUI window
+            root.destroy()
