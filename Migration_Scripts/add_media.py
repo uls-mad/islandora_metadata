@@ -165,7 +165,7 @@ if __name__ == "__main__":
     try:
         # Get directories and timestamp for file handling
         batch_dir = get_directory(
-            'input', 'Select Batch Folder with Input CSV Files', TK_AVAILABLE
+            'input', 'Enter Batch Folder with Input CSV Files', TK_AVAILABLE
         )
         csv_dir = os.path.join(batch_dir, "metadata")
         media_dir = os.path.join(batch_dir, "import")

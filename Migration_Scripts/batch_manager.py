@@ -45,9 +45,11 @@ def setup_batch_directory(batch_dir: str):
     config_dest = batch_path / "configs" / config_filename
 
     if config_src.exists():
-        shutil.copy(config_src, config_dest)
+        if not config_dest.exists():
+            shutil.copyfile(config_src, config_dest)
     else:
         print("config.yml not found in script directory.")
+
 
 
 def save_pids_for_media(
