@@ -1,12 +1,19 @@
+#!/bin/python3 
+
 """ Modules """
 
 # Import standard modules
 from datetime import datetime
 import os
 import sys
-import tkinter as tk
 import traceback
 import pandas as pd
+try:
+    import tkinter as tk
+    TK_AVAILABLE = True
+except ImportError:
+    TK_AVAILABLE = False
+
 
 # Import local modules
 from file_utils import *
@@ -150,14 +157,15 @@ def process_csv_files(csv_dir: str, media_dir: str):
 """ Driver Code """
 
 if __name__ == "__main__":
-    # Set up tkinter window for GUI
-    root = tk.Tk()
-    root.withdraw()
+    if TK_AVAILABLE:
+        # Set up tkinter window for GUI
+        root = tk.Tk()
+        root.withdraw()
 
     try:
         # Get directories and timestamp for file handling
         batch_dir = get_directory(
-            'input', 'Select Batch Folder with Input CSV Files'
+            'input', 'Select Batch Folder with Input CSV Files', TK_AVAILABLE
         )
         csv_dir = os.path.join(batch_dir, "metadata")
         media_dir = os.path.join(batch_dir, "import")

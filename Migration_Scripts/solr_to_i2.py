@@ -1,3 +1,5 @@
+#!/bin/python3 
+
 """ Modules """
 
 # Import standard modules
@@ -6,9 +8,13 @@ import sys
 import re
 import threading
 import traceback
-import tkinter as tk
 from datetime import datetime
 from typing import List, Tuple, Union
+try:
+    import tkinter as tk
+    TK_AVAILABLE = True
+except ImportError:
+    TK_AVAILABLE = False
 
 # Import third-party modules
 import numpy as np
@@ -20,7 +26,9 @@ from file_utils import *
 from definitions import *
 from batch_manager import *
 from inventory_manager import *
-from progress_tracker import ProgressTracker
+
+if TK_AVAILABLE:
+    from progress_tracker import ProgressTracker
 
 
 """ Global Variables """
@@ -1334,12 +1342,13 @@ def process_files(tracker: ProgressTracker, input_dir: str, output_dir: str):
 
 if __name__ == "__main__":
     # Set up tkinter window for GUI
-    root = tk.Tk()
-    root.withdraw()
+    if TK_AVAILABLE:
+        root = tk.Tk()
+        root.withdraw()
 
     # Get batch directory
     batch_dir = get_directory(
-        'input', 'Select Batch Folder with Input CSV Files'
+        'input', 'Select Batch Folder with Input CSV Files', TK_AVAILABLE
     )
     print(f"Processing batch directory: {batch_dir}")
 

@@ -1,30 +1,40 @@
+#!/bin/python3 
+
 """ Modules """
 
 # Import standard modules
 import os
 import pandas as pd
-from tkinter import filedialog
+try:
+    from tkinter import filedialog
+    TK_AVAILABLE = True
+except ImportError:
+    TK_AVAILABLE = False
 
 
 """ Functions """
 
-def get_directory(io_type: str, title: str) -> str:
+def get_directory(io_type: str, title: str, tk_available: bool) -> str:
     """
-    Prompt the user to select a directory of a given I/O type.
+    Prompt the user to select a directory, either via a GUI dialog or manual input.
 
     Args:
-        io_type (str): The I/O type of the directory (input or output)
-        title: The title for the file dialog.
+        io_type (str): The type of directory being selected (e.g., "input" or "output").
+        title (str): The prompt or title for the file dialog or manual input request.
+        tk_available (bool): Indicates whether tkinter is available for GUI selection.
 
     Returns:
-        str: Path to the selected directory.
+        str: The path to the selected directory.
 
     Raises:
-        SystemExit: If the user does not select a directory.
+        SystemExit: If no directory is selected.
     """
-    dir = filedialog.askdirectory(title=title)
+    if tk_available:
+        dir = filedialog.askdirectory(title=title)
+    else:
+        dir = input(f"{title}: ")
     if not dir:
-        print(f"No directory {io_type} selected.")
+        print(f"No {io_type} directory selected.")
         exit(0)
     return dir
 
