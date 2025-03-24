@@ -186,7 +186,7 @@ class ProgressTrackerCLI:
     def update_progress_texts(self):
         """Update and print progress for files and records."""
         print(
-            f"\rFiles Processed: {self.processed_files}/{self.total_files} |" + 
+            f"\rFiles Processed: {self.processed_files}/{self.total_files} | " + 
             f"Records Processed: {self.processed_records}/{self.total_records}", 
             end="", 
             flush=True
@@ -216,7 +216,7 @@ class ProgressTrackerCLI:
         self.processed_records = 0
         print(
             f"\nProcessing file: {self.current_file} " + 
-            "({self.total_records} records)"
+            f"({self.total_records} records)"
         )
 
     def update_processed_records(self):
