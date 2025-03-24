@@ -1172,7 +1172,7 @@ def process_records(
         # Process each record
         for _, row in df.iterrows():
             try:
-                
+
                 if tracker.cancel_requested.is_set():
                     return
 
@@ -1198,7 +1198,7 @@ def process_records(
 
                     if not field or pd.isna(data):
                         continue
-                    
+
                     # Preproccess values
                     values = split_and_clean(data)
 
@@ -1296,22 +1296,22 @@ def process_records(
                 print(f"Error processing row {pid}: {e}")
                 print(traceback.format_exc())
                 add_exception(pid, "row_error", "", str(e))
-        
-        # Flush last record progress update before printing file saved message
-        if not TK_AVAILABLE:
-            while not progress_queue.empty():
-                func, args = progress_queue.get()
-                func(*args)
-
-        # Save records to a CSV file in the output folder 
-        df = records_to_csv(records, output_filepath)
-
-        # Save PIDs for media export
-        save_pids_for_media(input_dir, df, DATASTREAMS_MAPPING)
 
     except Exception as e:
         print(f"Critical error in processing {filename}: {e}")
         print(traceback.format_exc())
+
+    # Flush last record progress update before printing file saved message
+    if not TK_AVAILABLE:
+        while not progress_queue.empty():
+            func, args = progress_queue.get()
+            func(*args)
+
+    # Save records to a CSV file in the output folder 
+    df = records_to_csv(records, output_filepath)
+
+    # Save PIDs for media export
+    save_pids_for_media(input_dir, df, DATASTREAMS_MAPPING)
 
 
 def process_files(
