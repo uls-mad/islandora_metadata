@@ -4,12 +4,14 @@
 
 # Import standard modules
 import os
-import pandas as pd
 try:
     from tkinter import filedialog
     TK_AVAILABLE = True
 except ImportError:
     TK_AVAILABLE = False
+
+# Import third-party module
+import pandas as pd
 
 
 """ Functions """
