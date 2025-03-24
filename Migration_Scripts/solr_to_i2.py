@@ -1374,55 +1374,46 @@ def process_files(
 """ Driver Code """
 
 if __name__ == "__main__":
-    # Save initial working directory
-    original_cwd = os.getcwd()
-
-    # Change working directory to script's directory
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
     # Initialize root variable
     root = None
 
-try:
-    if TK_AVAILABLE:
-        # Set up tkinter window for GUI
-        root = tk.Tk()
-        root.withdraw()
+    try:
+        if TK_AVAILABLE:
+            # Set up tkinter window for GUI
+            root = tk.Tk()
+            root.withdraw()
 
-        # Set prompt for user
-        prompt = 'Select Batch Folder with Input CSV Files'
-    else:
-        prompt = 'Enter Batch Folder with Input CSV Files'
+            # Set prompt for user
+            prompt = 'Select Batch Folder with Input CSV Files'
+        else:
+            prompt = 'Enter Batch Folder with Input CSV Files'
 
-    # Initialize progress tracker
-    update_queue = Queue()
-    tracker = ProgressTrackerFactory(root, update_queue)
+        # Initialize progress tracker
+        update_queue = Queue()
+        tracker = ProgressTrackerFactory(root, update_queue)
 
-    # Get batch directory
-    batch_dir = get_directory('input', prompt, TK_AVAILABLE)
-    print(f"Processing batch directory: {batch_dir}")
+        # Get batch directory
+        batch_dir = get_directory('input', prompt, TK_AVAILABLE)
+        print(f"Processing batch directory: {batch_dir}")
 
-    # Set up batch directory
-    setup_batch_directory(batch_dir)
+        # Set up batch directory
+        setup_batch_directory(batch_dir)
 
-    # Set output directory
-    output_dir = os.path.join(batch_dir, "metadata")
+        # Set output directory
+        output_dir = os.path.join(batch_dir, "metadata")
 
-    # Run file/record processing in a separate thread
-    processing_thread = threading.Thread(
-        target=process_files,
-        args=(update_queue, tracker, batch_dir, output_dir)
-    )
-    processing_thread.start()
+        # Run file/record processing in a separate thread
+        processing_thread = threading.Thread(
+            target=process_files,
+            args=(update_queue, tracker, batch_dir, output_dir)
+        )
+        processing_thread.start()
 
-    if TK_AVAILABLE:
-        root.after(100, process_queue, root, update_queue)
-        root.mainloop()
+        if TK_AVAILABLE:
+            root.after(100, process_queue, root, update_queue)
+            root.mainloop()
 
-except Exception as e:
-    print("An error occurred during execution:")
-    print(traceback.format_exc())
-
-finally:
-    os.chdir(original_cwd)
+    except Exception as e:
+        print("An error occurred during execution:")
+        print(traceback.format_exc())
 

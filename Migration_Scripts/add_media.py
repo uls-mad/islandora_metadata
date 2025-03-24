@@ -158,13 +158,7 @@ def process_csv_files(csv_dir: str, media_dir: str):
 """ Driver Code """
 
 if __name__ == "__main__":
-    # Save initial working directory
-    initial_cwd = os.getcwd()
-
     try:
-        # Change working directory to script's directory
-        os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
         if TK_AVAILABLE:
             # Set up tkinter window for GUI
             root = tk.Tk()
@@ -198,9 +192,6 @@ if __name__ == "__main__":
         sys.exit(1)
 
     finally:
-        # Change working directory back to initial working directory
-        os.chdir(initial_cwd)
-
         if TK_AVAILABLE:
             # Close GUI window
             root.destroy()
