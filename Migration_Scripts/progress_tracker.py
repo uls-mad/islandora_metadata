@@ -45,7 +45,9 @@ class ProgressTrackerGUI:
         self.create_widgets()
 
     def create_widgets(self):
-        """Set up the GUI layout and widgets."""
+        """
+        Set up the GUI layout and widgets.
+        """
         # Current file label
         tk.Label(self.root, text="Current File:").grid(
             row=0, column=0, sticky="w", padx=10, pady=5
@@ -98,7 +100,9 @@ class ProgressTrackerGUI:
         self.cancel_button.grid(row=4, column=0, columnspan=2, padx=10, pady=10)
 
     def update_progress_texts(self):
-        """Update the derived text for files and records."""
+        """
+        Update the derived text for files and records.
+        """
         self.files_progress_text.set(
             f"{self.processed_files.get()}/{self.total_files.get()}"
             )
@@ -184,7 +188,9 @@ class ProgressTrackerCLI:
         self.cancel_requested = threading.Event()
 
     def update_progress_texts(self):
-        """Update and print progress for files and records."""
+        """ 
+        Update and print progress for files and records.
+        """
         print(
             f"\rFiles Processed: {self.processed_files}/{self.total_files} | " + 
             f"Records Processed: {self.processed_records}/{self.total_records}", 
@@ -232,12 +238,15 @@ class ProgressTrackerCLI:
             
     def update_processed_files(self):
         """
-        Update the number of processed files and close the window if all files are processed.
+        Update the number of processed files and print final message if done.
         """
         self.processed_files += 1
-        self.update_progress_texts()
 
-        # Check if all files have been processed
+        # Print progress, if the last record didn't already finish the line
+        if self.processed_records < self.total_records:
+            self.update_progress_texts()
+
+        # Print completion update
         if self.processed_files == self.total_files:
             print("\nAll files have been processed.")
 
