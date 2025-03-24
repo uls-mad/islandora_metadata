@@ -3,17 +3,18 @@
 """ Modules """
 
 # Import standard modules
-from datetime import datetime
 import os
 import sys
 import traceback
-import pandas as pd
+from datetime import datetime
 try:
     import tkinter as tk
     TK_AVAILABLE = True
 except ImportError:
     TK_AVAILABLE = False
 
+# Import third-party module
+import pandas as pd
 
 # Import local modules
 from file_utils import *
@@ -157,19 +158,32 @@ def process_csv_files(csv_dir: str, media_dir: str):
 """ Driver Code """
 
 if __name__ == "__main__":
-    if TK_AVAILABLE:
-        # Set up tkinter window for GUI
-        root = tk.Tk()
-        root.withdraw()
+    # Save initial working directory
+    initial_cwd = os.getcwd()
 
     try:
+        # Change working directory to script's directory
+        os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+        if TK_AVAILABLE:
+            # Set up tkinter window for GUI
+            root = tk.Tk()
+            root.withdraw()
+            title = 'Select Batch Folder with Input CSV Files'
+        else:
+            title = 'Enter Batch Folder with Input CSV Files'
+
         # Get directories and timestamp for file handling
         batch_dir = get_directory(
-            'input', 'Enter Batch Folder with Input CSV Files', TK_AVAILABLE
+            'input', title, TK_AVAILABLE
         )
+
+        # Use batch_dir to construct subdirectories
         csv_dir = os.path.join(batch_dir, "metadata")
         media_dir = os.path.join(batch_dir, "import")
         log_dir = os.path.join(batch_dir, "logs")
+
+        # Set timestamp
         timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
 
         # Process CSV files
@@ -184,6 +198,11 @@ if __name__ == "__main__":
         sys.exit(1)
 
     finally:
+        # Change working directory back to initial working directory
+        os.chdir(initial_cwd)
+
         if TK_AVAILABLE:
             # Close GUI window
             root.destroy()
+
+        sys.exit(0)
