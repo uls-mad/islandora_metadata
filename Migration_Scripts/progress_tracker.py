@@ -241,7 +241,7 @@ class ProgressTrackerCLI:
 
         # If this is the last record, clear line and move to a new line
         if self.processed_records == self.total_records:
-            print("\r\n")  
+            print("\r")  
 
     def update_processed_files(self):
         """
