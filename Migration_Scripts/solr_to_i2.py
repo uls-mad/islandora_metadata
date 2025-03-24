@@ -1296,6 +1296,12 @@ def process_records(
                 print(f"Error processing row {pid}: {e}")
                 print(traceback.format_exc())
                 add_exception(pid, "row_error", "", str(e))
+        
+        # Flush last record progress update before printing file saved message
+        if not TK_AVAILABLE:
+            while not progress_queue.empty():
+                func, args = progress_queue.get()
+                func(*args)
 
         # Save records to a CSV file in the output folder 
         df = records_to_csv(records, output_filepath)
