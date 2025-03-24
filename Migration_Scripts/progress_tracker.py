@@ -187,7 +187,7 @@ class ProgressTrackerCLI:
         """Update and print progress for files and records."""
         print(
             f"\rFiles Processed: {self.processed_files}/{self.total_files} |" + 
-            "Records Processed: {self.processed_records}/{self.total_records}", 
+            f"Records Processed: {self.processed_records}/{self.total_records}", 
             end="", 
             flush=True
         )
