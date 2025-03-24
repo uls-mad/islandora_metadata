@@ -21,7 +21,7 @@ This script is the main processing module for transforming Solr metadata records
 #### Key components:
 - **`process_files()`**: Iterates over all CSV files in the given input directory and processes them.
 - **`process_records()`**: Processes individual CSV files, maps fields, cleans values, and validates records.
-- **GUI Integration**: Uses `tkinter` to allow users to select input and output directories.
+- **GUI Integration**: Uses `tkinter`, if available in the environemnt, to allow users to select input and output directories.
 - **Multithreading**: Runs the processing in a separate thread to keep the GUI responsive.
 
 - Requires: 
@@ -80,7 +80,7 @@ Provides utility functions for file handling, directory selection, and report ge
 
 #### Key components:
 - **`get_directory()`**:
-    - Opens a file dialog to prompt the user to select an input or output directory.
+    - Opens a file dialog (if tkinter is available in the environment) or displays an input message in the terminal  to prompt the user to select an input or output directory.
     - Exits the script if no directory is selected.
 - **`create_df()`**:
     - Reads a CSV file into a Pandas DataFrame, treating all values as strings.Ensures that empty values remain as empty strings rather than NaN.
@@ -106,7 +106,7 @@ Processes metadata CSV files by associating records with corresponding media fil
 To begin the data migration workflow, create a batch directory and add in the Solr export CSV files for the collections in the batch. 
 
 1. Run `solr_to_i2.py`.
-2. Select the input directory containing the batch CSV file(s).
+2. Select the batch directory containing the batch CSV file(s) using the file dialog or enter the directory path in the terminal.
 3. Monitor progress in the GUI and terminal.
 4. Processed files will be saved to their corresponding subdirectories.
     - Processed metadata records are saved to an output CSV file with a timestamped filename in the `metadata` subdirectory
@@ -116,13 +116,13 @@ To begin the data migration workflow, create a batch directory and add in the So
 After exporting the relevant media datastreams to the `import` subdirectory.
 
 5. Run `add_media.py`
-6. Select the batch directory.
+6. Select the batch directory using the file dialog or enter the directory path in the terminal.
 7. Monitor progress in the terminal.
 8. Processed CSV files with media filenames will be saved to the `import` subdirectory. 
 
 ## Dependencies
 - Python 3.x
-- datetime, os, pathlib, re, shutil, sys, threading, tkinter, traceback, typing
+- datetime, os, pathlib, re, shutil, sys, queue, threading, tkinter, traceback, typing
 - numpy
 - pandas
 - edtf
