@@ -230,10 +230,8 @@ class ProgressTrackerCLI:
         Update the number of processed records.
         """
         self.processed_records += 1
-
-        # Print progress on the same line, overwriting previous
         print(
-            f"\rFiles Processed: {self.processed_files}/{self.total_files} | " +
+            f"\rFiles Processed: {self.processed_files}/{self.total_files} | "
             f"Records Processed: {self.processed_records}/{self.total_records}   ",
             end="",
             flush=True
@@ -241,7 +239,8 @@ class ProgressTrackerCLI:
 
         # If this is the last record, clear line and move to a new line
         if self.processed_records == self.total_records:
-            print("\r")  
+            print()  # move to new line to separate progress from next output
+
 
     def update_processed_files(self):
         """
