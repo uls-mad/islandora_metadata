@@ -1297,10 +1297,6 @@ def process_records(
                 print(traceback.format_exc())
                 add_exception(pid, "row_error", "", str(e))
 
-        # If no exception, force final update in case last record didn’t trigger it
-        if tracker.processed_records < tracker.total_records:
-            progress_queue.put((tracker.update_processed_records, ()))
-
         # Save records to a CSV file in the output folder 
         df = records_to_csv(records, output_filepath)
 
