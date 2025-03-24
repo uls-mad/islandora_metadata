@@ -1422,9 +1422,12 @@ if __name__ == "__main__":
                 while not update_queue.empty():
                     func, args = update_queue.get()
                     func(*args)
-                    
-                # Avoid busy waiting
                 time.sleep(0.1)
+
+            # After processing thread ends, flush any remaining updates
+            while not update_queue.empty():
+                func, args = update_queue.get()
+                func(*args)
 
     except Exception as e:
         print("An error occurred during execution:")
