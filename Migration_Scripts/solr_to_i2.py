@@ -7,10 +7,11 @@ import os
 import sys
 import re
 import threading
+import time
 import traceback
+from queue import Queue
 from datetime import datetime
 from typing import List, Tuple, Union
-from queue import Queue
 try:
     import tkinter as tk
     TK_AVAILABLE = True
@@ -1410,8 +1411,20 @@ if __name__ == "__main__":
         processing_thread.start()
 
         if TK_AVAILABLE:
+            # Schedule periodic processing of the GUI update queue and 
             root.after(100, process_queue, root, update_queue)
+
+            # Start the Tkinter event loop
             root.mainloop()
+        else:
+            # In CLI mode, process the update queue in a loop
+            while processing_thread.is_alive():
+                while not update_queue.empty():
+                    func, args = update_queue.get()
+                    func(*args)
+                    
+                # Avoid busy waiting
+                time.sleep(0.1)
 
     except Exception as e:
         print("An error occurred during execution:")
