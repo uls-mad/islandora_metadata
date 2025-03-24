@@ -226,6 +226,10 @@ class ProgressTrackerCLI:
         self.processed_records += 1
         self.update_progress_texts()
 
+        # If this is the last record, force newline
+        if self.processed_records == self.total_records:
+            print()
+            
     def update_processed_files(self):
         """
         Update the number of processed files and close the window if all files are processed.
