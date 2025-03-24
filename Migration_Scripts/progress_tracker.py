@@ -230,25 +230,29 @@ class ProgressTrackerCLI:
         Update the number of processed records.
         """
         self.processed_records += 1
-        self.update_progress_texts()
 
-        # If this is the last record, force newline
-        if self.processed_records == self.total_records:
-            print()
-            
+        # Print updated progress line in-place
+        print(
+            f"\rFiles Processed: {self.processed_files}/{self.total_files} | " +
+            f"Records Processed: {self.processed_records}/{self.total_records}   ",
+            end="",
+            flush=True
+        )
+
     def update_processed_files(self):
         """
         Update the number of processed files and print final message if done.
         """
         self.processed_files += 1
 
-        # Print progress, if the last record didn't already finish the line
-        if self.processed_records < self.total_records:
-            self.update_progress_texts()
-
-        # Print completion update
+        # Only print final message if all files are done
         if self.processed_files == self.total_files:
-            print("\nAll files have been processed.")
+            print(  # Finish the progress line before newline
+                f"\rFiles Processed: {self.processed_files}/{self.total_files} | " +
+                f"Records Processed: {self.processed_records}/{self.total_records}   "
+            )
+            print("All files have been processed.")
+
 
     def cancel_process(self):
         """
