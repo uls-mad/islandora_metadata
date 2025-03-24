@@ -2,10 +2,11 @@
 
 # Import standard modules
 import os
-import sys
 import threading
+from queue import Queue
 try:
     import tkinter as tk
+    from tkinter import ttk
     TK_AVAILABLE = True
 except ImportError:
     TK_AVAILABLE = False
@@ -14,14 +15,16 @@ except ImportError:
 """ Class """
 
 class ProgressTrackerGUI:
-    def __init__(self, root):
+    def __init__(self, root, update_queue: Queue):
         """
         Initialize the ProgressTracker GUI.
 
         Args:
             root (tk.Tk): The root tkinter window.
+            update_queue (queue.Queue): Queue to handle thread-safe GUI updates.
         """
         self.root = root
+        self.update_queue = update_queue
         self.root.deiconify()
         self.root.title("Solr to I2 Transformation Progress Tracker")
 
@@ -29,9 +32,9 @@ class ProgressTrackerGUI:
         self.current_file = tk.StringVar(value="No file is being processed.")
         self.total_records = tk.IntVar(value=0)
         self.processed_records = tk.IntVar(value=0)
-        self.total_files = tk.IntVar(value=0) 
-        self.processed_files = tk.IntVar(value=0) 
-        self.cancel_requested = threading.Event() 
+        self.total_files = tk.IntVar(value=0)
+        self.processed_files = tk.IntVar(value=0)
+        self.cancel_requested = threading.Event()
 
         # Derived variables
         self.files_progress_text = tk.StringVar()
@@ -50,7 +53,8 @@ class ProgressTrackerGUI:
         self.file_label = tk.Label(
             self.root, 
             textvariable=self.current_file, 
-            wraplength=400, anchor="w", 
+            wraplength=400, 
+            anchor="w", 
             justify="left"
         )
         self.file_label.grid(row=0, column=1, sticky="w", padx=10, pady=5)
@@ -62,7 +66,8 @@ class ProgressTrackerGUI:
         self.files_label = tk.Label(
             self.root, 
             textvariable=self.files_progress_text, 
-            anchor="w", justify="left"
+            anchor="w", 
+            justify="left"
         )
         self.files_label.grid(row=1, column=1, sticky="w", padx=10, pady=5)
 
@@ -70,14 +75,12 @@ class ProgressTrackerGUI:
         tk.Label(self.root, text="Records Processed:").grid(
             row=2, column=0, sticky="w", padx=10, pady=5
             )
-        self.total_records_label = tk.Label(
+        self.records_label = tk.Label(
             self.root, 
             textvariable=self.records_progress_text, 
             anchor="w", justify="left"
         )
-        self.total_records_label.grid(
-            row=2, column=1, sticky="w", padx=10, pady=5
-            )
+        self.records_label.grid(row=2, column=1, sticky="w", padx=10, pady=5)
 
         # File progress bar
         tk.Label(self.root, text="Progress:").grid(
@@ -87,7 +90,7 @@ class ProgressTrackerGUI:
             self.root, orient="horizontal", length=300, mode="determinate"
         )
         self.progress_bar.grid(row=3, column=1, sticky="w", padx=10, pady=5)
-        
+
         # Cancel button
         self.cancel_button = tk.Button(
             self.root, text="Cancel", command=self.cancel_process
@@ -113,7 +116,6 @@ class ProgressTrackerGUI:
         self.total_files.set(total_files)
         self.processed_files.set(0)
         self.update_progress_texts()
-        self.root.update_idletasks()
 
     def set_current_file(self, current_file, total_records):
         """
@@ -131,15 +133,11 @@ class ProgressTrackerGUI:
         # Reset the progress bar
         self.progress_bar["value"] = 0
 
-        # Refresh the GUI
-        self.root.update_idletasks()
-
     def update_processed_records(self):
         """
         Update the number of processed records.
         """
         self.processed_records.set(self.processed_records.get() + 1)
-        self.update_progress_texts()
 
         # Update the progress bar
         progress_percentage = (
@@ -148,9 +146,7 @@ class ProgressTrackerGUI:
             else 0
         )
         self.progress_bar["value"] = progress_percentage
-
-        # Refresh the GUI
-        self.root.update_idletasks()
+        self.update_progress_texts()
 
     def update_processed_files(self):
         """
@@ -158,7 +154,6 @@ class ProgressTrackerGUI:
         """
         self.processed_files.set(self.processed_files.get() + 1)
         self.update_progress_texts()
-        self.root.update_idletasks()
 
         # Check if all files have been processed
         if self.processed_files.get() == self.total_files.get():
@@ -169,10 +164,10 @@ class ProgressTrackerGUI:
         """
         Signal to cancel the process and forcefully exit if needed.
         """
-        self.cancel_requested.set()  # Signal the flag to cancel
+        self.cancel_requested.set()
         print("Processing canceled by the user.")
         self.root.destroy()
-        os._exit(0) 
+        os._exit(0)
 
 
 class ProgressTrackerCLI:
@@ -180,6 +175,7 @@ class ProgressTrackerCLI:
         """
         Initialize the CLI-based ProgressTracker.
         """
+        # Tracking variables
         self.current_file = "No file is being processed."
         self.total_records = 0
         self.processed_records = 0
@@ -189,31 +185,62 @@ class ProgressTrackerCLI:
 
     def update_progress_texts(self):
         """Update and print progress for files and records."""
-        print(f"\rFiles Processed: {self.processed_files}/{self.total_files} | Records Processed: {self.processed_records}/{self.total_records}", end="", flush=True)
+        print(
+            f"\rFiles Processed: {self.processed_files}/{self.total_files} |" + 
+            "Records Processed: {self.processed_records}/{self.total_records}", 
+            end="", 
+            flush=True
+        )
 
     def set_total_files(self, total_files):
+        """
+        Set the total number of files to process.
+
+        Args:
+            total_files (int): The total number of files to be processed.
+        """
         self.total_files = total_files
         self.processed_files = 0
         print(f"\nTotal files to process: {self.total_files}")
 
     def set_current_file(self, current_file, total_records):
+        """
+        Set the current file and total records.
+
+        Args:
+            current_file (str): The name of the file being processed.
+            total_records (int): Total number of records in the file.
+        """
         self.current_file = current_file
         self.total_records = total_records
         self.processed_records = 0
-        print(f"\nProcessing file: {self.current_file} ({self.total_records} records)")
+        print(
+            f"\nProcessing file: {self.current_file} " + 
+            "({self.total_records} records)"
+        )
 
     def update_processed_records(self):
+        """
+        Update the number of processed records.
+        """
         self.processed_records += 1
         self.update_progress_texts()
 
     def update_processed_files(self):
+        """
+        Update the number of processed files and close the window if all files are processed.
+        """
         self.processed_files += 1
         self.update_progress_texts()
 
+        # Check if all files have been processed
         if self.processed_files == self.total_files:
             print("\nAll files have been processed.")
 
     def cancel_process(self):
+        """
+        Signal to cancel the process and forcefully exit if needed.
+        """
         self.cancel_requested.set()
         print("\nProcessing canceled by the user.")
         os._exit(0)
@@ -221,18 +248,18 @@ class ProgressTrackerCLI:
 
 """ Factory Function """
 
-def ProgressTrackerFactory(root):
+def ProgressTrackerFactory(root, update_queue: Queue):
     """
     Returns the appropriate progress tracker (GUI or CLI) based on system capability.
 
     Args:
         root (tk.Tk) | None: The root tkinter window or None, if tkinter is not available.
+        update_queue (queue.Queue): 
 
     Returns:
         ProgressTrackerGUI or ProgressTrackerCLI instance
     """
     if TK_AVAILABLE:
-        root = tk.Tk()
-        return ProgressTrackerGUI(root) 
+        return ProgressTrackerGUI(root, update_queue)
     else:
         return ProgressTrackerCLI()

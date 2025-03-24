@@ -10,6 +10,7 @@ import threading
 import traceback
 from datetime import datetime
 from typing import List, Tuple, Union
+from queue import Queue
 try:
     import tkinter as tk
     TK_AVAILABLE = True
@@ -42,6 +43,23 @@ current_file = None
 
 
 """ Helper Functions """
+
+def process_queue(root, update_queue):
+    """
+    Continuously processes GUI update tasks from the queue.
+
+    Args:
+        root (tk.Tk): The root Tkinter window.
+        update_queue (Queue): A thread-safe queue with GUI update functions.
+
+    Returns:
+        None
+    """
+    while not update_queue.empty():
+        func, args = update_queue.get()
+        func(*args)
+    root.after(100, process_queue, root, update_queue)
+
 
 def initialize_record() -> dict:
     """
@@ -457,7 +475,11 @@ def process_collection_id(
     return node_id
 
 
-def process_model(record: dict, solr_field: str, value: str) -> tuple[str | None, bool]:
+def process_model(
+    record: dict, 
+    solr_field: str, 
+    value: str
+) -> tuple[str | None, bool]:
     """
     Processes an object model by mapping it to a predefined type and determining 
     whether the row should be skipped.
@@ -634,7 +656,6 @@ def process_issuance(pid: str, solr_field: str, value: str) -> str:
         return value
 
     return new_value
-
 
 
 def process_name(
@@ -1106,9 +1127,10 @@ def records_to_csv(records: list, destination: str):
 """ Key Functions """
 
 def process_records(
-    tracker: ProgressTrackerCLI | ProgressTrackerGUI,  
-    input_dir: str, 
-    output_dir: str, 
+    progress_queue: Queue,
+    tracker: ProgressTrackerCLI | ProgressTrackerGUI,
+    input_dir: str,
+    output_dir: str,
     filename: str,
     timestamp: str
 ) -> dict:
@@ -1116,7 +1138,8 @@ def process_records(
     Process a single CSV file, transforming and validating its data, and save the processed records to a new CSV file.
 
     Args:
-        tracker (ProgressTracker): Instance of the ProgressTracker class to track progress and handle GUI updates.
+        progress_queue (Queue): Thread-safe queue for reporting progress back to the main thread.
+        tracker (ProgressTrackerCLI | ProgressTrackerGUI): Instance of the ProgressTrackerCLI or ProgressTrackerGUI class to track progress.
         input_dir (str): Path to the directory containing the input CSV file.
         output_dir (str): Path to the directory where the processed output file will be saved.
         filename (str): Name of the CSV file to process.
@@ -1124,7 +1147,7 @@ def process_records(
 
     Returns:
         dict: A dictionary containing metadata or logs for processed records (if applicable). Returns None if canceled.
-    
+
     Raises:
         Exception: If an error occurs during processing, it prints the error message.
     """
@@ -1140,14 +1163,15 @@ def process_records(
 
     # Initialize records
     records = []
-    
+
     try:
         # Update progress tracker with current file being processed
-        tracker.set_current_file(filename, len(df))
+        progress_queue.put((tracker.set_current_file, (filename, len(df))))
 
         # Process each record
         for _, row in df.iterrows():
             try:
+                
                 if tracker.cancel_requested.is_set():
                     return
 
@@ -1173,10 +1197,10 @@ def process_records(
 
                     if not field or pd.isna(data):
                         continue
-
+                    
                     # Preproccess values
                     values = split_and_clean(data)
-                    
+
                     for value in values:
                         # Transform values that require remediation
                         if field == "field_member_of":
@@ -1265,7 +1289,7 @@ def process_records(
                 records.append(record)
 
                 # Update progress
-                tracker.update_processed_records()
+                progress_queue.put((tracker.update_processed_records, ()))
 
             except Exception as e:
                 print(f"Error processing row {pid}: {e}")
@@ -1284,26 +1308,28 @@ def process_records(
 
 
 def process_files(
+    progress_queue: Queue,
     tracker: ProgressTrackerCLI | ProgressTrackerGUI, 
-    input_dir: str, 
+    input_dir: str,
     output_dir: str
 ):
     """
     Process all CSV files in the input directory and save the processed records to the output directory.
 
     Args:
-        tracker (ProgressTracker): Instance of the ProgressTracker class to track progress and handle GUI updates.
+        progress_queue (Queue): Thread-safe queue for reporting progress.
+        tracker (ProgressTrackerCLI | ProgressTrackerGUI): Instance of the ProgressTrackerCLI or ProgressTrackerGUI class to track progress.
         input_dir (str): Path to the directory containing the input CSV files.
         output_dir (str): Path to the directory where the processed output files will be saved.
-    
+
     Raises:
         Exception: If an error occurs during processing, it prints the error message.
     """
     # Get list of CSV files in input folder
     files = [f for f in order_files(os.listdir(input_dir)) if f.endswith('.csv')]
-    
+
     # Set total number of files for progress tracking
-    tracker.set_total_files(len(files))
+    progress_queue.put((tracker.set_total_files, (len(files),)))
 
     # Get timestamp for output files
     timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
@@ -1321,17 +1347,22 @@ def process_files(
             current_file = filename
             if check_file(current_file):
                 process_records(
-                    tracker, input_dir, output_dir, filename, timestamp
+                    progress_queue, 
+                    tracker,
+                    input_dir, 
+                    output_dir, 
+                    filename, 
+                    timestamp
                 )
             else:
                 print(f"Skipping unexpected file {current_file}")
-            tracker.update_processed_files()
+            progress_queue.put((tracker.update_processed_files, ()))
 
     except Exception as e:
         print(f"Error during processing: {e}")
         print(traceback.format_exc())
         sys.exit(1)
-    
+
     # Write reports
     log_dir = os.path.join(input_dir, "logs")
     write_reports(log_dir, timestamp, transformations, exceptions)
@@ -1343,22 +1374,32 @@ def process_files(
 """ Driver Code """
 
 if __name__ == "__main__":
-    # Set up tkinter window for GUI
+    # Save initial working directory
+    original_cwd = os.getcwd()
+
+    # Change working directory to script's directory
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+    # Initialize root variable
+    root = None
+
+try:
     if TK_AVAILABLE:
+        # Set up tkinter window for GUI
         root = tk.Tk()
         root.withdraw()
 
-        # Initialize progress tracker
-        tracker = ProgressTrackerFactory(root)
-        title = 'Select Batch Folder with Input CSV Files'
+        # Set prompt for user
+        prompt = 'Select Batch Folder with Input CSV Files'
     else:
-        tracker = ProgressTrackerFactory(None)
-        title = 'Enter Batch Folder with Input CSV Files'
+        prompt = 'Enter Batch Folder with Input CSV Files'
+
+    # Initialize progress tracker
+    update_queue = Queue()
+    tracker = ProgressTrackerFactory(root, update_queue)
 
     # Get batch directory
-    batch_dir = get_directory(
-        'input', title, TK_AVAILABLE
-    )
+    batch_dir = get_directory('input', prompt, TK_AVAILABLE)
     print(f"Processing batch directory: {batch_dir}")
 
     # Set up batch directory
@@ -1369,10 +1410,19 @@ if __name__ == "__main__":
 
     # Run file/record processing in a separate thread
     processing_thread = threading.Thread(
-        target=process_files, 
-        args=(tracker, batch_dir, output_dir)
+        target=process_files,
+        args=(update_queue, tracker, batch_dir, output_dir)
     )
     processing_thread.start()
 
     if TK_AVAILABLE:
+        root.after(100, process_queue, root, update_queue)
         root.mainloop()
+
+except Exception as e:
+    print("An error occurred during execution:")
+    print(traceback.format_exc())
+
+finally:
+    os.chdir(original_cwd)
+
