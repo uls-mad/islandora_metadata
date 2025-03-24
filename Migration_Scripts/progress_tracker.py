@@ -34,6 +34,7 @@ class ProgressTrackerGUI:
         self.processed_records = tk.IntVar(value=0)
         self.total_files = tk.IntVar(value=0)
         self.processed_files = tk.IntVar(value=0)
+        self.total_records_processed = 0
         self.cancel_requested = threading.Event()
 
         # Derived variables
@@ -230,6 +231,8 @@ class ProgressTrackerCLI:
         Update the number of processed records.
         """
         self.processed_records += 1
+        self.total_records_processed += 1 
+
         print(
             f"\rFiles Processed: {self.processed_files}/{self.total_files} | "
             f"Records Processed: {self.processed_records}/{self.total_records}   ",
@@ -239,7 +242,7 @@ class ProgressTrackerCLI:
 
         # If this is the last record, clear line and move to a new line
         if self.processed_records == self.total_records:
-            print()  # move to new line to separate progress from next output
+            print()  # move to new line after final record in file
 
 
     def update_processed_files(self):
@@ -247,19 +250,15 @@ class ProgressTrackerCLI:
         Update the number of processed files and print final message if done.
         """
         self.processed_files += 1
-
-        # Final update (in case records finished before the file finished)
         print(
-            f"\rFiles Processed: {self.processed_files}/{self.total_files} | " +
-            f"Records Processed: {self.processed_records}/{self.total_records}   ",
+            f"\rFiles Processed: {self.processed_files}/{self.total_files} | "
+            f"Records Processed: {self.total_records_processed} total   ",
             end="",
             flush=True
         )
 
-        # If done, move to a new line and print summary
         if self.processed_files == self.total_files:
-            print()  # Move to next line
-            print("All files have been processed.")
+            print("\nAll files have been processed.")
 
     def cancel_process(self):
         """

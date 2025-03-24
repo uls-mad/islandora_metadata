@@ -110,5 +110,5 @@ def save_pids_for_media(
                     print(f"Added {len(new_pids)} new PIDs to {txt_filepath}")
                 else:
                     print(f"No new PIDs to add for {dsids[0]}. " 
-                          + "File already up to date."
+                          + "File already up to date.\n"
                         )
