@@ -34,7 +34,6 @@ class ProgressTrackerGUI:
         self.processed_records = tk.IntVar(value=0)
         self.total_files = tk.IntVar(value=0)
         self.processed_files = tk.IntVar(value=0)
-        self.total_records_processed = 0
         self.cancel_requested = threading.Event()
 
         # Derived variables
@@ -184,6 +183,7 @@ class ProgressTrackerCLI:
         self.current_file = "No file is being processed."
         self.total_records = 0
         self.processed_records = 0
+        self.total_records_processed = 0
         self.total_files = 0
         self.processed_files = 0
         self.cancel_requested = threading.Event()
