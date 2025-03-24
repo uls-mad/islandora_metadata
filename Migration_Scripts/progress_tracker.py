@@ -234,7 +234,7 @@ class ProgressTrackerCLI:
         self.total_records_processed += 1 
 
         print(
-            f"Records Processed: {self.processed_records}/{self.total_records}   ",
+            f"\rRecords Processed: {self.processed_records}/{self.total_records}   ",
             end="",
             flush=True
         )
