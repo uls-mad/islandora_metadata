@@ -94,6 +94,12 @@ def write_reports(
             index=False,
             encoding='utf-8'
         )
+        notification_symbol = "🔔" if TK_AVAILABLE else "[*]"
+        print(
+            f"{notification_symbol} {len(transformations)} transformation"
+            f"{' was' if len(transformations) == 1 else 's were'} made. "
+            "See logs for details."
+        )
 
     # Save exceptions to DataFrame
     if exceptions:
@@ -109,9 +115,12 @@ def write_reports(
             index=False,
             encoding='utf-8'
         )
+        warning_symbol = "⚠️ " if TK_AVAILABLE else "[!]"
         print(
-            f"\n⚠️  {len(exceptions)} exceptions encountered. " + 
+            f"{warning_symbol} {len(exceptions)} exceptions encountered. " + 
             "See logs for details."
         )
+        
     else:
-        print("\n✅ No exceptions were encountered.")
+        success_symbol = "✅" if TK_AVAILABLE else "✓"
+        print(f"{success_symbol} No exceptions were encountered.")
