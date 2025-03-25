@@ -17,13 +17,19 @@ except ImportError:
 import pandas as pd
 
 # Import local modules
-from file_utils import *
+from file_utils import get_directory, create_df, write_reports
 from definitions import DATASTREAMS_MAPPING
 
 
 """ Functions """
 
-def add_exception(exceptions: list, pid: str, field: str, exception: str, current_file: str) -> None:
+def add_exception(
+    exceptions: list, 
+    pid: str, 
+    field: str, 
+    exception: str, 
+    current_file: str
+) -> None:
     """
     Add an exception record to the exceptions list.
 
@@ -65,7 +71,9 @@ def add_media_files(
     for ds_field, dsids in datastreams.items():
         if ds_field in df.columns:
             # Filter DataFrame for records that should have media files
-            df[ds_field] = df[ds_field].str.strip().replace({'': pd.NA})
+            df[ds_field] = df[ds_field].astype(str).str.strip().replace(
+                {'': pd.NA}
+            )
             filtered_df = df[df[ds_field].notna()]
 
             # Add media filenames to DataFrame
@@ -74,9 +82,9 @@ def add_media_files(
             for _, row in filtered_df.iterrows():
                 pid = str(row['id'])
                 matching_files = [
-                    filename for filename in media_files \
-                        if pid.replace(':', '_') in filename \
-                        and any(dsid in filename for dsid in dsids)
+                    filename for filename in media_files
+                    if pid.replace(':', '_') in filename
+                    and any(dsid in filename for dsid in dsids)
                 ]
 
                 # Log that media files were expected but not found
@@ -88,7 +96,7 @@ def add_media_files(
                         "No file found", 
                         current_file
                     )
-                
+
                 # Convert the list of found media filenames to a string
                 filenames_map[row.name] = '|'.join(matching_files) \
                     if matching_files else ''
@@ -99,7 +107,7 @@ def add_media_files(
     return df
 
 
-def process_csv_files(csv_dir: str, media_dir: str):
+def process_csv_files(csv_dir: str, media_dir: str) -> list:
     """
     Processes all CSV files in the given directory, updating them with matching media filenames.
 
@@ -107,12 +115,21 @@ def process_csv_files(csv_dir: str, media_dir: str):
         csv_dir (str): Directory containing CSV files.
         media_dir (str): Directory containing media files.
 
-    Raises:
-        SystemExit: If an error occurs during processing.
+    Returns:
+        list: A list of exceptions encountered during processing.
     """
+    exceptions = []
+
+    if not os.path.isdir(csv_dir):
+        print(f"Error: Metadata folder not found at: {csv_dir}")
+        return exceptions
+
+    if not os.path.isdir(media_dir):
+        print(f"Error: Media folder not found at: {media_dir}")
+        return exceptions
+
     csv_files = [f for f in os.listdir(csv_dir) if f.endswith('.csv')]
     media_files = [f for f in os.listdir(media_dir) if not f.endswith('.csv')]
-    exceptions = []
 
     try:
         for filename in csv_files:
@@ -141,11 +158,9 @@ def process_csv_files(csv_dir: str, media_dir: str):
                 header=True, 
                 encoding='utf-8'
             )
-            
+
             # Log output file creation
-            print("CSV file processed successfully: " + 
-                  output_filepath.replace('\\', '/')
-            )
+            print("CSV file created: " + output_filepath.replace('\\', '/'))
 
     except Exception as e:
         print(f"Error during processing: {e}")
@@ -168,23 +183,25 @@ if __name__ == "__main__":
             title = 'Enter Batch Folder with Input CSV Files'
 
         # Get directories and timestamp for file handling
-        batch_dir = get_directory(
-            'input', title, TK_AVAILABLE
-        )
-
-        # Use batch_dir to construct subdirectories
+        batch_dir = get_directory('input', title, TK_AVAILABLE)
         csv_dir = os.path.join(batch_dir, "metadata")
         media_dir = os.path.join(batch_dir, "import")
         log_dir = os.path.join(batch_dir, "logs")
-
-        # Set timestamp
         timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
 
         # Process CSV files
         exceptions = process_csv_files(csv_dir, media_dir)
 
         # Report exceptions, if any
-        write_reports(log_dir, timestamp, [], exceptions)
+        if exceptions:
+            print(
+                f"\n⚠️  {len(exceptions)} exceptions encountered. " + 
+                "See log for details."
+            )
+        else:
+            print("\n✅ All files processed successfully.")
+
+        write_reports(log_dir, timestamp, "media", [], exceptions)
 
     except Exception as e:
         print(f"Unexpected error: {e}")
