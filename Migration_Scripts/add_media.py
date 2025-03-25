@@ -193,14 +193,6 @@ if __name__ == "__main__":
         exceptions = process_csv_files(csv_dir, media_dir)
 
         # Report exceptions, if any
-        if exceptions:
-            print(
-                f"\n⚠️  {len(exceptions)} exceptions encountered. " + 
-                "See log for details."
-            )
-        else:
-            print("\n✅ All files processed successfully.")
-
         write_reports(log_dir, timestamp, "media", [], exceptions)
 
     except Exception as e:

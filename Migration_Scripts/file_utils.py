@@ -109,6 +109,9 @@ def write_reports(
             index=False,
             encoding='utf-8'
         )
-
+        print(
+            f"\n⚠️  {len(exceptions)} exceptions encountered. " + 
+            "See logs for details."
+        )
     else:
-        print("No exceptions were encountered.")
+        print("\n✅ No exceptions were encountered.")
