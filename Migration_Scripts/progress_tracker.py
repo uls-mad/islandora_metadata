@@ -226,9 +226,12 @@ class ProgressTrackerCLI:
             f"({self.total_records} records)"
         )
 
-    def update_processed_records(self):
+    def update_processed_records(self, is_last=False):
         """
         Update the number of processed records.
+
+        Args:
+            is_last (bool): Whether this is the last record in the current file.
         """
         self.processed_records += 1
         self.total_records_processed += 1 
@@ -240,8 +243,8 @@ class ProgressTrackerCLI:
         )
 
         # If this is the last record, clear line and move to a new line
-        if self.processed_records == self.total_records:
-            print()  # move to new line after final record in file
+        if is_last:
+            print()
 
 
     def update_processed_files(self):
@@ -252,7 +255,7 @@ class ProgressTrackerCLI:
         print(
             f"\rFiles Processed: {self.processed_files}/{self.total_files} | "
             f"Records Processed: {self.total_records_processed} total   ",
-            end="",
+            end="\n",
             flush=True
         )
 

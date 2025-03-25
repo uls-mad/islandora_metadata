@@ -1290,7 +1290,11 @@ def process_records(
                 records.append(record)
 
                 # Update progress
-                progress_queue.put((tracker.update_processed_records, ()))
+                is_last = (_ == df.index[-1])
+                progress_queue.put((
+                    tracker.update_processed_records, (is_last,)
+                ))
+
 
             except Exception as e:
                 print(f"Error processing row {pid}: {e}")
