@@ -1128,8 +1128,6 @@ def records_to_csv(records: list, destination: str):
             df["id"].notna()
         ][["id", "field_domain_access"]].rename(columns={"id": "parent_id"})
 
-        print(f"Parent DF Length: {len(parent_df)}")
-
         # Merge domain access from parents into child records where missing
         df = df.merge(
             parent_df, on="parent_id", how="left", suffixes=('', '_from_parent')
