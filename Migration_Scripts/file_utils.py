@@ -59,9 +59,10 @@ def create_df(filepath: str) -> pd.DataFrame:
 
 
 def write_reports(
-    output_dir: str, 
-    timestamp: str, 
-    transformations: list, 
+    output_dir: str,
+    timestamp: str,
+    label: str | None,
+    transformations: list,
     exceptions: list
 ):
     """
@@ -70,12 +71,15 @@ def write_reports(
     Args:
         output_dir (str): Path to the folder where reports will be saved.
         timestamp (str): Timestamp to include in the filenames of the reports.
+        label (str | None): An additional label to describe file.
         transformations (list): List of transformations made during processing.
         exceptions (list): List of exceptions encountered during processing.
 
     Returns:
         None
     """
+    label = f"_{label}" if label else label
+    
     # Save exceptions to DataFrame
     if transformations:
         transformations_df = pd.DataFrame.from_dict(transformations)
@@ -83,7 +87,7 @@ def write_reports(
         # Write DataFrame to CSV
         transformations_filepath = os.path.join(
             output_dir,
-            f'{timestamp}_transformations.csv'
+            f'{timestamp}{label}_transformations.csv'
         )
         transformations_df.to_csv(
             transformations_filepath,
@@ -98,7 +102,7 @@ def write_reports(
         # Write DataFrame to CSV
         exceptions_filepath = os.path.join(
             output_dir,
-            f'{timestamp}_exceptions.csv'
+            f'{timestamp}{label}_exceptions.csv'
         )
         exceptions_df.to_csv(
             exceptions_filepath,
