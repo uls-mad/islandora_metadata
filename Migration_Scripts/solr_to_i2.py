@@ -1120,7 +1120,7 @@ def records_to_csv(records: list, destination: str):
     df.to_csv(destination, index=False, header=True, encoding='utf-8')
 
     formatted_path = destination.replace("\\", "/")
-    print(f"\nCSV file has been saved to {formatted_path}")
+    print(f"CSV file has been saved to {formatted_path}")
 
     return df
 
