@@ -1090,10 +1090,15 @@ def complete_record(record: dict) -> dict:
 def records_to_csv(records: list, destination: str):
     """
     Converts a list of dictionaries to a CSV file, dropping empty columns.
-    
+    If records contain parent-child relationships, ensures children inherit 
+    the parent's domain access value where applicable.
+
     Args:
         records (list): List of dictionaries to convert.
         destination (str): Filepath for the output CSV file.
+
+    Returns:
+        pd.DataFrame: The resulting DataFrame written to CSV, or None if no records.
     """
     # Confirm there are records to save to CSV
     if not records:
@@ -1104,14 +1109,39 @@ def records_to_csv(records: list, destination: str):
     # Convert list of dictionaries to DataFrame
     df = pd.DataFrame.from_dict(records)
 
-    # Sort records so that parent objects are first
     if "parent_id" in df.columns:
+        # Sort records so that parent objects are first
         df.sort_values(
             by="parent_id", 
             ascending=True, 
             na_position="first", 
             inplace=True
         )
+
+        # Ensure that children have the same domain access as their parents
+        parent_models = ['Paged Content', 'Publication Issue']
+
+        # Get parent records with eligible models and non-null domain access
+        parent_df = df[
+            df["field_model"].isin(parent_models) &
+            df["field_domain_access"].notna() &
+            df["id"].notna()
+        ][["id", "field_domain_access"]].rename(columns={"id": "parent_id"})
+
+        print(f"Parent DF Length: {len(parent_df)}")
+
+        # Merge domain access from parents into child records where missing
+        df = df.merge(
+            parent_df, on="parent_id", how="left", suffixes=('', '_from_parent')
+        )
+
+        # Fill in missing child domain access values with parent's value
+        df["field_domain_access"] = df["field_domain_access"].combine_first(
+            df["field_domain_access_from_parent"]
+        )
+
+        # Drop the temporary column
+        df.drop(columns=["field_domain_access_from_parent"], inplace=True)
 
     # Ensure the destination directory exists
     os.makedirs(os.path.dirname(destination), exist_ok=True)
@@ -1276,7 +1306,7 @@ def process_records(
                 # Add attributed personal names
                 record = add_attributed_names(record, personal_names)
 
-                # Add in any map fields
+                # Add map fields
                 if geo_field:
                     record = add_geo_field(record, pid)
 
@@ -1290,11 +1320,13 @@ def process_records(
                 records.append(record)
 
                 # Update progress
-                is_last = (_ == df.index[-1])
-                progress_queue.put((
-                    tracker.update_processed_records, (is_last,)
-                ))
-
+                if TK_AVAILABLE:
+                    progress_queue.put((tracker.update_processed_records, ()))
+                else:
+                    is_last = (_ == df.index[-1])
+                    progress_queue.put((
+                        tracker.update_processed_records, (is_last,)
+                    ))
 
             except Exception as e:
                 print(f"Error processing row {pid}: {e}")
@@ -1376,7 +1408,7 @@ def process_files(
 
     # Write reports
     log_dir = os.path.join(input_dir, "logs")
-    write_reports(log_dir, timestamp, transformations, exceptions)
+    write_reports(log_dir, timestamp, "metadata", transformations, exceptions)
 
     # Save inventory of processed records
     # save_inventory()
@@ -1405,7 +1437,7 @@ if __name__ == "__main__":
 
         # Get batch directory
         batch_dir = get_directory('input', prompt, TK_AVAILABLE)
-        print(f"Processing batch directory: {batch_dir}")
+        print(f"\nProcessing batch directory: {batch_dir}")
 
         # Set up batch directory
         setup_batch_directory(batch_dir)

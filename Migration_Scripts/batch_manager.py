@@ -106,9 +106,11 @@ def save_pids_for_media(
                     with open(txt_filepath, "a", encoding="utf-8") as f:
                         for pid in sorted(new_pids):  # Sorting for consistency
                             f.write(f"{pid}\n")
-
-                    print(f"Added {len(new_pids)} new PIDs to {txt_filepath}\n")
+                    
+                    # Report on added PIDS in output, if any
+                    print(f"Added {len(new_pids)} new PIDs to {txt_filepath}")
                 else:
                     print(f"No new PIDs to add for {dsids[0]}. " 
-                          + "File already up to date.\n"
+                          + "File already up to date."
                         )
+    print()
