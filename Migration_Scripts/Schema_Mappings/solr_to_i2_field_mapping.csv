@@ -179,7 +179,7 @@ mods_note_reproduction_ms,field_note,,Note,Repoduction:,Copy to Note
 mods_note_thesis_ms,field_note,,Note,Thesis:,Copy to Note
 mods_note_venue_ms,field_note,,Note,Venue:,Copy to Note
 mods_note_features_ms,field_geographic_features,,Geographic Features,,Copy to Geographic Features
-mods_note_streets_ms,field_thoroughfare,,Thoroughfares,,Copy to Thoroughfares
+mods_note_streets_ms,field_thoroughfares,,Thoroughfares,,Copy to Thoroughfares
 mods_relatedItem_series_note_numbering_ms,field_note,,Note,Numbering:,Copy to Note
 mods_accessCondition_copyright_rights.holder_name_ms,field_copyright_holder,,Copyright Holder,,"Custom plain text field, long"
 mods_accessCondition_copyright_rights.holder_note_ms,field_rights_notes,,Copyright Note,,"Custom plain text field, long"
