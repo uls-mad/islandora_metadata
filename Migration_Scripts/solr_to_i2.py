@@ -696,11 +696,18 @@ def process_name(
 
     for _, row in matching_rows.iterrows():
         name_type = LINKED_AGENT_TYPES.get(row['Type'], row['Type'])
+        # note = row['Note']
 
         if row['Action'] == "remove":
+            message = f"skipped {name_type} name '{value}'"
+            # message = f"skipped {name_type} name '{value}'" \
+                # + (f"- Note: {note}" if note else "")
             add_transformation(
-                record['id'][0], solr_field, value, None, 
-                f"skipped {name_type} name '{value}'"
+                record['id'][0], 
+                solr_field, 
+                value, 
+                None, 
+                message
             )
             return record, personal_names
 
@@ -811,16 +818,19 @@ def process_subject(
     for _, row in matching_rows.iterrows():
         # Use the value in the Type column as the key in SUBJECT_FIELD_MAPPING to get the field
         subject_type = row['Type']
+        note = row['Note']
         field = SUBJECT_FIELD_MAPPING.get(subject_type)
         
         # If Action == "remove", skip processing and return the record
         if row['Action'] == "remove":
+            message = f"skipped subject {subject_type} heading" \
+                + (f". Note: {note}" if note else "")
             add_transformation(
                 record['id'][0], 
                 solr_field, 
                 value, 
                 None, 
-                f"skipped subject {subject_type} heading '{value}'")
+                message)
             return record
 
         if field:
@@ -1020,8 +1030,12 @@ def validate_record(record: dict) -> None:
         None
     """
     for field, values in record.items():
-        field_manager = FIELDS.loc[FIELDS['Field'] == field].iloc[0]
-
+        match = FIELDS.loc[FIELDS['Field'] == field]
+        if match.empty:
+            print(f"⚠️  Warning: Field '{field}' not found in FIELDS lookup.")
+            return 
+        field_manager = match.iloc[0]
+        
         if field_manager.Field_Type == "Text (plain)":
             for value in values:
                 if len(value) > 255:
