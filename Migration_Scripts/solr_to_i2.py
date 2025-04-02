@@ -9,6 +9,7 @@ import re
 import threading
 import time
 import traceback
+import argparse
 from queue import Queue
 from datetime import datetime
 from typing import List, Tuple, Union
@@ -42,8 +43,28 @@ exceptions = []
 global current_file
 current_file = None
 
+DEFAULT_BATCH_SIZE = 5000
+
 
 """ Helper Functions """
+
+def parse_arguments():
+    """
+    Parse command-line arguments to retrieve the batch size.
+
+    Returns:
+        int: The number of records to process per batch.
+    """
+    parser = argparse.ArgumentParser(description="Process CSV files in batches.")
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=DEFAULT_BATCH_SIZE,
+        help=f"Number of records per batch (default: {DEFAULT_BATCH_SIZE})"
+    )
+    args = parser.parse_args()
+    return args.batch_size
+
 
 def process_queue(root, update_queue):
     """
@@ -59,7 +80,7 @@ def process_queue(root, update_queue):
     while not update_queue.empty():
         func, args = update_queue.get()
         func(*args)
-    root.after(100, process_queue, root, update_queue)
+    root.after(25, process_queue, root, update_queue)
 
 
 def initialize_record() -> dict:
@@ -818,7 +839,7 @@ def process_subject(
     for _, row in matching_rows.iterrows():
         # Use the value in the Type column as the key in SUBJECT_FIELD_MAPPING to get the field
         subject_type = row['Type']
-        note = row['Note']
+        note = row.get('Note')
         field = SUBJECT_FIELD_MAPPING.get(subject_type)
         
         # If Action == "remove", skip processing and return the record
@@ -1161,6 +1182,7 @@ def records_to_csv(records: list, destination: str):
     # Write the resulting DataFrame to a CSV file
     df.to_csv(destination, index=False, header=True, encoding='utf-8')
 
+    # Report creation of processed CSV path
     formatted_path = destination.replace("\\", "/")
     print(f"CSV file has been saved to {formatted_path}")
 
@@ -1169,216 +1191,148 @@ def records_to_csv(records: list, destination: str):
 
 """ Key Functions """
 
-def process_records(
-    progress_queue: Queue,
-    tracker: ProgressTrackerCLI | ProgressTrackerGUI,
-    input_dir: str,
-    output_dir: str,
-    filename: str,
-    timestamp: str
-) -> dict:
+def process_record(filename: str, row: dict) -> dict:
     """
-    Process a single CSV file, transforming and validating its data, and save the processed records to a new CSV file.
+    Process a CSV row dictionary into a transformed metadata record.
 
     Args:
-        progress_queue (Queue): Thread-safe queue for reporting progress back to the main thread.
-        tracker (ProgressTrackerCLI | ProgressTrackerGUI): Instance of the ProgressTrackerCLI or ProgressTrackerGUI class to track progress.
-        input_dir (str): Path to the directory containing the input CSV file.
-        output_dir (str): Path to the directory where the processed output file will be saved.
         filename (str): Name of the CSV file to process.
-        timestamp (str): Timestamp string to append to the output file name for uniqueness.
+        row (dict): Dictionary representing a CSV row.
 
     Returns:
-        dict: A dictionary containing metadata or logs for processed records (if applicable). Returns None if canceled.
-
-    Raises:
-        Exception: If an error occurs during processing, it prints the error message.
+        dict: Transformed metadata record.
     """
-    # Get full file paths
-    input_path = os.path.join(input_dir, filename)
-    output_filename = filename.replace('.csv', f'_{timestamp}.csv')
-    output_filepath = os.path.join(output_dir, output_filename)
+    # Initialize record
+    record = initialize_record()
+    personal_names = {"no_relator": set(), "has_relator": set()}
+    source_data = {}
+    geo_field = False
 
-    # Convert table into a DataFrame
-    df = pd.read_csv(input_path, dtype=str).\
-        replace('', pd.NA).\
-        dropna(axis=1, how='all')
-
-    # Initialize records
-    records = []
+    # Add ID to record manually to ensure presence for logging
+    pid = row["PID"]
+    add_value(record, None, "id", pid)
 
     try:
-        # Update progress tracker with current file being processed
-        progress_queue.put((tracker.set_current_file, (filename, len(df))))
+        # Check if record has already been processed
+        skip_record = check_record(filename, row)
+        if skip_record:
+            return None
 
-        # Process each record
-        for _, row in df.iterrows():
-            try:
+        # Process values in each field
+        for solr_field, data in row.items():
+            # Confirm that Solr field is mapped and data exists in field
+            field = get_mapped_field(pid, solr_field, data)
+            if not field or pd.isna(data):
+                continue
 
-                if tracker.cancel_requested.is_set():
-                    return
+            # Preproccess values
+            values = split_and_clean(data)
 
-                # Initialize record
-                record = initialize_record()
-                personal_names = {'no_relator': set(), 'has_relator': set()}
-                source_data = {}
-                geo_field = False
-
-                # Add ID to record manually to ensure presence for logging
-                pid = row['PID']
-                add_value(record, None, "id", pid)
-
-                # Check if record has already been processed
-                skip_row = check_record(filename, row)
-                if skip_row:
+            for value in values:
+                # Transform values that require remediation
+                if field == "field_member_of":
+                    value = process_collection_id(
+                        record, solr_field, value
+                    )
+                elif field == "parent_id":
+                    value = process_parent_id(value)
+                elif field in TITLE_FIELDS:
+                    record = add_title(record, solr_field, field, value)
                     continue
-
-                # Process values in each field
-                for solr_field, data in row.items():
-                    # Confirm that Solr field is mapped and data exists in field
-                    field = get_mapped_field(pid, solr_field, data)
-
-                    if not field or pd.isna(data):
-                        continue
-
-                    # Preproccess values
-                    values = split_and_clean(data)
-
-                    for value in values:
-                        # Transform values that require remediation
-                        if field == "field_member_of":
-                            value = process_collection_id(
-                                record, solr_field, value
-                            )
-                        elif field == "parent_id":
-                            value = process_parent_id(value)
-                        elif field in TITLE_FIELDS:
-                            record = add_title(record, solr_field, field, value)
-                            continue
-                        elif field == "field_language":
-                            value = process_language(pid, value)
-                        elif field == "field_place_published_pitt":
-                            value = process_country(pid, value)
-                        elif field == "field_linked_agent":
-                            record, personal_names = process_name(
-                                record, personal_names, solr_field, field, value
-                            )
-                            continue
-                        elif field in DATE_FIELDS:
-                            continue
-                        elif field == "field_mode_of_issuance":
-                            value = process_issuance(pid, solr_field, value)
-                        elif field in SUBJECT_FIELDS:
-                            record = process_subject(record, solr_field, value)
-                            continue
-                        elif field == "field_genre":
-                            record = process_genre(record, value)
-                            continue
-                        elif field == "field_type_of_resources_legacy":
-                            value = TYPE_MAPPING[value]
-                        elif field == "field_physical_form":
-                            record = process_form(record, value)
-                            continue
-                        elif field in GEO_FIELDS:
-                            geo_field = True
-                            continue
-                        elif field in SOURCE_FIELDS:
-                            source_data[solr_field] = dedup(data)
-                            continue
-                        elif field == "field_rights_statement":
-                            value = process_rights(value)
-                        elif field == "field_model":
-                            value, skip_row = process_model(
-                                record, solr_field, value
-                            )
-                        elif field == "field_domain_access":
-                            value = DOMAIN_MAPPING.get(value, "")
-                        elif field == "field_preservica_date":
-                            value = value[:10]
-
-                        # Add Solr data to I2 field
-                        if value and not skip_row:
-                            add_value(record, solr_field, field, value)
-
-                    if skip_row:
-                        break
-
-                if skip_row:
+                elif field == "field_language":
+                    value = process_language(pid, value)
+                elif field == "field_place_published_pitt":
+                    value = process_country(pid, value)
+                elif field == "field_linked_agent":
+                    record, personal_names = process_name(
+                        record, personal_names, solr_field, field, value
+                    )
                     continue
+                elif field in DATE_FIELDS:
+                    continue
+                elif field == "field_mode_of_issuance":
+                    value = process_issuance(pid, solr_field, value)
+                elif field in SUBJECT_FIELDS:
+                    record = process_subject(record, solr_field, value)
+                    continue
+                elif field == "field_genre":
+                    record = process_genre(record, value)
+                    continue
+                elif field == "field_type_of_resources_legacy":
+                    value = TYPE_MAPPING[value]
+                elif field == "field_physical_form":
+                    record = process_form(record, value)
+                    continue
+                elif field in GEO_FIELDS:
+                    geo_field = True
+                    continue
+                elif field in SOURCE_FIELDS:
+                    source_data[solr_field] = dedup(data)
+                    continue
+                elif field == "field_rights_statement":
+                    value = process_rights(value)
+                elif field == "field_model":
+                    value, skip_record = process_model(
+                        record, solr_field, value
+                    )
+                elif field == "field_domain_access":
+                    value = DOMAIN_MAPPING.get(value, "")
+                elif field == "field_preservica_date":
+                    value = value[:10]
 
-                # Process title
-                record = process_title(record)
+                # Add Solr data to I2 field
+                if value and not skip_record:
+                    add_value(record, solr_field, field, value)
 
-                # Process dates
-                record = process_dates(record)
+            if skip_record:
+                return None
 
-                # Process source fields
-                record = process_source(record, source_data)
+        # Process title
+        record = process_title(record)
 
-                # Add attributed personal names
-                record = add_attributed_names(record, personal_names)
+        # Process dates
+        record = process_dates(record)
 
-                # Add map fields
-                if geo_field:
-                    record = add_geo_field(record, pid)
+        # Process source fields
+        record = process_source(record, source_data)
 
-                # Validate record
-                validate_record(record)
+        # Add attributed personal names
+        record = add_attributed_names(record, personal_names)
 
-                # Complete record
-                record = complete_record(record)
+        # Add map fields
+        if geo_field:
+            record = add_geo_field(record, pid)
 
-                # Add record to list of records
-                records.append(record)
+        # Validate record
+        validate_record(record)
 
-                # Update progress
-                if TK_AVAILABLE:
-                    progress_queue.put((tracker.update_processed_records, ()))
-                else:
-                    is_last = (_ == df.index[-1])
-                    progress_queue.put((
-                        tracker.update_processed_records, (is_last,)
-                    ))
+        # Complete record
+        record = complete_record(record)
 
-            except Exception as e:
+    except Exception as e:
                 print(f"Error processing row {pid}: {e}")
                 print(traceback.format_exc())
                 add_exception(pid, "row_error", "", str(e))
 
-    except Exception as e:
-        print(f"Critical error in processing {filename}: {e}")
-        print(traceback.format_exc())
-
-    # Flush last record progress update before printing file saved message
-    if not TK_AVAILABLE:
-        while not progress_queue.empty():
-            func, args = progress_queue.get()
-            func(*args)
-
-    # Save records to a CSV file in the output folder 
-    df = records_to_csv(records, output_filepath)
-
-    # Save PIDs for media export
-    save_pids_for_media(input_dir, df, DATASTREAMS_MAPPING)
+    return record
 
 
 def process_files(
     progress_queue: Queue,
     tracker: ProgressTrackerCLI | ProgressTrackerGUI, 
     input_dir: str,
-    output_dir: str
+    output_dir: str,
+    batch_size: int
 ):
     """
-    Process all CSV files in the input directory and save the processed records to the output directory.
+    Process all CSV files in the input directory in batches.
 
     Args:
         progress_queue (Queue): Thread-safe queue for reporting progress.
         tracker (ProgressTrackerCLI | ProgressTrackerGUI): Instance of the ProgressTrackerCLI or ProgressTrackerGUI class to track progress.
         input_dir (str): Path to the directory containing the input CSV files.
         output_dir (str): Path to the directory where the processed output files will be saved.
-
-    Raises:
-        Exception: If an error occurs during processing, it prints the error message.
+        batch_size (int): Number of records per batch.
     """
     # Get list of CSV files in input folder
     files = [f for f in order_files(os.listdir(input_dir)) if f.endswith('.csv')]
@@ -1386,44 +1340,103 @@ def process_files(
     # Set total number of files for progress tracking
     progress_queue.put((tracker.set_total_files, (len(files),)))
 
-    # Get timestamp for output files
+    # Get batch directory name and timestamp for output files
+    batch_dir_name = os.path.basename(input_dir.rstrip(os.sep))
     timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+    output_fn_base = f"{batch_dir_name}_{timestamp}"
 
     # Load/Initialize inventory for processed records
     load_inventory()
 
-    # Process files
+    buffer = []
+    batch_count = 1
+
     try:
         for filename in files:
-            if tracker.cancel_requested.is_set():
-                break
+            try:
+                global current_file
+                current_file = filename
 
-            global current_file
-            current_file = filename
-            if check_file(current_file):
-                process_records(
-                    progress_queue, 
-                    tracker,
-                    input_dir, 
-                    output_dir, 
-                    filename, 
-                    timestamp
+                # Read input CSV into a DataFrame
+                input_path = os.path.join(input_dir, filename)
+                input_df = pd.read_csv(input_path, dtype=str).\
+                    replace("", pd.NA).\
+                    dropna(axis=1, how="all")
+
+                # Update progress tracker with current file being processed
+                progress_queue.put(
+                    (tracker.set_current_file, (filename, len(input_df)))
                 )
-            else:
-                print(f"Skipping unexpected file {current_file}")
+
+                # Process records
+                for idx, row in input_df.iterrows():
+                    if tracker.cancel_requested.is_set():
+                        return
+
+                    record = process_record(filename, row)
+                    if record:
+                        buffer.append(record)
+                    
+                    # Update progress for processed record
+                    if TK_AVAILABLE:
+                        if idx % 10 == 0 or idx == input_df.index[-1]:
+                            progress_queue.put(
+                                (tracker.update_processed_records, ())
+                            )
+                    else:
+                        is_last = (idx == input_df.index[-1])
+                        progress_queue.put(
+                            (tracker.update_processed_records, (is_last,))
+                        )
+
+                    # Complete batch if max size reached
+                    if len(buffer) == batch_size:
+                        # Save records to a CSV file in the output folder 
+                        batch_filename = f"{output_fn_base}_{batch_count}.csv"
+                        batch_filepath = os.path.join(output_dir, batch_filename)
+                        records_df = records_to_csv(buffer, batch_filepath)
+
+                        # Save PIDs for media export
+                        save_pids_for_media(
+                            input_dir,
+                            records_df, 
+                            DATASTREAMS_MAPPING
+                        )
+
+                        # Set up next batch
+                        batch_count += 1
+                        buffer.clear()
+
+            except Exception as e:
+                print(f"Critical error in processing {filename}: {e}")
+                print(traceback.format_exc())
+
+            # Update progress
             progress_queue.put((tracker.update_processed_files, ()))
+
+        if buffer:
+            # Save records to a CSV file in the output folder 
+            batch_filename = f"{output_fn_base}_{batch_count}.csv"
+            batch_filepath = os.path.join(output_dir, batch_filename)
+            records_df = records_to_csv(buffer, batch_filepath)
+
+            # Save PIDs for media export
+            save_pids_for_media(input_dir, records_df, DATASTREAMS_MAPPING)
+        
+        # Flush last record progress update before printing file saved message
+        if not TK_AVAILABLE:
+            while not progress_queue.empty():
+                func, args = progress_queue.get()
+                func(*args)
 
     except Exception as e:
         print(f"Error during processing: {e}")
         print(traceback.format_exc())
         sys.exit(1)
-
+    
     # Write reports
     log_dir = os.path.join(input_dir, "logs")
     write_reports(log_dir, timestamp, "metadata", transformations, exceptions)
-
-    # Save inventory of processed records
-    # save_inventory()
 
 
 """ Driver Code """
@@ -1458,15 +1471,18 @@ if __name__ == "__main__":
         output_dir = os.path.join(batch_dir, "metadata")
 
         # Run file/record processing in a separate thread
+        batch_size = parse_arguments()
+
+        # Run file/record processing in a separate thread
         processing_thread = threading.Thread(
             target=process_files,
-            args=(update_queue, tracker, batch_dir, output_dir)
+            args=(update_queue, tracker, batch_dir, output_dir, batch_size)
         )
         processing_thread.start()
 
         if TK_AVAILABLE:
             # Schedule periodic processing of the GUI update queue and 
-            root.after(100, process_queue, root, update_queue)
+            root.after(25, process_queue, root, update_queue)
 
             # Start the Tkinter event loop
             root.mainloop()

@@ -193,7 +193,7 @@ class ProgressTrackerCLI:
         Update and print progress for files and records.
         """
         print(
-            f"\rFiles Processed: {self.processed_files}/{self.total_files} | " + 
+            f"Files Processed: {self.processed_files}/{self.total_files} | " + 
             f"Records Processed: {self.processed_records}/{self.total_records}", 
             end="", 
             flush=True
