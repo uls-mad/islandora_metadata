@@ -1376,6 +1376,8 @@ def process_files(
                     record = process_record(filename, row)
                     if record:
                         buffer.append(record)
+                    else:
+                        continue
                     
                     # Update progress for processed record
                     if TK_AVAILABLE:

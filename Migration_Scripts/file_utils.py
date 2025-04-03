@@ -94,7 +94,7 @@ def write_reports(
             index=False,
             encoding='utf-8'
         )
-        notification_symbol = "↩️" if TK_AVAILABLE else "[*]"
+        notification_symbol = "↩️ " if TK_AVAILABLE else "[*]"
         print(
             f"{notification_symbol} {len(transformations)} transformation"
             f"{' was' if len(transformations) == 1 else 's were'} made. "
