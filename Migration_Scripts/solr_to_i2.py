@@ -839,20 +839,25 @@ def process_subject(
     for _, row in matching_rows.iterrows():
         # Use the value in the Type column as the key in SUBJECT_FIELD_MAPPING to get the field
         subject_type = row['Type']
-        note = row.get('Note')
         field = SUBJECT_FIELD_MAPPING.get(subject_type)
+        note = row.get('Note')
+        is_removal = row['Action'] == "remove"
         
-        # If Action == "remove", skip processing and return the record
-        if row['Action'] == "remove":
-            message = f"skipped subject {subject_type} heading" \
-                + (f". Note: {note}" if note else "")
+        # Handle transformation notes and removal
+        if note or is_removal:
+            message = (
+                f"skipped subject {subject_type} heading. Note: {note}"
+                if is_removal else note
+            )
             add_transformation(
-                record['id'][0], 
-                solr_field, 
-                value, 
-                None, 
-                message)
-            return record
+                record['id'][0],
+                solr_field,
+                value,
+                None,
+                message
+            )
+            if is_removal:
+                return record
 
         if field:
             # Use the value in the Valid_Heading column as the value
