@@ -59,14 +59,14 @@ def parse_arguments():
     parser.add_argument(
         "--user_id",
         type=str,
-        required=True,
-        help="The user ID to associate with the processing operation (required)."
+        default=None,
+        help="The user ID to associate with the processing operation (default: will prompt if not provided)."
     )
     parser.add_argument(
         "--batch_path",
         type=str,
         default=None,
-        help="Optional path to a batch directory (default: will prompt if not provided)."
+        help="Path to a batch directory (default: will prompt if not provided)."
     )
     parser.add_argument(
         "--batch_size",
@@ -1485,6 +1485,9 @@ if __name__ == "__main__":
     user_id, batch_path, batch_size = parse_arguments()
 
     try:
+        if user_id is None:
+            user_id = input("Enter your Pitt user ID: ")
+
         if TK_AVAILABLE:
             # Set up tkinter window for GUI
             root = tk.Tk()
