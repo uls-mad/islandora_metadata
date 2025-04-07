@@ -63,7 +63,7 @@ def parse_arguments():
         help="The user ID to associate with the processing operation (required)."
     )
     parser.add_argument(
-        "--batch_dir",
+        "--batch_path",
         type=str,
         default=None,
         help="Optional path to a batch directory (default: will prompt if not provided)."
