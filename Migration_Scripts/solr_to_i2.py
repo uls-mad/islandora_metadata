@@ -50,10 +50,10 @@ DEFAULT_BATCH_SIZE = 5000
 
 def parse_arguments():
     """
-    Parse command-line arguments to retrieve the batch size and user ID.
+    Parse command-line arguments to retrieve the batch size, user ID, and optional batch directory.
 
     Returns:
-        tuple: (user_id (str), batch_size (int))
+        tuple: (user_id (str), batch_path (str | None), batch_size (int))
     """
     parser = argparse.ArgumentParser(description="Process CSV files in batches.")
     parser.add_argument(
@@ -63,13 +63,20 @@ def parse_arguments():
         help="The user ID to associate with the processing operation (required)."
     )
     parser.add_argument(
+        "--batch_dir",
+        type=str,
+        default=None,
+        help="Optional path to a batch directory (default: will prompt if not provided)."
+    )
+    parser.add_argument(
         "--batch_size",
         type=int,
         default=DEFAULT_BATCH_SIZE,
         help=f"Number of records per batch (default: {DEFAULT_BATCH_SIZE})"
     )
     args = parser.parse_args()
-    return args.user_id, args.batch_size
+    return args.user_id, args.batch_path, args.batch_size
+
 
 
 def process_queue(root, update_queue):
@@ -1332,6 +1339,7 @@ def process_files(
     progress_queue: Queue,
     tracker: ProgressTrackerCLI | ProgressTrackerGUI, 
     batch_path: str,
+    batch_dir: str,
     output_path: str,
     file_prefix: str,
     batch_size: int
@@ -1474,7 +1482,7 @@ if __name__ == "__main__":
     root = None
 
     # Run file/record processing in a separate thread
-    user_id, batch_size = parse_arguments()
+    user_id, batch_path, batch_size = parse_arguments()
 
     try:
         if TK_AVAILABLE:
@@ -1483,16 +1491,17 @@ if __name__ == "__main__":
             root.withdraw()
 
             # Set prompt for user
-            prompt = 'Select Batch Folder with Input CSV Files'
+            input_prompt = 'Select Batch Folder with Input CSV Files'
         else:
-            prompt = 'Enter Batch Folder with Input CSV Files'
+            input_prompt = 'Enter Batch Folder with Input CSV Files'
 
         # Initialize progress tracker
         update_queue = Queue()
         tracker = ProgressTrackerFactory(root, update_queue)
 
         # Get batch directory path
-        batch_path = get_directory('input', prompt, TK_AVAILABLE)
+        if batch_path is None:
+            batch_path = get_directory('input', input_prompt, TK_AVAILABLE)
         print(f"\nProcessing batch directory: {batch_path}")
 
         # Get batch directory and timestamp for output files
@@ -1513,6 +1522,7 @@ if __name__ == "__main__":
                 update_queue, 
                 tracker, 
                 batch_path, 
+                batch_dir,
                 output_path, 
                 file_prefix, 
                 batch_size
