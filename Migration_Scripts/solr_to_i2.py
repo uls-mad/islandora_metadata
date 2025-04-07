@@ -14,6 +14,7 @@ from queue import Queue
 from datetime import datetime
 from typing import List, Tuple, Union
 try:
+    from tkinter import simpledialog
     import tkinter as tk
     TK_AVAILABLE = True
 except ImportError:
@@ -1485,24 +1486,20 @@ if __name__ == "__main__":
     user_id, batch_path, batch_size = parse_arguments()
 
     try:
-        if user_id is None:
-            user_id = input("Enter your Pitt user ID: ")
-
         if TK_AVAILABLE:
             # Set up tkinter window for GUI
             root = tk.Tk()
             root.withdraw()
 
-            # Set prompt for user
-            input_prompt = 'Select Batch Folder with Input CSV Files'
+            # Get user ID and batch directory if not provided yet
+            if user_id is None:
+                user_id = simpledialog.askstring("User ID Required", "Enter your user ID:")
+            input_prompt = "Select Batch Folder with Input CSV Files"
         else:
-            input_prompt = 'Enter Batch Folder with Input CSV Files'
+            if user_id is None:
+                user_id = input("Enter your Pitt user ID: ")
+            input_prompt = "Enter Batch Folder with Input CSV Files"
 
-        # Initialize progress tracker
-        update_queue = Queue()
-        tracker = ProgressTrackerFactory(root, update_queue)
-
-        # Get batch directory path
         if batch_path is None:
             batch_path = get_directory('input', input_prompt, TK_AVAILABLE)
         print(f"\nProcessing batch directory: {batch_path}")
@@ -1517,6 +1514,10 @@ if __name__ == "__main__":
 
         # Set output directory path
         output_path = os.path.join(batch_path, "metadata")
+
+        # Initialize progress tracker
+        update_queue = Queue()
+        tracker = ProgressTrackerFactory(root, update_queue)
 
         # Run file/record processing in a separate thread
         processing_thread = threading.Thread(
