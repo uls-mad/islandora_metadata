@@ -1203,7 +1203,7 @@ def records_to_csv(records: list, destination: str):
 
     # Report creation of processed CSV path
     formatted_path = destination.replace("\\", "/")
-    print(f"CSV file has been saved to {formatted_path}")
+    print(f"CSV file saved to: {formatted_path}")
 
     return df
 

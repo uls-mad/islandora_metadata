@@ -68,7 +68,7 @@ def prepare_config(
     with open(config_dest, "w", encoding="utf-8") as f:
         f.write(content)
 
-    print(f"Config prepared: {config_dest}")
+    print(f"\nConfig prepared: {config_dest}")
     return config_dest
 
 
