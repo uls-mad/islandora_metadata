@@ -4,8 +4,6 @@
 
 # Import standard modules
 import os
-from pathlib import Path
-
 # Import third-party module
 import pandas as pd
 
@@ -26,7 +24,7 @@ BATCH_SUBDIRS = [
 """ Functions """
 
 def prepare_config(
-    batch_path: Path, 
+    batch_path: str, 
     batch_dir: str, 
     timestamp: str, 
     user_id: str
@@ -35,25 +33,25 @@ def prepare_config(
     Read and customize the import config file for a specific batch.
 
     Args:
-        batch_path (Path): Full path to the root of the batch folder.
+        batch_path (str): Full path to the root of the batch folder.
         batch_dir (str): Name of the batch directory (used in config substitutions).
         timestamp (str): Timestamp string used in filenames.
         user_id (str): User ID to insert into the config.
 
     Returns:
-        Path: Path to the customized config file, or None if the default config is missing.
+        str: Path to the customized config file, or None if the default config is missing.
     """
     # Define source and destination config paths
     default_config = "default_create_config.yml"
-    config_src = Path("Utility_Files") / default_config
+    config_src = os.path.join("Utility_Files", default_config)
     config_filename = f"import_{batch_dir}.yml"
-    config_dest = batch_path / "configs" / config_filename
+    config_dest = os.path.join(batch_path, "configs", config_filename)
 
     # Ensure configs directory exists
-    config_dest.parent.mkdir(parents=True, exist_ok=True)
+    os.makedirs(os.path.dirname(config_dest), exist_ok=True)
 
     # Read and update placeholders from default config
-    if not config_src.exists():
+    if not os.path.exists(config_src):
         print("default_create_config.yml not found in Utility_Files.")
         return None
 
@@ -87,12 +85,11 @@ def setup_batch_directory(
         batch_dir (str): Path to the batch directory.
     """
     # Ensure batch directory exists
-    batch_path = Path(batch_path)
-    batch_path.mkdir(parents=True, exist_ok=True)
+    os.makedirs(batch_path, exist_ok=True)
 
     # Create subdirectories
     for subdir in BATCH_SUBDIRS:
-        (batch_path / subdir).mkdir(exist_ok=True)
+        os.makedirs(os.path.join(batch_path, subdir), exist_ok=True)
 
     # Create config file for batch import
     prepare_config(batch_path, batch_dir, timestamp, user_id)
@@ -165,23 +162,23 @@ def save_pids_for_media(
     return datastreams
 
 
-def write_drush_scripts(batch_path: Path, batch_dir: str, datastreams: set) -> Path | None:
+def write_drush_scripts(batch_path: str, batch_dir: str, datastreams: set) -> str | None:
     """
     Read a drush script template, replace placeholders with batch-specific values,
     and write a new script file that includes only the datastreams relevant to the current batch.
 
     Args:
-        batch_path (Path): Full path to the root of the batch folder.
+        batch_path (str): Full path to the root of the batch folder.
         batch_dir (str): Name of the batch directory (used to replace placeholders).
         datastreams (set): Set of datastream identifiers to include in the output script.
 
     Returns:
-        Path | None: Path to the customized drush script file, or None if the template is missing.
+        str | None: Path to the customized drush script file, or None if the template is missing.
     """
     drush_scripts = "drush_scripts.txt"
-    drush_scripts_src = Path("Utility_Files") / drush_scripts
+    drush_scripts_src = os.path.join("Utility_Files", drush_scripts)
 
-    if not drush_scripts_src.exists():
+    if not os.path.exists(drush_scripts_src):
         print("Template file drush_scripts.txt not found in Utility_Files.")
         return None
 
@@ -196,9 +193,9 @@ def write_drush_scripts(batch_path: Path, batch_dir: str, datastreams: set) -> P
     lines = [line + '\n\n' for line in content.splitlines()]
 
     # Prepare output directory and path
-    import_dir = batch_path / "import"
-    import_dir.mkdir(parents=True, exist_ok=True)
-    txt_filepath = import_dir / drush_scripts
+    import_dir = os.path.join(batch_path, "import")
+    os.makedirs(import_dir, exist_ok=True)
+    txt_filepath = os.path.join(import_dir, drush_scripts)
 
     # Write relevant drush scripts to TXT file
     with open(txt_filepath, "w", encoding="utf-8") as f:
@@ -209,4 +206,3 @@ def write_drush_scripts(batch_path: Path, batch_dir: str, datastreams: set) -> P
 
     #print(f"Drush script(s) written to: {txt_filepath}")
     return txt_filepath
-
