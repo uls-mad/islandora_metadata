@@ -68,7 +68,7 @@ def prepare_config(
     with open(config_dest, "w", encoding="utf-8") as f:
         f.write(content)
 
-    #print(f"Config prepared: {config_dest}")
+    print(f"Config prepared: {config_dest}")
     return config_dest
 
 
@@ -204,5 +204,5 @@ def write_drush_scripts(batch_path: str, batch_dir: str, datastreams: set) -> st
             if dsid in datastreams:
                 f.write(line)
 
-    #print(f"Drush script(s) written to: {txt_filepath}")
+    print(f"Drush script(s) written to: {txt_filepath}")
     return txt_filepath
