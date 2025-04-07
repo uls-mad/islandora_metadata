@@ -65,12 +65,13 @@ def prepare_config(
         content = f.read()
 
     # Replace placeholders
-    batch_output_csv = f"{batch_dir}_{timestamp}_1_media.csv"
+    import_batch_csv = f"{batch_dir}_{timestamp}_1"
+    output_batch_csv = f"{batch_dir}_1"
     content = content.replace("[IMPORT_PASSWORD]", import_password)
     content = content.replace("[BATCH_DIRECTORY]", batch_dir)
-    content = content.replace("[IMPORT_BATCH_CSV]", batch_output_csv)
+    content = content.replace("[IMPORT_BATCH]", import_batch_csv)
+    content = content.replace("[OUTPUT_BATCH]", output_batch_csv)
     content = content.replace("[USER_ID]", user_id)
-
 
     # Write the customized config to the destination
     with open(config_dest, "w", encoding="utf-8") as f:

@@ -3,8 +3,8 @@ host: "https://i2.digital.library.pitt.edu/"
 username: ingester
 password: [IMPORT_PASSWORD]
 input_dir: /workbench/batches/[BATCH_DIRECTORY]/import
-input_csv: /workbench/batches/[BATCH_DIRECTORY]/import/[IMPORT_BATCH_CSV]
-output_csv: /workbench/batches/[BATCH_DIRECTORY]/export/output_[BATCH_DIRECTORY].csv
+input_csv: /workbench/batches/[BATCH_DIRECTORY]/import/[IMPORT_BATCH]_media.csv
+output_csv: /workbench/batches/[BATCH_DIRECTORY]/export/output_[OUTPUT_BATCH].csv
 log_file_path: /workbench/batches/[BATCH_DIRECTORY]/logs/workbench.log
 temp_dir: /workbench/batches/[BATCH_DIRECTORY]/tmp/
 rollback_config_file_path: /workbench/batches/[BATCH_DIRECTORY]/rollback/rollback.yml
