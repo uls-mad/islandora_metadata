@@ -1416,7 +1416,7 @@ def process_files(
                     # Complete batch if max size reached
                     if len(buffer) == batch_size:
                         # Save records to a CSV file in the output folder 
-                        sub_batch_file = f"{file_prefix}_batch-{batch_count}.csv"
+                        sub_batch_file = f"{file_prefix}_{batch_count}.csv"
                         sub_batch_path = os.path.join(output_path, sub_batch_file)
                         records_df = records_to_csv(buffer, sub_batch_path)
 
