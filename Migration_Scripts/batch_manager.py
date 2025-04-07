@@ -59,7 +59,7 @@ def prepare_config(
         content = f.read()
 
     # Replace placeholders
-    batch_output_csv = f"{batch_dir}_{timestamp}_media.csv"
+    batch_output_csv = f"{batch_dir}_{timestamp}_1_media.csv"
     content = content.replace("[BATCH_DIRECTORY]", batch_dir)
     content = content.replace("[IMPORT_BATCH_CSV]", batch_output_csv)
     content = content.replace("[USER_ID]", user_id)
