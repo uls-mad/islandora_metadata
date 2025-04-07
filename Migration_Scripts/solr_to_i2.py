@@ -50,12 +50,18 @@ DEFAULT_BATCH_SIZE = 5000
 
 def parse_arguments():
     """
-    Parse command-line arguments to retrieve the batch size.
+    Parse command-line arguments to retrieve the batch size and user ID.
 
     Returns:
-        int: The number of records to process per batch.
+        tuple: (user_id (str), batch_size (int))
     """
     parser = argparse.ArgumentParser(description="Process CSV files in batches.")
+    parser.add_argument(
+        "--user_id",
+        type=str,
+        required=True,
+        help="The user ID to associate with the processing operation (required)."
+    )
     parser.add_argument(
         "--batch_size",
         type=int,
@@ -63,7 +69,7 @@ def parse_arguments():
         help=f"Number of records per batch (default: {DEFAULT_BATCH_SIZE})"
     )
     args = parser.parse_args()
-    return args.batch_size
+    return args.user_id, args.batch_size
 
 
 def process_queue(root, update_queue):
@@ -1325,8 +1331,9 @@ def process_record(filename: str, row: dict) -> dict:
 def process_files(
     progress_queue: Queue,
     tracker: ProgressTrackerCLI | ProgressTrackerGUI, 
-    input_dir: str,
-    output_dir: str,
+    batch_path: str,
+    output_path: str,
+    file_prefix: str,
     batch_size: int
 ):
     """
@@ -1335,36 +1342,37 @@ def process_files(
     Args:
         progress_queue (Queue): Thread-safe queue for reporting progress.
         tracker (ProgressTrackerCLI | ProgressTrackerGUI): Instance of the ProgressTrackerCLI or ProgressTrackerGUI class to track progress.
-        input_dir (str): Path to the directory containing the input CSV files.
-        output_dir (str): Path to the directory where the processed output files will be saved.
+        batch_path (str): Path to the batch directory containing the input CSV files.
+        batch_dir (str): Name of batch directory. 
+        output_path (str): Path to the directory where the processed output files will be saved.
+        fn_prefix (str): 
         batch_size (int): Number of records per batch.
     """
-    # Get list of CSV files in input folder
-    files = [f for f in order_files(os.listdir(input_dir)) if f.endswith('.csv')]
-
-    # Set total number of files for progress tracking
-    progress_queue.put((tracker.set_total_files, (len(files),)))
-
-    # Get batch directory name and timestamp for output files
-    batch_dir_name = os.path.basename(input_dir.rstrip(os.sep))
-    timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-    output_fn_base = f"{batch_dir_name}_{timestamp}"
-
-    # Load/Initialize inventory for processed records
-    load_inventory()
-
-    buffer = []
-    batch_count = 1
-
     try:
+        # Get list of CSV files in input folder
+        files = [
+            f for f in order_files(os.listdir(batch_path)) if f.endswith('.csv')
+        ]
+
+        # Set total number of files for progress tracking
+        progress_queue.put((tracker.set_total_files, (len(files),)))
+
+        # Load inventory for processed records
+        load_inventory()
+
+        buffer = []
+        batch_count = 1
+
+        datastreams = set()
+
         for filename in files:
             try:
                 global current_file
                 current_file = filename
 
                 # Read input CSV into a DataFrame
-                input_path = os.path.join(input_dir, filename)
-                input_df = pd.read_csv(input_path, dtype=str).\
+                cur_input_path = os.path.join(batch_path, filename)
+                input_df = pd.read_csv(cur_input_path, dtype=str).\
                     replace("", pd.NA).\
                     dropna(axis=1, how="all")
 
@@ -1399,15 +1407,15 @@ def process_files(
                     # Complete batch if max size reached
                     if len(buffer) == batch_size:
                         # Save records to a CSV file in the output folder 
-                        batch_filename = f"{output_fn_base}_{batch_count}.csv"
-                        batch_filepath = os.path.join(output_dir, batch_filename)
-                        records_df = records_to_csv(buffer, batch_filepath)
+                        sub_batch_file = f"{file_prefix}_batch-{batch_count}.csv"
+                        sub_batch_path = os.path.join(output_path, sub_batch_file)
+                        records_df = records_to_csv(buffer, sub_batch_path)
 
                         # Save PIDs for media export
-                        save_pids_for_media(
-                            input_dir,
-                            records_df, 
-                            DATASTREAMS_MAPPING
+                        datastreams = datastreams.union(
+                            save_pids_for_media(
+                                batch_path, records_df, DATASTREAMS_MAPPING
+                            )
                         )
 
                         # Set up next batch
@@ -1423,12 +1431,16 @@ def process_files(
 
         if buffer:
             # Save records to a CSV file in the output folder 
-            batch_filename = f"{output_fn_base}_{batch_count}.csv"
-            batch_filepath = os.path.join(output_dir, batch_filename)
-            records_df = records_to_csv(buffer, batch_filepath)
+            sub_batch_file = f"{file_prefix}_{batch_count}.csv"
+            sub_batch_path = os.path.join(output_path, sub_batch_file)
+            records_df = records_to_csv(buffer, sub_batch_path)
 
             # Save PIDs for media export
-            save_pids_for_media(input_dir, records_df, DATASTREAMS_MAPPING)
+            datastreams = datastreams.union(
+                save_pids_for_media(
+                    batch_path, records_df, DATASTREAMS_MAPPING
+                )
+            )
         
         # Flush last record progress update before printing file saved message
         if not TK_AVAILABLE:
@@ -1436,14 +1448,23 @@ def process_files(
                 func, args = progress_queue.get()
                 func(*args)
 
+        # Create TXT file with drush export and workbench import scripts
+        write_drush_scripts(batch_path, batch_dir, datastreams)
+    
+        # Write reports
+        log_dir = os.path.join(batch_path, "logs")
+        write_reports(
+            log_dir,
+            timestamp, 
+            "metadata", 
+            transformations, 
+            exceptions
+        )
+
     except Exception as e:
         print(f"Error during processing: {e}")
         print(traceback.format_exc())
         sys.exit(1)
-    
-    # Write reports
-    log_dir = os.path.join(input_dir, "logs")
-    write_reports(log_dir, timestamp, "metadata", transformations, exceptions)
 
 
 """ Driver Code """
@@ -1451,6 +1472,9 @@ def process_files(
 if __name__ == "__main__":
     # Initialize root variable
     root = None
+
+    # Run file/record processing in a separate thread
+    user_id, batch_size = parse_arguments()
 
     try:
         if TK_AVAILABLE:
@@ -1467,23 +1491,32 @@ if __name__ == "__main__":
         update_queue = Queue()
         tracker = ProgressTrackerFactory(root, update_queue)
 
-        # Get batch directory
-        batch_dir = get_directory('input', prompt, TK_AVAILABLE)
-        print(f"\nProcessing batch directory: {batch_dir}")
+        # Get batch directory path
+        batch_path = get_directory('input', prompt, TK_AVAILABLE)
+        print(f"\nProcessing batch directory: {batch_path}")
+
+        # Get batch directory and timestamp for output files
+        batch_dir = os.path.basename(batch_path.rstrip(os.sep))
+        timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+        file_prefix = f"{batch_dir}_{timestamp}"
 
         # Set up batch directory
-        setup_batch_directory(batch_dir)
+        setup_batch_directory(batch_path, batch_dir, timestamp, user_id)
 
-        # Set output directory
-        output_dir = os.path.join(batch_dir, "metadata")
-
-        # Run file/record processing in a separate thread
-        batch_size = parse_arguments()
+        # Set output directory path
+        output_path = os.path.join(batch_path, "metadata")
 
         # Run file/record processing in a separate thread
         processing_thread = threading.Thread(
             target=process_files,
-            args=(update_queue, tracker, batch_dir, output_dir, batch_size)
+            args=(
+                update_queue, 
+                tracker, 
+                batch_path, 
+                output_path, 
+                file_prefix, 
+                batch_size
+            )
         )
         processing_thread.start()
 

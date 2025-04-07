@@ -200,9 +200,9 @@ RIGHTS_MAPPING = {
 
 
 DATASTREAMS_MAPPING = {
-    'hocr': ['HOCR'],
-    'file': ['JP2'],
-    'transcript': ['TRANSCRIPT']
+    'hocr': 'HOCR',
+    'file': 'JP2',
+    'transcript': 'TRANSCRIPT'
 }
 
 
