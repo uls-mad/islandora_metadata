@@ -1,7 +1,7 @@
 task: create
 host: "https://i2.digital.library.pitt.edu/"
 username: ingester
-password: Y6yTUpGzD8WKw4wW
+password: [IMPORT_PASSWORD]
 input_dir: /workbench/batches/[BATCH_DIRECTORY]/import
 input_csv: /workbench/batches/[BATCH_DIRECTORY]/import/[IMPORT_BATCH_CSV]
 output_csv: /workbench/batches/[BATCH_DIRECTORY]/export/output_[BATCH_DIRECTORY].csv

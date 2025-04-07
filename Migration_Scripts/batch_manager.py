@@ -4,8 +4,14 @@
 
 # Import standard modules
 import os
+
 # Import third-party module
 import pandas as pd
+from dotenv import load_dotenv
+
+# Load environment variable
+load_dotenv()
+import_password = os.getenv("IMPORT_PASSWORD")
 
 
 """ Constant """
@@ -60,9 +66,11 @@ def prepare_config(
 
     # Replace placeholders
     batch_output_csv = f"{batch_dir}_{timestamp}_1_media.csv"
+    content = content.replace("[IMPORT_PASSWORD]", import_password)
     content = content.replace("[BATCH_DIRECTORY]", batch_dir)
     content = content.replace("[IMPORT_BATCH_CSV]", batch_output_csv)
     content = content.replace("[USER_ID]", user_id)
+
 
     # Write the customized config to the destination
     with open(config_dest, "w", encoding="utf-8") as f:
