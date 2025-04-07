@@ -9,6 +9,7 @@ log_file_path: /workbench/batches/[BATCH_DIRECTORY]/logs/workbench.log
 temp_dir: /workbench/batches/[BATCH_DIRECTORY]/tmp/
 rollback_config_file_path: /workbench/batches/[BATCH_DIRECTORY]/rollback/rollback.yml
 rollback_csv_file_path: /workbench/batches/[BATCH_DIRECTORY]/rollback/rollback.csv
+csv_id_to_node_id_map_path: /workbench/[USER_ID]/tmp/csv_id_to_node_id_map.db
 allow_missing_files: true
 perform_soft_checks: true
 standalone_media_url: true
