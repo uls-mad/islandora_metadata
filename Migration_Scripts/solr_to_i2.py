@@ -852,7 +852,8 @@ def process_subject(
     # Iterate through each filtered row
     for _, row in matching_rows.iterrows():
         # Use the value in the Type column as the key in SUBJECT_FIELD_MAPPING to get the field
-        subject_type = row['Type']
+        valid_heading = row.get('Valid_Heading')
+        subject_type = row.get('Type')
         field = SUBJECT_FIELD_MAPPING.get(subject_type)
         note = row.get('Note')
         is_removal = row['Action'] == "remove"
@@ -867,7 +868,7 @@ def process_subject(
                 record['id'][0],
                 solr_field,
                 value,
-                None,
+                valid_heading,
                 message
             )
             if is_removal:
