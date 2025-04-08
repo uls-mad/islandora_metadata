@@ -1421,10 +1421,21 @@ def process_files(
                         records_df = records_to_csv(buffer, sub_batch_path)
 
                         # Save PIDs for media export
-                        datastreams = datastreams.union(
-                            save_pids_for_media(
-                                batch_path, records_df, DATASTREAMS_MAPPING
-                            )
+                        batch_datastreams = save_pids_for_media(
+                            batch_path, 
+                            records_df, 
+                            DATASTREAMS_MAPPING
+                        )
+                        datastreams = datastreams.union(batch_datastreams)
+
+                        # Create config file for batch import
+                        prepare_config(
+                            batch_path, 
+                            batch_dir, 
+                            batch_count,
+                            timestamp, 
+                            user_id, 
+                            datastreams
                         )
 
                         # Set up next batch
@@ -1445,10 +1456,21 @@ def process_files(
             records_df = records_to_csv(buffer, sub_batch_path)
 
             # Save PIDs for media export
-            datastreams = datastreams.union(
-                save_pids_for_media(
-                    batch_path, records_df, DATASTREAMS_MAPPING
-                )
+            batch_datastreams = save_pids_for_media(
+                batch_path, 
+                records_df, 
+                DATASTREAMS_MAPPING
+            )
+            datastreams = datastreams.union(batch_datastreams)
+
+            # Create config file for batch import
+            prepare_config(
+                batch_path, 
+                batch_dir, 
+                batch_count,
+                timestamp, 
+                user_id, 
+                datastreams
             )
         
         # Flush last record progress update before printing file saved message
@@ -1510,7 +1532,7 @@ if __name__ == "__main__":
         file_prefix = f"{batch_dir}_{timestamp}"
 
         # Set up batch directory
-        setup_batch_directory(batch_path, batch_dir, timestamp, user_id)
+        setup_batch_directory(batch_path)
 
         # Set output directory path
         output_path = os.path.join(batch_path, "metadata")
