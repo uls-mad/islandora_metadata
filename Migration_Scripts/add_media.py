@@ -5,6 +5,7 @@
 # Import standard modules
 import os
 import sys
+import argparse
 import traceback
 from datetime import datetime
 try:
@@ -21,7 +22,38 @@ from file_utils import get_directory, create_df, write_reports
 from definitions import DATASTREAMS_MAPPING
 
 
+""" Mapping """
+
+EXPECTED_DSIDS_BY_MODEL = {
+    'Image': ['JP2'],
+    'Page' : ['JP2'],
+    #'Audio': ['MP3_PROXY', 'PROXY_MP3']
+    #'Digital Document': ['PDF'],
+    #'Video': ['MKV', 'MP4','OGG'], 
+}
+
+
 """ Functions """
+
+def parse_arguments():
+    """
+    Parse command-line arguments to retrieve the batch directory.
+
+    Returns:
+        tuple: batch_path (str | None)
+    """
+    parser = argparse.ArgumentParser(
+        description="Process CSV files to add media filenames to metadata records."
+    )
+    parser.add_argument(
+        "--batch_path",
+        type=str,
+        default=None,
+        help="Path to a batch directory (default: will prompt if not provided)."
+    )
+    args = parser.parse_args()
+    return args.batch_path
+
 
 def add_exception(
     exceptions: list, 
@@ -48,27 +80,82 @@ def add_exception(
     })
 
 
+def check_for_missing_media(
+    df: pd.DataFrame,
+    expected_dsids_by_model: dict,
+    exceptions: list,
+    current_file: str
+) -> list:
+    """
+    Checks for rows expected to have media files (based on their model type)
+    but that are missing the appropriate datastream IDs in the 'dile' column.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing metadata, including 'field_model' and 'file'.
+        datastreams (dict): Dictionary mapping datastream column names to lists of DSID strings.
+        exceptions (list): List to store exception records.
+        current_file (str): Name of the file currently being processed.
+
+    Returns:
+        list: The updated list of exception records.
+    """
+    # Check for required columns
+    if 'field_model' not in df.columns or 'file' not in df.columns:
+        exceptions.append({
+            "File": current_file,
+            "PID": None,
+            "Field": "'field_model' or 'file'",
+            "Exception": "Required field(s) missing"
+        })
+        return exceptions
+
+    for model, expected_dsids in expected_dsids_by_model.items():
+        # Filter rows that are of the specified model
+        model_rows = df[df['field_model'] == model]
+
+        for _, row in model_rows.iterrows():
+            pid = str(row['id'])
+            dsid = str(row['file']).strip()
+
+            # Check if any expected DSID is present in the 'File' value
+            if not dsid or not any(dsid in dsid for dsid in expected_dsids):
+                exception = (
+                    f"Missing expected media for {model} model: "
+                    f"{', '.join(expected_dsids)}"
+                )
+                exceptions.append({
+                    "File": current_file,
+                    "PID": pid,
+                    "Field": "file",
+                    "Exception": exception
+                })
+
+    return exceptions
+
+
 def add_media_files(
     media_files: list,
     df: pd.DataFrame, 
     datastreams: dict, 
     exceptions: list, 
     current_file: str
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, list]:
     """
     Adds filenames from `media_files` to DataFrame columns based on `datastreams` mapping.
 
     Args:
         media_files (list): List of media filenames.
-        df (pd.DataFrame): Input DataFrame containing `pid` and datastream columns.
-        datastreams (dict): Dictionary mapping datastream columns to possible datastream identifiers.
+        df (pd.DataFrame): Input DataFrame containing `id` and datastream columns.
+        datastreams (dict): Dictionary mapping datastream columns to expected datastream identifiers.
         exceptions (list): List to store exception records.
         current_file (str): Name of the current CSV file being processed.
 
     Returns:
-        pd.DataFrame: DataFrame with updated columns containing matching filenames.
+        tuple:
+            pd.DataFrame: DataFrame with updated columns containing matching filenames.
+            list: Updated list of exceptions for any unmatched media files.
     """
-    for ds_field, dsids in datastreams.items():
+    for ds_field, dsid in datastreams.items():
         if ds_field in df.columns:
             # Filter DataFrame for records that should have media files
             df[ds_field] = df[ds_field].astype(str).str.strip().replace(
@@ -83,8 +170,7 @@ def add_media_files(
                 pid = str(row['id'])
                 matching_files = [
                     filename for filename in media_files
-                    if pid.replace(':', '_') in filename
-                    and any(dsid in filename for dsid in dsids)
+                    if pid.replace(':', '_') in filename and dsid in filename
                 ]
 
                 # Log that media files were expected but not found
@@ -104,7 +190,7 @@ def add_media_files(
             # Update DataFrame column with filenames
             df[ds_field] = df.index.map(filenames_map).fillna('')
 
-    return df
+    return df, exceptions
 
 
 def process_csv_files(csv_dir: str, media_dir: str) -> list:
@@ -142,8 +228,16 @@ def process_csv_files(csv_dir: str, media_dir: str) -> list:
             # Load CSV into DataFrame
             df = create_df(csv_path)
 
+            # Check for objects missing expected media files
+            exceptions = check_for_missing_media(
+                df, 
+                EXPECTED_DSIDS_BY_MODEL, 
+                exceptions, 
+                current_file
+            )
+
             # Update records with media filenames
-            updated_df = add_media_files(
+            updated_df, exceptions = add_media_files(
                 media_files, 
                 df, 
                 DATASTREAMS_MAPPING, 
@@ -173,20 +267,23 @@ def process_csv_files(csv_dir: str, media_dir: str) -> list:
 """ Driver Code """
 
 if __name__ == "__main__":
+    batch_path = parse_arguments()
+    
     try:
         if TK_AVAILABLE:
             # Set up tkinter window for GUI
             root = tk.Tk()
             root.withdraw()
-            title = 'Select Batch Folder with Input CSV Files'
+            input_prompt = 'Select Batch Folder with Input CSV Files'
         else:
-            title = 'Enter Batch Folder with Input CSV Files'
+            input_prompt = 'Enter Batch Folder with Input CSV Files'
 
         # Get directories and timestamp for file handling
-        batch_dir = get_directory('input', title, TK_AVAILABLE)
-        csv_dir = os.path.join(batch_dir, "metadata")
-        media_dir = os.path.join(batch_dir, "import")
-        log_dir = os.path.join(batch_dir, "logs")
+        if batch_path is None:
+            batch_path = get_directory('input', input_prompt, TK_AVAILABLE)
+        csv_dir = os.path.join(batch_path, "metadata")
+        media_dir = os.path.join(batch_path, "import")
+        log_dir = os.path.join(batch_path, "logs")
         timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
 
         # Process CSV files
