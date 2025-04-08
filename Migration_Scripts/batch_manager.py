@@ -225,5 +225,5 @@ def write_drush_scripts(batch_path: str, batch_dir: str, datastreams: set) -> st
             if dsid in datastreams:
                 f.write(line)
 
-    print(f"Drush script(s) written to: {txt_filepath}\n")
+    print(f"\nDrush script(s) written to: {txt_filepath}")
     return txt_filepath
