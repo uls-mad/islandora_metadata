@@ -1,4 +1,10 @@
+DRUSH SCRIPT(S)
 JP2: drush --root=/var/www/html/drupal7 --uri=gamera.library.pitt.edu islandora_datastream_crud_fetch_datastreams --pid_file=/workbench/batches/[BATCH_DIRECTORY]/import/JP2_pids.txt --dsid=JP2 --datastreams_directory=/workbench/batches/[BATCH_DIRECTORY]/import/ 2>&1 | tee /workbench/batches/[BATCH_DIRECTORY]/logs/i7_JP2_export_log.txt 
 HOCR: drush --root=/var/www/html/drupal7 --uri=gamera.library.pitt.edu islandora_datastream_crud_fetch_datastreams --pid_file=/workbench/batches/[BATCH_DIRECTORY]/import/HOCR_pids.txt --dsid=HOCR --datastreams_directory=/workbench/batches/[BATCH_DIRECTORY]/import/ 2>&1 | tee /workbench/batches/[BATCH_DIRECTORY]/logs/i7_HOCR_export_log.txt 
 TRANSCRIPT: drush --root=/var/www/html/drupal7 --uri=gamera.library.pitt.edu islandora_datastream_crud_fetch_datastreams --pid_file=/workbench/batches/[BATCH_DIRECTORY]/import/TRANSCRIPT_pids.txt --dsid=TRANSCRIPT --datastreams_directory=/workbench/batches/[BATCH_DIRECTORY]/import/ 2>&1 | tee /workbench/batches/[BATCH_DIRECTORY]/logs/i7_TRANSCRIPT_export_log.txt 
 
+ISLANDORA WORKBENCH
+workbench --config configs/import_[OUTPUT_BATCH].yml --check 
+
+RELS-EXT UPDATE SCRIPT
+rels-ext-update-migration -c /workbench/batches/[BATCH_DIRECTORY]/export/output_[OUTPUT_BATCH].csv -x /workbench/transforms/migrate-add.xsl 

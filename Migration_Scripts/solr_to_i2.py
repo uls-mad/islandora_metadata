@@ -1355,7 +1355,7 @@ def process_files(
         batch_path (str): Path to the batch directory containing the input CSV files.
         batch_dir (str): Name of batch directory. 
         output_path (str): Path to the directory where the processed output files will be saved.
-        fn_prefix (str): 
+        file_prefix (str): Prefix for output batch metadata files.
         batch_size (int): Number of records per batch.
     """
     try:
@@ -1481,7 +1481,7 @@ def process_files(
                 func(*args)
 
         # Create TXT file with drush export and workbench import scripts
-        write_drush_scripts(batch_path, batch_dir, datastreams)
+        write_io_scripts(batch_path, batch_dir, datastreams)
     
         # Write reports
         log_dir = os.path.join(batch_path, "logs")

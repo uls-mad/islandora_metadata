@@ -156,12 +156,12 @@ def prepare_config(
         content = f.read()
 
     # Replace placeholders
-    import_batch_csv = f"{batch_dir}_{timestamp}_{batch_count}"
-    output_batch_csv = f"{batch_dir}_{batch_count}"
+    import_batch = f"{batch_dir}_{timestamp}_{batch_count}"
+    output_batch = f"{batch_dir}_{batch_count}"
     content = content.replace("[IMPORT_PASSWORD]", import_password)
     content = content.replace("[BATCH_DIRECTORY]", batch_dir)
-    content = content.replace("[IMPORT_BATCH]", import_batch_csv)
-    content = content.replace("[OUTPUT_BATCH]", output_batch_csv)
+    content = content.replace("[IMPORT_BATCH]", import_batch)
+    content = content.replace("[OUTPUT_BATCH]", output_batch)
     content = content.replace("[USER_ID]", user_id)
 
     # Uncomment additional files for datastreams in batch
@@ -183,9 +183,9 @@ def prepare_config(
     return config_dest
 
 
-def write_drush_scripts(batch_path: str, batch_dir: str, datastreams: set) -> str | None:
+def write_io_scripts(batch_path: str, batch_dir: str, datastreams: set) -> str | None:
     """
-    Read a drush script template, replace placeholders with batch-specific values,
+    Read a I/O workflow script templates, replace placeholders with batch-specific values,
     and write a new script file that includes only the datastreams relevant to the current batch.
 
     Args:
@@ -194,21 +194,23 @@ def write_drush_scripts(batch_path: str, batch_dir: str, datastreams: set) -> st
         datastreams (set): Set of datastream identifiers to include in the output script.
 
     Returns:
-        str | None: Path to the customized drush script file, or None if the template is missing.
+        str | None: Path to the customized I/O workflow script file, or None if the template is missing.
     """
-    drush_scripts = "drush_scripts.txt"
-    drush_scripts_src = os.path.join("Utility_Files", drush_scripts)
+    io_scripts = "io_scripts.txt"
+    io_scripts_src = os.path.join("Utility_Files", io_scripts)
+    output_batch = f"{batch_dir}_1"
 
-    if not os.path.exists(drush_scripts_src):
-        print("Template file drush_scripts.txt not found in Utility_Files.")
+    if not os.path.exists(io_scripts_src):
+        print("Template file io_scripts.txt not found in Utility_Files.")
         return None
 
-    # Read in drush script template
-    with open(drush_scripts_src, "r", encoding="utf-8") as f:
+    # Read in I/O workflow script template
+    with open(io_scripts_src, "r", encoding="utf-8") as f:
         content = f.read()
 
     # Replace placeholders
     content = content.replace("[BATCH_DIRECTORY]", batch_dir)
+    content = content.replace("[OUTPUT_BATCH]", output_batch)
 
     # Split into lines and re-add newline after each
     lines = [line + '\n\n' for line in content.splitlines()]
@@ -216,14 +218,15 @@ def write_drush_scripts(batch_path: str, batch_dir: str, datastreams: set) -> st
     # Prepare output directory and path
     import_dir = os.path.join(batch_path, "import")
     os.makedirs(import_dir, exist_ok=True)
-    txt_filepath = os.path.join(import_dir, drush_scripts)
+    txt_filepath = os.path.join(import_dir, io_scripts)
 
-    # Write relevant drush scripts to TXT file
+    # Write relevant drush scripts and RELS-EXT Update script to TXT file
     with open(txt_filepath, "w", encoding="utf-8") as f:
         for line in lines:
-            dsid = line.split(": ")[0]
-            if dsid in datastreams:
-                f.write(line)
+            dsid, sep, rest = line.partition(": ")
+            if sep and dsid not in datastreams:
+                continue
+            f.write(line)
 
-    print(f"\nDrush script(s) written to: {txt_filepath}")
+    print(f"\nI/O workflow script(s) written to: {txt_filepath}")
     return txt_filepath
