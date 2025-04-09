@@ -112,7 +112,7 @@ def save_pids_for_media(
                     print(f"No new PIDs to add for {dsid}. " 
                           + "File already up to date."
                     )
-    print()
+                    
     return datastreams
 
 
