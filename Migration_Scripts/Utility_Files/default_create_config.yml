@@ -5,7 +5,7 @@ password: [IMPORT_PASSWORD]
 input_dir: /workbench/batches/[BATCH_DIRECTORY]/import
 input_csv: /workbench/batches/[BATCH_DIRECTORY]/import/[IMPORT_BATCH]_media.csv
 output_csv: /workbench/batches/[BATCH_DIRECTORY]/export/output_[OUTPUT_BATCH].csv
-log_file_path: /workbench/batches/[BATCH_DIRECTORY]/logs/workbench.log
+log_file_path: /workbench/batches/[BATCH_DIRECTORY]/logs/workbench_[OUTPUT_BATCH].log
 temp_dir: /workbench/batches/[BATCH_DIRECTORY]/tmp/
 rollback_config_file_path: /workbench/batches/[BATCH_DIRECTORY]/rollback/rollback_[OUTPUT_BATCH].yml
 rollback_csv_file_path: /workbench/batches/[BATCH_DIRECTORY]/rollback/rollback_[OUTPUT_BATCH].csv
