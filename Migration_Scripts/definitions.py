@@ -16,7 +16,8 @@ REQUIRED_FIELDS = [
     'title',
     'field_model',
     'field_resource_type',
-    'field_member_of'
+    'field_member_of',
+    'field_domain_access'
 ]
 
 UNMAPPED_FIELDS = [
