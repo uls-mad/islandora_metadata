@@ -1070,6 +1070,7 @@ def validate_record(record: dict) -> None:
     Returns:
         None
     """
+    pid = record['id'][0]
     for field, values in record.items():
         match = FIELDS.loc[FIELDS['Field'] == field]
         if match.empty:
@@ -1081,7 +1082,7 @@ def validate_record(record: dict) -> None:
             for value in values:
                 if len(value) > 255:
                     add_exception(
-                        record['id'][0],
+                        pid,
                         field,
                         value,
                         "value exceeds character limit",
@@ -1093,7 +1094,7 @@ def validate_record(record: dict) -> None:
                     int_value = int(value)
                 except (ValueError, TypeError):
                     add_exception(
-                        record["id"][0],
+                        pid,
                         field,
                         value,
                         f"Expected an integer, but got " +
@@ -1102,7 +1103,7 @@ def validate_record(record: dict) -> None:
 
         if field_manager.Repeatable == "FALSE" and len(values) > 1:
             add_exception(
-                record['id'][0],
+                pid,
                 field,
                 values,
                 "multiple values in nonrepeatable field",
@@ -1110,11 +1111,14 @@ def validate_record(record: dict) -> None:
 
     for field in REQUIRED_FIELDS:
         constituent_object = record.get('parent_id')
-        if field == "field_member_of" and constituent_object:
-            continue
+        if constituent_object:
+            if field == 'title' and not record['title']:
+                record = add_value(record, None, 'title', pid)
+            elif field == "field_member_of":
+                continue
         if len(record[field]) < 1:
             add_exception(
-                record['id'][0],
+                pid,
                 field,
                 None,
                 f"record missing required {field}",
