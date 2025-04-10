@@ -155,7 +155,6 @@ ISSUANCE_MAPPING = {
     'serial': 'serial',
 }
 
-
 LINKED_AGENT_TYPES = {
     'conference': 'conference', 
     'corporate': 'corporate_body', 

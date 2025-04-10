@@ -31,7 +31,6 @@ columns_with_term_names:
 #field_for_media_title: [machine name of some field that has a unique identifier unless you just want to use Title, then leave this out]
 #field_for_remote_filename: field_pid [machine name of some field that has a unique identifier; used when pulling files from another site, e.g., i7. If you just want to use Title for this, then instead use use_node_title_for_remote_filename: true]
 #validate_title_length: false [use this if your site uses the Node Title Length module to allow for longer titles]
-#additional_files:
 #log_file_name_and_line_number: true
 #log_json: true
 #log_request_url: true
