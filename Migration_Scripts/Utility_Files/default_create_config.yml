@@ -20,7 +20,7 @@ adaptive_pause_threshold: 2.5
 http_cache_storage: memory
 http_cache_storage_expire_after: 600
 columns_with_term_names:
- - field_temporal
+ - field_subject_temporal
 #additional_files:
 # - hocr: 41
 # - transcript: 9
