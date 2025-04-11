@@ -140,11 +140,11 @@ def order_files(files: list) -> list:
     Returns:
         list: A reordered list with `COLLECTIONS_TO_HOLD` files at the end and `COLLECTIONS_TO_IGNORE` files removed.
     """
-    migrated_files = [f for f in files if f not in COLLECTIONS_TO_IGNORE]
-    hold_files = [f for f in COLLECTIONS_TO_HOLD if f in migrated_files]
-    other_files = [f for f in migrated_files if f not in COLLECTIONS_TO_HOLD]
+    files_to_migrate = [f for f in files if f not in COLLECTIONS_TO_IGNORE]
+    files_to_hold = [f for f in COLLECTIONS_TO_HOLD if f in files_to_migrate]
+    other_files = [f for f in files_to_migrate if f not in COLLECTIONS_TO_HOLD]
     
-    return other_files + hold_files
+    return other_files + files_to_hold
 
 
 def handle_parent_id(value: str) -> str:
@@ -208,11 +208,12 @@ def check_record(file: str, record: pd.Series) -> bool:
 
     matching_rows = object_inventory.loc[object_inventory['PID'] == pid]
 
+    inventory_file = None
     if not matching_rows.empty:
         inventory_file = matching_rows.iloc[0]['File']
         skip = (inventory_file != file)
 
-    return skip
+    return skip, inventory_file
 
 
 def handle_record(file: str, record: pd.Series):

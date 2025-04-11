@@ -604,7 +604,7 @@ def process_title(record: dict) -> dict:
         record[field] = [title_str]
 
         if field == "field_full_title":
-            record = add_value(record, None, "title", title_str)
+            add_value(record, None, "title", title_str)
 
     if not record.get("title") and record.get("field_model", [''])[0] != "Page":
         add_exception(record['id'][0], "title", None, "record missing title")
@@ -1113,7 +1113,7 @@ def validate_record(record: dict) -> None:
         constituent_object = record.get('parent_id')
         if constituent_object:
             if field == 'title' and not record['title']:
-                record = add_value(record, None, 'title', pid)
+                add_value(record, None, 'title', pid)
             elif field == "field_member_of":
                 continue
         if len(record[field]) < 1:
@@ -1238,8 +1238,16 @@ def process_record(filename: str, row: dict) -> dict:
 
     try:
         # Check if record has already been processed
-        skip_record = check_record(filename, row)
+        skip_record, inventory_file = check_record(filename, row)
         if skip_record:
+            add_transformation(
+                pid,
+                None,
+                None,
+                None,
+                f"skipped object included in {inventory_file}"
+            )
+            print(f"skipped object included in {inventory_file}")
             return None
 
         # Process values in each field
@@ -1282,7 +1290,7 @@ def process_record(filename: str, row: dict) -> dict:
                 elif field == "field_genre":
                     record = process_genre(record, value)
                     continue
-                elif field == "field_type_of_resources_legacy":
+                elif field == "field_type_of_resource":
                     value = TYPE_MAPPING[value]
                 elif field == "field_physical_form":
                     record = process_form(record, value)
@@ -1363,23 +1371,36 @@ def process_files(
         batch_size (int): Number of records per batch.
     """
     try:
+        # Load object inventory
+        load_inventory()
+        
         # Get list of CSV files in input folder
         files = [
             f for f in order_files(os.listdir(batch_path)) if f.endswith('.csv')
         ]
 
-        # Set total number of files for progress tracking
-        progress_queue.put((tracker.set_total_files, (len(files),)))
+        # Filter out unexpected files before processing
+        valid_files = [f for f in files if check_file(f)]
+        skipped_files = set(files) - set(valid_files)
+        for skipped in skipped_files:
+            print(f"Skipping unexpected file: {skipped}")
 
-        # Load inventory for processed records
-        load_inventory()
+        # If there are no valid files, end processing
+        if not valid_files:
+            print("\nNo valid files to process. Quitting...")
+            if TK_AVAILABLE:
+                tracker.root.quit()
+            return
+
+        # Set total number of files for progress tracking
+        progress_queue.put((tracker.set_total_files, (len(valid_files),)))
 
         buffer = []
         batch_count = 1
 
         datastreams = set()
 
-        for filename in files:
+        for filename in valid_files:
             try:
                 global current_file
                 current_file = filename
