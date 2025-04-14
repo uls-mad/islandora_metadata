@@ -277,6 +277,35 @@ def validate_edtf_dates(edtf_dates: List[str]) -> Tuple[List[str], List[str]]:
     return valid_dates, invalid_dates
 
 
+def get_parent_domain(df: pd.DataFrame, pid: str, parent_id: str) -> str:
+    """
+    Retrieves the parent domain (RELS_EXT_isMemberOfSite_uri_ms) for a given PID
+    by matching it to the corresponding row where PID equals 'id'.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing metadata records.
+        pid (str): The PID to match against the 'id' column.
+
+    Returns:
+        str: The value in 'RELS_EXT_isMemberOfSite_uri_ms' for the matching row,
+             or an empty string if no match or value is found.
+    """
+    parent_domain = None
+    try:
+        match = df.loc[df['PID'] == parent_id, 'RELS_EXT_isMemberOfSite_uri_ms']
+        if not match.empty:
+            parent_domain = split_and_clean(match.values[0])
+    except Exception as e:
+        message = f"error retrieving parent domain: {e}"
+        add_exception(
+            pid,
+            'field_domain_access',
+            None,
+            message
+        )
+    return parent_domain
+   
+
 def add_value(
     record: dict, 
     solr_field: str, 
@@ -1060,90 +1089,104 @@ def process_rights(value: str) -> str:
     return new_value
 
 
-def validate_record(record: dict) -> None:
+def format_record_values(record: dict) -> dict:
     """
-    Validate the fields and values of a record.
+    Format the values of a metadata record by converting non-empty lists to 
+    pipe-separated strings and removing keys with empty lists.
+
+    This function is typically used as a final step before exporting records 
+    to CSV or other flat formats, ensuring that list values are properly 
+    serialized and empty fields are excluded.
 
     Args:
-        record (dict): The record to validate.
+        record (dict): The metadata record with values that may be lists.
 
     Returns:
-        None
-    """
-    pid = record['id'][0]
-    for field, values in record.items():
-        match = FIELDS.loc[FIELDS['Field'] == field]
-        if match.empty:
-            print(f"⚠️  Warning: Field '{field}' not found in FIELDS lookup.")
-            return 
-        field_manager = match.iloc[0]
-        
-        if field_manager.Field_Type == "Text (plain)":
-            for value in values:
-                if len(value) > 255:
-                    add_exception(
-                        pid,
-                        field,
-                        value,
-                        "value exceeds character limit",
-                    )
-        
-        if field_manager.Field_Type == "Number (integer)":
-            for value in values:
-                try:
-                    int_value = int(value)
-                except (ValueError, TypeError):
-                    add_exception(
-                        pid,
-                        field,
-                        value,
-                        f"Expected an integer, but got " +
-                        f"{type(value).__name__}: {value}",
-                    )
-
-        if field_manager.Repeatable == "FALSE" and len(values) > 1:
-            add_exception(
-                pid,
-                field,
-                values,
-                "multiple values in nonrepeatable field",
-            )
-
-    for field in REQUIRED_FIELDS:
-        constituent_object = record.get('parent_id')
-        if constituent_object:
-            if field == 'title' and not record['title']:
-                add_value(record, None, 'title', pid)
-            elif field == "field_member_of":
-                continue
-        if len(record[field]) < 1:
-            add_exception(
-                pid,
-                field,
-                None,
-                f"record missing required {field}",
-            )
-
-
-def complete_record(record: dict) -> dict:
-    """
-    Finalize the record by converting list values to pipe-separated strings and 
-    removing keys with empty lists.
-
-    Args:
-        record (dict): The record to finalize.
-
-    Returns:
-        dict: The finalized record with empty list values removed.
+        dict: A cleaned and serialized version of the record with no empty lists 
+              and list values converted to strings.
     """
     for field, values in list(record.items()):
         if isinstance(values, list):
-            if values:  # If the list is not empty, convert it
+            if values:
                 record[field] = "|".join(values)
-            else:  # If the list is empty, remove the key
+            else:
                 del record[field]
     
     return record
+
+
+def validate_records(records: list, df: pd.DataFrame) -> list:
+    """
+    Validate the fields and values of records.
+
+    Args:
+        records (list): List of dictionaries representing records.
+
+    Returns:
+        records (list)
+    """
+    for record in records:
+        pid = record['id'][0]
+        for field, values in record.items():
+            match = FIELDS.loc[FIELDS['Field'] == field]
+            if match.empty:
+                print(f"⚠️  Warning: Field '{field}' not found in FIELDS lookup.")
+                return 
+            field_manager = match.iloc[0]
+            
+            if field_manager.Field_Type == "Text (plain)":
+                for value in values:
+                    if len(value) > 255:
+                        add_exception(
+                            pid,
+                            field,
+                            value,
+                            "value exceeds character limit",
+                        )
+            
+            if field_manager.Field_Type == "Number (integer)":
+                for value in values:
+                    try:
+                        int_value = int(value)
+                    except (ValueError, TypeError):
+                        add_exception(
+                            pid,
+                            field,
+                            value,
+                            f"Expected an integer, but got " +
+                            f"{type(value).__name__}: {value}",
+                        )
+
+            if field_manager.Repeatable == "FALSE" and len(values) > 1:
+                add_exception(
+                    pid,
+                    field,
+                    values,
+                    "multiple values in nonrepeatable field",
+                )
+
+        for field in REQUIRED_FIELDS:
+            parent_id = record.get('parent_id')
+            if parent_id:
+                parent_id = parent_id[0]
+                if field == 'title' and not record[field]:
+                    add_value(record, None, 'title', pid)
+                elif field == 'field_member_of':
+                    continue
+                elif field == 'field_domain_access' and not record[field]:
+                    parent_domain = get_parent_domain(df, pid, parent_id)
+                    add_value(record, None, 'field_domain_access', parent_domain)
+            if len(record[field]) < 1:
+                add_exception(
+                    pid,
+                    field,
+                    None,
+                    f"record missing required {field}",
+                )
+
+        format_record_values(record)
+
+    return records
 
 
 def records_to_csv(records: list, destination: str):
@@ -1168,37 +1211,14 @@ def records_to_csv(records: list, destination: str):
     # Convert list of dictionaries to DataFrame
     df = pd.DataFrame.from_dict(records)
 
+    # Sort records so that parent objects are first
     if "parent_id" in df.columns:
-        # Sort records so that parent objects are first
         df.sort_values(
             by="parent_id", 
             ascending=True, 
             na_position="first", 
             inplace=True
         )
-
-        # Ensure that children have the same domain access as their parents
-        parent_models = ['Paged Content', 'Publication Issue']
-
-        # Get parent records with eligible models and non-null domain access
-        parent_df = df[
-            df["field_model"].isin(parent_models) &
-            df["field_domain_access"].notna() &
-            df["id"].notna()
-        ][["id", "field_domain_access"]].rename(columns={"id": "parent_id"})
-
-        # Merge domain access from parents into child records where missing
-        df = df.merge(
-            parent_df, on="parent_id", how="left", suffixes=('', '_from_parent')
-        )
-
-        # Fill in missing child domain access values with parent's value
-        df["field_domain_access"] = df["field_domain_access"].combine_first(
-            df["field_domain_access_from_parent"]
-        )
-
-        # Drop the temporary column
-        df.drop(columns=["field_domain_access_from_parent"], inplace=True)
 
     # Ensure the destination directory exists
     os.makedirs(os.path.dirname(destination), exist_ok=True)
@@ -1335,12 +1355,6 @@ def process_record(filename: str, row: dict) -> dict:
         if geo_field:
             record = add_geo_field(record, pid)
 
-        # Validate record
-        validate_record(record)
-
-        # Complete record
-        record = complete_record(record)
-
     except Exception as e:
                 print(f"Error processing row {pid}: {e}")
                 print(traceback.format_exc())
@@ -1441,6 +1455,9 @@ def process_files(
 
                     # Complete batch if max size reached
                     if len(buffer) == batch_size:
+                        # Validate record
+                        buffer = validate_records(buffer, input_df)
+
                         # Save records to a CSV file in the output folder 
                         sub_batch_file = f"{file_prefix}_{batch_count}.csv"
                         sub_batch_path = os.path.join(output_path, sub_batch_file)
@@ -1476,6 +1493,9 @@ def process_files(
             progress_queue.put((tracker.update_processed_files, ()))
 
         if buffer:
+            # Validate record
+            buffer = validate_records(buffer, input_df)
+
             # Save records to a CSV file in the output folder 
             sub_batch_file = f"{file_prefix}_{batch_count}.csv"
             sub_batch_path = os.path.join(output_path, sub_batch_file)

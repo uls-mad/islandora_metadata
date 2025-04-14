@@ -64,7 +64,7 @@ SUBJECT_FIELDS = [
 
 """ MAPPINGS """
 
-# RELS_EXT_hasModel_uri_ms -> islandora_models
+# RELS_EXT_hasModel_uri_ms -> field_model
 OBJECT_MAPPING = {
     'info:fedora/islandora:collectionCModel': {
         'model': 'Collection', 
@@ -180,7 +180,7 @@ SUBJECT_FIELD_MAPPING = {
     'feature': 'field_geographic_features',
 }
 
-# RELS_EXT_isMemberOfSite_uri_ms -> domain
+# RELS_EXT_isMemberOfSite_uri_ms -> field_domain_access
 DOMAIN_MAPPING = {
     'info:fedora/': 'digital_library_pitt_edu',
     'info:fedora/pitt:site.admin': 'digital_library_pitt_edu',
