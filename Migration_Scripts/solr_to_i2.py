@@ -319,7 +319,7 @@ def add_value(
     field: str, 
     value: str, 
     prefix: str = None
-) -> dict:
+) -> str:
     """
     Add a value to a field in the record, optionally prepending a prefix.
 
@@ -331,7 +331,7 @@ def add_value(
         prefix (str, optional): The prefix to prepend to the value.
 
     Returns:
-        dict: The updated record.
+        value (str): The value added to the record.
     """
     if not field:
         add_exception(
@@ -359,7 +359,7 @@ def add_value(
 
     record[field] = values
 
-    return record
+    return value
 
 
 def add_title(
@@ -784,14 +784,21 @@ def process_name(
 
         new_value = row['Valid_Name']
 
-        if name_type == "title":
-            add_value(record, solr_field, "field_subject_title", new_value)
-            return record, personal_names
-        elif name_type == "geographic":
-            add_value(record, solr_field, "field_geographic_subject", new_value)
-            return record, personal_names
-        elif name_type == "topic":
-            add_value(record, solr_field, "field_subject", new_value)
+        if name_type in ['title', 'geographic', 'topic']:
+            if name_type == "title":
+                field = "field_subject_title"
+            elif name_type == "geographic":
+                field = "field_geographic_subject"
+            elif name_type == "topic":
+                field = "field_subject"
+            new_value = add_value(record, solr_field, field, new_value)
+            add_exception(
+                record['id'][0],
+                field,
+                new_value,
+                f"confirm whether value should be a linked agent, {name_type} " + 
+                "heading or other"
+            )
             return record, personal_names
         
         relator = row['Relator'] if row['Relator'].strip() else "rlt"
@@ -1448,10 +1455,9 @@ def process_files(
                         return
 
                     record = process_record(filename, row)
-                    record = validate_record(record, input_df)
-                    record = format_record(record)
-
                     if record:
+                        record = validate_record(record, input_df)
+                        record = format_record(record)
                         buffer.append(record)
                     else:
                         continue
