@@ -1096,7 +1096,84 @@ def process_rights(value: str) -> str:
     return new_value
 
 
-def format_record_values(record: dict) -> dict:
+def validate_record(record: dict, df: pd.DataFrame) -> dict:
+    """
+    Validate the fields and values of a metadata record.
+
+    Args:
+        record (dict): A record to validate.
+
+    Returns:
+        record (dict): The validated record.
+    """
+    pid = record['id'][0]
+    for field, values in record.items():
+        match = FIELDS.loc[FIELDS['Field'] == field]
+        if match.empty:
+            print(f"⚠️  Warning: Field '{field}' not found in FIELDS lookup.")
+            return 
+        field_manager = match.iloc[0]
+        
+        if field_manager.Field_Type == "Text (plain)":
+            for value in values:
+                if len(value) > 255:
+                    add_exception(
+                        pid,
+                        field,
+                        value,
+                        "value exceeds character limit",
+                    )
+        
+        if field_manager.Field_Type == "Number (integer)":
+            for value in values:
+                try:
+                    int_value = int(value)
+                except (ValueError, TypeError):
+                    add_exception(
+                        pid,
+                        field,
+                        value,
+                        f"Expected an integer, but got " +
+                        f"{type(value).__name__}: {value}",
+                    )
+
+        if field_manager.Repeatable == "FALSE" and len(values) > 1:
+            add_exception(
+                pid,
+                field,
+                values,
+                "multiple values in nonrepeatable field",
+            )
+
+    for field in REQUIRED_FIELDS:
+        parent_id = record.get('parent_id')
+        if parent_id:
+            parent_id = parent_id[0]
+            if field == 'title' and not record[field]:
+                add_value(record, None, 'title', pid)
+            elif field == 'field_domain_access' and not record[field]:
+                parent_domains = get_parent_domain(df, pid, parent_id)
+                for domain in parent_domains:
+                    add_value(
+                        record, 
+                        None, 
+                        'field_domain_access', 
+                        domain
+                    )
+            elif field == 'field_member_of':
+                continue
+        if len(record[field]) < 1:
+            add_exception(
+                pid,
+                field,
+                None,
+                f"record missing required {field}",
+            )
+
+    return record
+
+
+def format_record(record: dict) -> dict:
     """
     Format the values of a metadata record by converting non-empty lists to 
     pipe-separated strings and removing keys with empty lists.
@@ -1120,86 +1197,6 @@ def format_record_values(record: dict) -> dict:
                 del record[field]
     
     return record
-
-
-def validate_records(records: list, df: pd.DataFrame) -> list:
-    """
-    Validate the fields and values of records.
-
-    Args:
-        records (list): List of dictionaries representing records.
-
-    Returns:
-        records (list)
-    """
-    for record in records:
-        pid = record['id'][0]
-        for field, values in record.items():
-            match = FIELDS.loc[FIELDS['Field'] == field]
-            if match.empty:
-                print(f"⚠️  Warning: Field '{field}' not found in FIELDS lookup.")
-                return 
-            field_manager = match.iloc[0]
-            
-            if field_manager.Field_Type == "Text (plain)":
-                for value in values:
-                    if len(value) > 255:
-                        add_exception(
-                            pid,
-                            field,
-                            value,
-                            "value exceeds character limit",
-                        )
-            
-            if field_manager.Field_Type == "Number (integer)":
-                for value in values:
-                    try:
-                        int_value = int(value)
-                    except (ValueError, TypeError):
-                        add_exception(
-                            pid,
-                            field,
-                            value,
-                            f"Expected an integer, but got " +
-                            f"{type(value).__name__}: {value}",
-                        )
-
-            if field_manager.Repeatable == "FALSE" and len(values) > 1:
-                add_exception(
-                    pid,
-                    field,
-                    values,
-                    "multiple values in nonrepeatable field",
-                )
-
-        for field in REQUIRED_FIELDS:
-            parent_id = record.get('parent_id')
-            if parent_id:
-                parent_id = parent_id[0]
-                if field == 'title' and not record[field]:
-                    add_value(record, None, 'title', pid)
-                elif field == 'field_domain_access' and not record[field]:
-                    parent_domains = get_parent_domain(df, pid, parent_id)
-                    for domain in parent_domains:
-                        add_value(
-                            record, 
-                            None, 
-                            'field_domain_access', 
-                            domain
-                        )
-                elif field == 'field_member_of':
-                    continue
-            if len(record[field]) < 1:
-                add_exception(
-                    pid,
-                    field,
-                    None,
-                    f"record missing required {field}",
-                )
-
-        format_record_values(record)
-
-    return records
 
 
 def records_to_csv(records: list, destination: str):
@@ -1451,6 +1448,9 @@ def process_files(
                         return
 
                     record = process_record(filename, row)
+                    record = validate_record(record, input_df)
+                    record = format_record(record)
+
                     if record:
                         buffer.append(record)
                     else:
@@ -1470,9 +1470,6 @@ def process_files(
 
                     # Complete batch if max size reached
                     if len(buffer) == batch_size:
-                        # Validate record
-                        buffer = validate_records(buffer, input_df)
-
                         # Save records to a CSV file in the output folder 
                         sub_batch_file = f"{file_prefix}_{batch_count}.csv"
                         sub_batch_path = os.path.join(output_path, sub_batch_file)
@@ -1508,9 +1505,6 @@ def process_files(
             progress_queue.put((tracker.update_processed_files, ()))
 
         if buffer:
-            # Validate record
-            buffer = validate_records(buffer, input_df)
-
             # Save records to a CSV file in the output folder 
             sub_batch_file = f"{file_prefix}_{batch_count}.csv"
             sub_batch_path = os.path.join(output_path, sub_batch_file)
