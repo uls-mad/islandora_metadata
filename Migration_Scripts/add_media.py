@@ -168,9 +168,10 @@ def add_media_files(
 
             for _, row in filtered_df.iterrows():
                 pid = str(row['id'])
+                basename = f"{pid.replace(':', '_')}_{dsid}"
                 matching_files = [
-                    filename for filename in media_files
-                    if pid.replace(':', '_') in filename and dsid in filename
+                    file for file in media_files
+                    if basename == os.path.splitext(os.path.basename(file))[0]
                 ]
 
                 # Log that media files were expected but not found
