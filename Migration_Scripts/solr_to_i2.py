@@ -282,33 +282,35 @@ def validate_edtf_dates(edtf_dates: List[str]) -> Tuple[List[str], List[str]]:
     return valid_dates, invalid_dates
 
 
-def get_parent_domain(df: pd.DataFrame, pid: str, parent_id: str) -> str:
+def get_parent_domain(df: pd.DataFrame, pid: str, parent_id: str) -> list[str]:
     """
-    Retrieves the parent domain (RELS_EXT_isMemberOfSite_uri_ms) for a given PID
-    by matching it to the corresponding row where PID equals 'id'.
+    Retrieves the parent domain(s) for a given PID by matching its parent_id in 
+    the DataFrame and mapping the domain URIs using the DOMAIN_MAPPING dictionary.
 
     Args:
         df (pd.DataFrame): The DataFrame containing metadata records.
-        pid (str): The PID to match against the 'id' column.
+        pid (str): The PID of the current record, used for error reporting.
+        parent_id (str): The PID of the parent record to look up.
 
     Returns:
-        str: The value in 'RELS_EXT_isMemberOfSite_uri_ms' for the matching row,
-             or an empty string if no match or value is found.
+        list[str]: A list of mapped domain access values, or an empty list
+                   if no values are found or an error occurs.
     """
-    parent_domain = None
+    parent_domains = []
     try:
-        match = df.loc[df['PID'] == parent_id, 'RELS_EXT_isMemberOfSite_uri_ms']
+        match = df.loc[df["PID"] == parent_id, "RELS_EXT_isMemberOfSite_uri_ms"]
         if not match.empty:
-            parent_domain = split_and_clean(match.values[0])
+            # Clean and split values, then map using DOMAIN_MAPPING
+            raw_values = split_and_clean(match.values[0])
+            parent_domains = [
+                DOMAIN_MAPPING.get(val, "") \
+                for val in raw_values if DOMAIN_MAPPING.get(val, "")
+            ]
     except Exception as e:
         message = f"error retrieving parent domain: {e}"
-        add_exception(
-            pid,
-            'field_domain_access',
-            None,
-            message
-        )
-    return parent_domain
+        add_exception(pid, "field_domain_access", None, message)
+
+    return parent_domains
    
 
 def add_value(
@@ -1176,11 +1178,17 @@ def validate_records(records: list, df: pd.DataFrame) -> list:
                 parent_id = parent_id[0]
                 if field == 'title' and not record[field]:
                     add_value(record, None, 'title', pid)
+                elif field == 'field_domain_access' and not record[field]:
+                    parent_domains = get_parent_domain(df, pid, parent_id)
+                    for domain in parent_domains:
+                        add_value(
+                            record, 
+                            None, 
+                            'field_domain_access', 
+                            domain
+                        )
                 elif field == 'field_member_of':
                     continue
-                elif field == 'field_domain_access' and not record[field]:
-                    parent_domain = get_parent_domain(df, pid, parent_id)
-                    add_value(record, None, 'field_domain_access', parent_domain)
             if len(record[field]) < 1:
                 add_exception(
                     pid,
