@@ -44,6 +44,9 @@ exceptions = []
 global current_file
 current_file = None
 
+global current_batch
+current_batch = None
+
 DEFAULT_BATCH_SIZE = 5000
 
 
@@ -157,6 +160,7 @@ def add_exception(
     """
     exceptions.append({
         "File": current_file,
+        "batch": current_batch,
         "PID": pid,
         "Field": field,
         "Value": value,
@@ -183,6 +187,7 @@ def add_transformation(
     """
     transformations.append({
         "File": current_file,
+        "batch": current_batch,
         "PID": pid,
         "Field": field,
         "Old_Value": old_value,
@@ -1418,6 +1423,8 @@ def process_files(
             try:
                 global current_file
                 current_file = filename
+                global current_batch
+                current_batch = batch_count
 
                 # Read input CSV into a DataFrame
                 cur_input_path = os.path.join(batch_path, filename)
