@@ -1230,7 +1230,7 @@ def records_to_csv(records: list, destination: str):
 
     # Sort records so that parent objects are first
     if "parent_id" in df.columns:
-        # Ensure that RELS_EXT_isMemberOf_uri_ms is empty for top-level object models
+        # Ensure that parent_id is empty for top-level object models
         parent_models = ['Paged Content', 'Compound Object', 'Newspaper']
         df.loc[
             df['field_model'].isin(parent_models), 'parent_id'
