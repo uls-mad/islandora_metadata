@@ -147,6 +147,24 @@ def order_files(files: list) -> list:
     return other_files + files_to_hold
 
 
+def filter_valid_files(batch_path: str) -> list:
+    """
+    Filters the valid CSV files in a directory based on inventory check.
+
+    Args:
+        batch_path (str): Path to the batch directory containing input CSV files.
+
+    Returns:
+        list: List of filenames that passed the inventory check.
+    """
+    files = [f for f in order_files(os.listdir(batch_path)) if f.endswith('.csv')]
+    valid_files = [f for f in files if check_file(f)]
+    skipped_files = set(files) - set(valid_files)
+    for skipped in skipped_files:
+        print(f"Skipping unexpected file: {skipped}")
+    return valid_files
+
+
 def handle_parent_id(value: str) -> str:
     """
     Process a comma-separated string of values by removing Fedora prefixes, 

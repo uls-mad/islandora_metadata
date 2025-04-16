@@ -61,6 +61,15 @@ SUBJECT_FIELDS = [
     'field_temporal_subject',
 ]
 
+PARENT_MODELS = [
+    "info:fedora/islandora:compoundCModel",
+    "info:fedora/islandora:oralhistoriesCModel",
+    "info:fedora/islandora:bookCModel",
+    "info:fedora/islandora:manuscriptCModel",
+    "info:fedora/islandora:newspaperCModel",
+    "info:fedora/islandora:newspaperIssueCModel"
+]
+
 
 """ MAPPINGS """
 

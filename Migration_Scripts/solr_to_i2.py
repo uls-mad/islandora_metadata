@@ -82,7 +82,6 @@ def parse_arguments():
     return args.user_id, args.batch_path, args.batch_size
 
 
-
 def process_queue(root, update_queue):
     """
     Continuously processes GUI update tasks from the queue.
@@ -98,6 +97,237 @@ def process_queue(root, update_queue):
         func, args = update_queue.get()
         func(*args)
     root.after(25, process_queue, root, update_queue)
+
+
+def clean_parent_ids(input_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Cleans parent relationship fields by:
+    - Removing references to finding aid PIDs from child memberOf and constituentOf fields
+      where the value ends with the PID.
+    - Removing references to PIDs that are not present in the DataFrame.
+
+    Args:
+        input_df (pd.DataFrame): The DataFrame to clean.
+
+    Returns:
+        pd.DataFrame: The cleaned DataFrame.
+    """
+    print("Cleaning parent IDs...")
+    if "PID" not in input_df.columns or "RELS_EXT_hasModel_uri_ms" not in input_df.columns:
+        return input_df
+
+    # Get all valid PIDs in the DataFrame
+    valid_pids = set(input_df["PID"].dropna())
+
+    # Remove references to finding aid parents
+    finding_aid_pids = input_df.loc[
+        input_df["RELS_EXT_hasModel_uri_ms"] == "info:fedora/islandora:findingAidCModel",
+        "PID"
+    ].dropna().tolist()
+
+    for pid in finding_aid_pids:
+        if "RELS_EXT_isMemberOf_uri_ms" in input_df.columns:
+            input_df.loc[
+                input_df["RELS_EXT_isMemberOf_uri_ms"].fillna("").str.endswith(pid),
+                "RELS_EXT_isMemberOf_uri_ms"
+            ] = pd.NA
+
+    # Remove any references to parent PIDs not in the DataFrame
+    for col in ["RELS_EXT_isMemberOf_uri_ms", "RELS_EXT_isConstituentOf_uri_ms"]:
+        if col in input_df.columns:
+            input_df[col] = input_df[col].apply(
+                lambda v: v if pd.isna(v) or \
+                    any(v.endswith(pid) for pid in valid_pids) else pd.NA
+            )
+
+    return input_df
+
+
+def sort_parents_first(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Sorts the DataFrame so that parent objects come first, each followed by their
+    children (recursively). Remaining records are added at the end.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame containing PIDs, model types, and relationship fields.
+
+    Returns:
+        pd.DataFrame: Sorted DataFrame.
+    """
+    print("Sorting data...")
+
+    if "PID" not in df.columns or "RELS_EXT_hasModel_uri_ms" not in df.columns:
+        return df
+
+    df = df.copy()
+    df["PID"] = df["PID"].fillna("")
+    df = df.sort_values("PID").reset_index(drop=True)
+
+    # Extract PID suffix if value has namespace
+    def extract_pid(val):
+        if pd.isna(val):
+            return None
+        return val.split("/")[-1] if "/" in val else val
+
+    member_field = "RELS_EXT_isMemberOf_uri_ms" \
+        if "RELS_EXT_isMemberOf_uri_ms" in df.columns else None
+    constituent_field = "RELS_EXT_isConstituentOf_uri_ms" \
+        if "RELS_EXT_isConstituentOf_uri_ms" in df.columns else None
+
+    if member_field:
+        df[member_field] = df[member_field].apply(extract_pid)
+    if constituent_field:
+        df[constituent_field] = df[constituent_field].apply(extract_pid)
+
+    # Build parent -> children map
+    children_map = {}
+    pid_to_row = dict(zip(df["PID"], df.to_dict("records")))
+
+    for _, row in df.iterrows():
+        pid = row["PID"]
+        model = row["RELS_EXT_hasModel_uri_ms"]
+        if model in PARENT_MODELS:
+            mask = pd.Series([False] * len(df), index=df.index)
+            if member_field:
+                mask |= df[member_field] == pid
+            if constituent_field:
+                mask |= df[constituent_field] == pid
+            children = df.loc[mask, "PID"].dropna().tolist()
+            children_map[pid] = children
+
+    # Recursively collect ordered PIDs: parent -> children -> grandchildren, etc.
+    visited = set()
+    ordered_pids = []
+
+    def visit(pid):
+        if pid in visited or pid not in pid_to_row:
+            return
+        visited.add(pid)
+        ordered_pids.append(pid)
+        for child_pid in children_map.get(pid, []):
+            visit(child_pid)
+
+    # Visit all parents first
+    for parent_pid in children_map.keys():
+        visit(parent_pid)
+
+    # Add remaining records (orphans/standalones)
+    for pid in df["PID"]:
+        if pid not in visited:
+            ordered_pids.append(pid)
+
+    return df.set_index("PID").loc[ordered_pids].reset_index()
+
+
+def track_child_objects(
+    row: pd.Series,
+    input_df: pd.DataFrame,
+    parent_pid: str | None,
+    pending_children: list[str]
+) -> tuple[str | None, list[str]]:
+    """
+    Updates parent-child tracking state based on the current row.
+
+    If the current row represents a parent object, identifies its children from
+    the DataFrame and returns the updated `parent_pid` and `pending_children`.
+    If the current row is a child, removes it from the pending list.
+    If all children have been processed, resets the parent context.
+
+    Args:
+        row (pd.Series): The current row being processed.
+        input_df (pd.DataFrame): The full DataFrame being processed.
+        parent_pid (str | None): The PID of the current parent object, if any.
+        pending_children (list): List of child PIDs that still need to be processed.
+
+    Returns:
+        tuple: Updated (parent_pid, pending_children)
+    """
+    pid = row.get("PID")
+    model_uri = row.get("RELS_EXT_hasModel_uri_ms")
+
+    if pd.notna(model_uri) and model_uri in PARENT_MODELS:
+        parent_pid = pid
+        member_of_col = input_df.get("RELS_EXT_isMemberOf_uri_ms")
+        constituent_of_col = input_df.get("RELS_EXT_isConstituentOf_uri_ms")
+
+        # Identify children of the current parent
+        mask = pd.Series([False] * len(input_df), index=input_df.index)
+
+        if member_of_col is not None:
+            mask |= (member_of_col == parent_pid)
+
+        if constituent_of_col is not None:
+            mask |= (constituent_of_col == parent_pid)
+
+        pending_children = input_df.loc[mask, "PID"].dropna().tolist()
+
+    elif parent_pid and pid in pending_children:
+        # Remove child from pending list
+        pending_children.remove(pid)
+    elif parent_pid and not pending_children:
+        # Reset parent context
+        parent_pid = None
+
+    return parent_pid, pending_children
+
+
+def should_flush_batch(buffer: list, batch_size: int, pending_children: list) -> bool:
+    """
+    Determine whether the current batch should be flushed to disk.
+
+    Args:
+        buffer (list): List of processed records.
+        batch_size (int): Maximum number of records in a batch.
+        pending_children (list): List of child PIDs that must stay with the parent.
+
+    Returns:
+        bool: True if batch should be flushed, False otherwise.
+    """
+    return len(buffer) >= batch_size and not pending_children
+
+
+def flush_batch(
+    buffer: list,
+    batch_count: int,
+    output_path: str,
+    file_prefix: str,
+    batch_path: str,
+    batch_dir: str
+) -> tuple[pd.DataFrame, set]:
+    """
+    Write the current buffer to a CSV, save PIDs for media, and prepare a config file.
+
+    Args:
+        buffer (list): List of processed records.
+        batch_count (int): Current batch number.
+        output_path (str): Directory to write the batch CSV.
+        file_prefix (str): Filename prefix for the batch.
+        batch_path (str): Path to the batch directory.
+        batch_dir (str): Name of the batch directory.
+
+    Returns:
+        tuple: DataFrame written and set of updated datastreams.
+    """
+    sub_batch_file = f"{file_prefix}_{batch_count}.csv"
+    sub_batch_path = os.path.join(output_path, sub_batch_file)
+    records_df = records_to_csv(buffer, sub_batch_path)
+
+    batch_datastreams = save_pids_for_media(
+        batch_path,
+        records_df,
+        DATASTREAMS_MAPPING
+    )
+
+    prepare_config(
+        batch_path,
+        batch_dir,
+        batch_count,
+        timestamp,
+        user_id,
+        batch_datastreams
+    )
+
+    return records_df, batch_datastreams
 
 
 def initialize_record() -> dict:
@@ -1409,17 +1639,9 @@ def process_files(
     try:
         # Load object inventory
         load_inventory()
-        
-        # Get list of CSV files in input folder
-        files = [
-            f for f in order_files(os.listdir(batch_path)) if f.endswith('.csv')
-        ]
 
-        # Filter out unexpected files before processing
-        valid_files = [f for f in files if check_file(f)]
-        skipped_files = set(files) - set(valid_files)
-        for skipped in skipped_files:
-            print(f"Skipping unexpected file: {skipped}")
+        # Get list of valid CSV files in input folder (must be in inventory)
+        valid_files = filter_valid_files(batch_path)
 
         # If there are no valid files, end processing
         if not valid_files:
@@ -1433,7 +1655,6 @@ def process_files(
 
         buffer = []
         batch_count = 1
-
         datastreams = set()
 
         for filename in valid_files:
@@ -1449,16 +1670,33 @@ def process_files(
                     replace("", pd.NA).\
                     dropna(axis=1, how="all")
 
+                # Remove findingAid parents from their children's memberOf fields
+                input_df = clean_parent_ids(input_df)
+                input_df = sort_parents_first(input_df)
+
                 # Update progress tracker with current file being processed
                 progress_queue.put(
                     (tracker.set_current_file, (filename, len(input_df)))
                 )
+
+                # Initialize variables for parent-child tracking
+                parent_pid = None
+                pending_children = []
 
                 # Process records
                 for idx, row in input_df.iterrows():
                     if tracker.cancel_requested.is_set():
                         return
 
+                    # Track parent and children relationships
+                    parent_pid, pending_children = track_child_objects(
+                        row, 
+                        input_df, 
+                        parent_pid, 
+                        pending_children
+                    )
+                    
+                    # Process record
                     record = process_record(filename, row)
                     if record:
                         record = validate_record(record, input_df)
@@ -1466,7 +1704,7 @@ def process_files(
                         buffer.append(record)
                     else:
                         continue
-                    
+
                     # Update progress for processed record
                     if TK_AVAILABLE:
                         if idx % 10 == 0 or idx == input_df.index[-1]:
@@ -1479,30 +1717,17 @@ def process_files(
                             (tracker.update_processed_records, (is_last,))
                         )
 
-                    # Complete batch if max size reached
-                    if len(buffer) == batch_size:
-                        # Save records to a CSV file in the output folder 
-                        sub_batch_file = f"{file_prefix}_{batch_count}.csv"
-                        sub_batch_path = os.path.join(output_path, sub_batch_file)
-                        records_df = records_to_csv(buffer, sub_batch_path)
-
-                        # Save PIDs for media export
-                        batch_datastreams = save_pids_for_media(
-                            batch_path, 
-                            records_df, 
-                            DATASTREAMS_MAPPING
+                    # Complete batch if max size reached and no pending children
+                    if should_flush_batch(buffer, batch_size, pending_children):
+                        records_df, batch_datastreams = flush_batch(
+                            buffer,
+                            batch_count,
+                            output_path,
+                            file_prefix,
+                            batch_path,
+                            batch_dir
                         )
                         datastreams = datastreams.union(batch_datastreams)
-
-                        # Create config file for batch import
-                        prepare_config(
-                            batch_path, 
-                            batch_dir, 
-                            batch_count,
-                            timestamp, 
-                            user_id, 
-                            datastreams
-                        )
 
                         # Set up next batch
                         batch_count += 1
@@ -1516,29 +1741,16 @@ def process_files(
             progress_queue.put((tracker.update_processed_files, ()))
 
         if buffer:
-            # Save records to a CSV file in the output folder 
-            sub_batch_file = f"{file_prefix}_{batch_count}.csv"
-            sub_batch_path = os.path.join(output_path, sub_batch_file)
-            records_df = records_to_csv(buffer, sub_batch_path)
-
-            # Save PIDs for media export
-            batch_datastreams = save_pids_for_media(
-                batch_path, 
-                records_df, 
-                DATASTREAMS_MAPPING
+            records_df, batch_datastreams = flush_batch(
+                buffer,
+                batch_count,
+                output_path,
+                file_prefix,
+                batch_path,
+                batch_dir
             )
             datastreams = datastreams.union(batch_datastreams)
 
-            # Create config file for batch import
-            prepare_config(
-                batch_path, 
-                batch_dir, 
-                batch_count,
-                timestamp, 
-                user_id, 
-                datastreams
-            )
-        
         # Flush last record progress update before printing file saved message
         if not TK_AVAILABLE:
             while not progress_queue.empty():
@@ -1547,14 +1759,14 @@ def process_files(
 
         # Create TXT file with drush export and workbench import scripts
         write_io_scripts(batch_path, batch_dir, datastreams)
-    
+
         # Write reports
         log_dir = os.path.join(batch_path, "logs")
         write_reports(
             log_dir,
-            timestamp, 
-            "metadata", 
-            transformations, 
+            timestamp,
+            "metadata",
+            transformations,
             exceptions
         )
 
