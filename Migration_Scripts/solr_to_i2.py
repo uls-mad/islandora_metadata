@@ -112,7 +112,6 @@ def clean_parent_ids(input_df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: The cleaned DataFrame.
     """
-    print("Cleaning parent IDs...")
     if "PID" not in input_df.columns or "RELS_EXT_hasModel_uri_ms" not in input_df.columns:
         return input_df
 
@@ -154,8 +153,6 @@ def sort_parents_first(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: Sorted DataFrame.
     """
-    print("Sorting data...")
-
     if "PID" not in df.columns or "RELS_EXT_hasModel_uri_ms" not in df.columns:
         return df
 
