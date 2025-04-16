@@ -166,16 +166,20 @@ def add_media_files(
             # Add media filenames to DataFrame
             filenames_map = {}
 
+            # Get set of media file basenames (without extension)
+            media_basenames = {
+                os.path.splitext(os.path.basename(file))[0]: file
+                for file in media_files
+            }
+
+            # Get matching media files for each record
             for _, row in filtered_df.iterrows():
                 pid = str(row['id'])
                 basename = f"{pid.replace(':', '_')}_{dsid}"
-                matching_files = [
-                    file for file in media_files
-                    if basename == os.path.splitext(os.path.basename(file))[0]
-                ]
+                matching_file = media_basenames.get(basename)
 
                 # Log that media files were expected but not found
-                if not matching_files:
+                if not matching_file:
                     add_exception(
                         exceptions, 
                         pid, 
@@ -185,8 +189,8 @@ def add_media_files(
                     )
 
                 # Convert the list of found media filenames to a string
-                filenames_map[row.name] = '|'.join(matching_files) \
-                    if matching_files else ''
+                filenames_map[row.name] = matching_file \
+                    if matching_file else ''
 
             # Update DataFrame column with filenames
             df[ds_field] = df.index.map(filenames_map).fillna('')
