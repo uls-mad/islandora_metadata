@@ -198,12 +198,13 @@ def add_media_files(
     return df, exceptions
 
 
-def process_csv_files(csv_dir: str, media_dir: str) -> list:
+def process_csv_files(metadata_dir: str, import_dir: str, media_dir: str) -> list:
     """
     Processes all CSV files in the given directory, updating them with matching media filenames.
 
     Args:
-        csv_dir (str): Directory containing CSV files.
+        metadata_dir (str): Directory containing metadata CSV files.
+        import_dir (str): Directory containing I2 import-related files.
         media_dir (str): Directory containing media files.
 
     Returns:
@@ -211,24 +212,26 @@ def process_csv_files(csv_dir: str, media_dir: str) -> list:
     """
     exceptions = []
 
-    if not os.path.isdir(csv_dir):
-        print(f"Error: Metadata folder not found at: {csv_dir}")
+    if not os.path.isdir(metadata_dir):
+        print(f"Error: Metadata folder not found at: {metadata_dir}")
         return exceptions
 
-    if not os.path.isdir(media_dir):
-        print(f"Error: Media folder not found at: {media_dir}")
+    if not os.path.isdir(media_dir) and not os.path.isdir(media_dir):
+        print(f"Error: Import folder not found at: {media_dir}")
         return exceptions
+    elif not os.path.isdir(media_dir):
+        media_dir = import_dir
 
-    csv_files = [f for f in os.listdir(csv_dir) if f.endswith('.csv')]
+    csv_files = [f for f in os.listdir(metadata_dir) if f.endswith('.csv')]
     media_files = [f for f in os.listdir(media_dir) if not f.endswith('.csv')]
 
     try:
         for filename in csv_files:
             # Set filepaths
             current_file = filename
-            csv_path = os.path.join(csv_dir, filename)
+            csv_path = os.path.join(metadata_dir, filename)
             output_filename = filename.replace('.csv', '_media.csv')
-            output_filepath = os.path.join(media_dir, output_filename)
+            output_filepath = os.path.join(import_dir, output_filename)
 
             # Load CSV into DataFrame
             df = create_df(csv_path)
@@ -286,13 +289,15 @@ if __name__ == "__main__":
         # Get directories and timestamp for file handling
         if batch_path is None:
             batch_path = get_directory('input', input_prompt, TK_AVAILABLE)
-        csv_dir = os.path.join(batch_path, "metadata")
-        media_dir = os.path.join(batch_path, "import")
+        print(f"\nProcessing batch directory: {batch_path}")
+        metadata_dir = os.path.join(batch_path, "metadata")
+        import_dir = os.path.join(batch_path, "import")
+        media_dir = os.path.join(batch_path, "import", "media")
         log_dir = os.path.join(batch_path, "logs")
         timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
 
         # Process CSV files
-        exceptions = process_csv_files(csv_dir, media_dir)
+        exceptions = process_csv_files(metadata_dir, import_dir, media_dir)
 
         # Report exceptions, if any
         write_reports(log_dir, timestamp, "media", [], exceptions)
