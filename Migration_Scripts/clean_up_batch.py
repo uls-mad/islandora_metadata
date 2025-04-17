@@ -66,6 +66,7 @@ def prompt_to_delete(media_path):
     # Check if the media directory is empty
     if not os.listdir(media_path):
         print("\nNo files in the media directory. Skipping media file deletion step.")
+        return
     
     # Print the list of files to be deleted
     media_dir = os.path.basename(media_path.rstrip(os.sep))
