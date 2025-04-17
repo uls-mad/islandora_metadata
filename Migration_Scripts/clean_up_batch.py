@@ -167,7 +167,7 @@ def delete_directory_contents(batch_path):
     Returns:
         None
     """
-    print(f"\nDeleting contents of batch directory: {batch_path}")
+    print("\nDeleting contents of batch directory...")
     for root, dirs, files in os.walk(batch_path, topdown=False):
         for file in files:
             try:
