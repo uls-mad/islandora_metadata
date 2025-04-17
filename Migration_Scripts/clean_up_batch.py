@@ -167,7 +167,7 @@ def delete_directory_contents(batch_path):
     Returns:
         None
     """
-    # print(f"\nDeleting contents of batch directory: {batch_path}")
+    print(f"\nDeleting contents of batch directory: {batch_path}")
     for root, dirs, files in os.walk(batch_path, topdown=False):
         for file in files:
             try:
@@ -180,7 +180,7 @@ def delete_directory_contents(batch_path):
             try:
                 dir_path = os.path.join(root, dir)
                 os.rmdir(dir_path)
-                print(f"Deleted directory: {dir_path}")
+                # print(f"Deleted directory: {dir_path}")
             except Exception as e:
                 print(f"Failed to remove directory {dir_path}: {e}")
 
