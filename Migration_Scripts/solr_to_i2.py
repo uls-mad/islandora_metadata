@@ -343,31 +343,28 @@ def initialize_record() -> dict:
     return record
 
 
-def get_mapped_field(pid: str, solr_field: str, data: str):
+def get_mapped_field(pid: str, solr_field: str, data: str) -> str | None:
     """
-    Retrieve the mapped target field for a Solr field.
+    Retrieve the mapped Islandora 2 machine field name for a given Solr field.
 
     Args:
-        pid (str): PID for logging purposes.
-        solr_field (str): The Solr field to map.
-        data (str): Field value for logging purposes.
+        pid (str): The PID of the current record (used for logging).
+        solr_field (str): The Solr field name to be mapped.
+        data (str): The data value (used for logging if mapping is not found).
 
     Returns:
         str or None: The mapped field name, or None if no mapping exists.
     """
+    match = FIELD_MAPPING.loc[
+        FIELD_MAPPING["solr_field"] == solr_field, "machine_name"
+    ]
 
-    field = FIELD_MAPPING.loc[
-                FIELD_MAPPING['solr_field'] == solr_field, "machine_name"
-            ].iloc[0]
-
-    # Confirm whether Solr field exists in migration field mapping
-    if not field:
-        # Report Solr field that is unaccounted for
+    if match.empty:
         if solr_field not in UNMAPPED_FIELDS:
-            add_exception(pid, solr_field, data,
-                            "could not find matching I2 field")
-            
-    return field
+            add_exception(pid, solr_field, data, "could not find matching I2 field")
+        return None
+
+    return match.iloc[0]
 
 
 def add_exception(
@@ -439,6 +436,19 @@ def split_and_clean(text: str) -> List[str]:
     parts = re.split(r"(?<!\\),", cleaned_text)
     # Remove escape characters and filter out empty strings
     return [part.replace("\\,", ",") for part in parts if part.strip()]
+
+
+def concat(values: list) -> str:
+    """
+    Concatenate a list of values into a semicolon-separated string.
+
+    Args:
+        values (list): A list of strings to concatenate.
+
+    Returns:
+        str: A single string with non-empty values joined by a pipe ("|").
+    """
+    return ";".join(str(v).strip() for v in values if v and str(v).strip())
 
 
 def remove_whitespaces(text: str) -> str:
@@ -1570,6 +1580,8 @@ def process_record(filename: str, row: dict) -> dict:
                 elif field in SOURCE_FIELDS:
                     source_data[solr_field] = dedup(data)
                     continue
+                elif field == "field_copyright_holder":
+                    value = concat(values)
                 elif field == "field_rights_statement":
                     value = process_rights(value)
                 elif field == "field_model":

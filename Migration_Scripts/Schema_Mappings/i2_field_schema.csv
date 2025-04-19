@@ -76,7 +76,7 @@ field_source_repository,Source Repository,Entity reference,TRUE
 field_source_citation,Source Citation,"Text (formatted, long)",TRUE
 field_depositor,Contributing Institution,Entity reference,TRUE
 field_rights_statement,Rights Statement,Entity reference,TRUE
-field_copyright_holder,Copyright Holder,"Text (plain, long)",TRUE
+field_copyright_holder,Copyright Holder,"Text (plain, long)",FALSE
 field_rights_notes,Copyright Note,"Text (plain, long)",TRUE
 parent_id,,Text (plain),TRUE
 field_member_of,Member of,Entity reference,TRUE
@@ -88,6 +88,9 @@ field_display_hints,Display hints,Entity reference,TRUE
 field_access_terms,Access Control,Entity reference,TRUE
 field_preservica_date,Preservica Export Date,EDTF,TRUE
 field_preservica_id,Preservica Identifier,Text (plain),TRUE
-file,,Text (plain),TRUE
-transcript,,Text (plain),TRUE
-hocr,,Text (plain),TRUE
+file,,Text (plain),FALSE
+transcript,,Text (plain),FALSE
+hocr,,Text (plain),FALSE
+field_media_oembed_video,,Text (plain),FALSE
+thumbnail,,Text (plain),FALSE
+thumbnail_large,,Text (plain),FALSE
