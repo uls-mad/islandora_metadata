@@ -105,6 +105,7 @@ def clean_parent_ids(input_df: pd.DataFrame) -> pd.DataFrame:
     - Removing references to finding aid PIDs from child memberOf and constituentOf fields
       where the value ends with the PID.
     - Removing references to PIDs that are not present in the DataFrame.
+    - Adding an exception for any record referencing a non-existent parent PID.
 
     Args:
         input_df (pd.DataFrame): The DataFrame to clean.
@@ -131,13 +132,25 @@ def clean_parent_ids(input_df: pd.DataFrame) -> pd.DataFrame:
                 "RELS_EXT_isMemberOf_uri_ms"
             ] = pd.NA
 
+    # Get the set of all valid parent PIDs in the DataFrame
+    parent_mask = input_df["RELS_EXT_hasModel_uri_ms"].isin(PARENT_MODELS)
+    valid_parent_pids = set(input_df.loc[parent_mask, "PID"].dropna())
+
     # Remove any references to parent PIDs not in the DataFrame
     for col in ["RELS_EXT_isMemberOf_uri_ms", "RELS_EXT_isConstituentOf_uri_ms"]:
         if col in input_df.columns:
-            input_df[col] = input_df[col].apply(
-                lambda v: v if pd.isna(v) or \
-                    any(v.endswith(pid) for pid in valid_pids) else pd.NA
-            )
+            child_mask = input_df[col].notna()
+            for idx in input_df[child_mask].index:
+                parent_value = input_df.at[idx, col]
+                if not any(str(parent_value).endswith(pid) for pid in valid_parent_pids):
+                    # Add exception for missing parent
+                    add_exception(
+                        input_df.at[idx, "PID"],
+                        col,
+                        parent_value,
+                        "parent object not found in batch"
+                    )
+                    input_df.at[idx, col] = pd.NA
 
     return input_df
 
@@ -1520,14 +1533,24 @@ def process_record(filename: str, row: dict) -> dict:
         # Check if record has already been processed
         skip_record, inventory_file = check_record(filename, row)
         if skip_record:
-            add_transformation(
-                pid,
-                None,
-                None,
-                None,
-                f"skipped object included in {inventory_file}"
-            )
-            return None
+            if inventory_file == "null_collection_objects.csv":
+                add_transformation(
+                    pid,
+                    None,
+                    None,
+                    None,
+                    f"object included in {inventory_file}"
+                )
+                skip_record = False
+            else:
+                add_transformation(
+                    pid,
+                    None,
+                    None,
+                    None,
+                    f"skipped object included in {inventory_file}"
+                )
+                return None
 
         # Process values in each field
         for solr_field, data in row.items():
