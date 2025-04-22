@@ -234,7 +234,12 @@ def main():
         # Get batch directory path
         if batch_path is None:
             batch_path = get_directory('input', input_prompt, TK_AVAILABLE)
-        print(f"\nProcessing batch directory: {batch_path}\n")
+
+        if os.path.exists(batch_path):
+            print(f"\nProcessing batch directory: {batch_path}\n")
+        else:
+            print(f"\nBatch path {batch_path} does not exist. Exiting.")
+            sys.exit()
         
         # Define media directory path
         media_dir = os.path.join(batch_path, "import", "media")
@@ -246,7 +251,8 @@ def main():
         elif os.path.exists(import_dir):
             prompt_to_delete(import_dir)
         else:
-            print("No import or media directory found. Skipping media file deletion step.")
+            print("\nNo import or media directory found. " 
+                  "Skipping media file deletion step.")
         
         # ZIP the remaining contents of the batch directory
         zip_filename = zip_batch_directory(batch_path)
