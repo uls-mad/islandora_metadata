@@ -4,9 +4,9 @@
 - [Overview](#overview)
 - [Files Found Here](#files-found-here)
 - [How to Run the Scripts](#how-to-run-the-scripts)   
-    - [`solr_to_i2.py`](#solr_to_i2py)
-    - [`add_media.py`](#add_mediapy)
-    - [`clean_up_batch.py`](#clean_up_batchpy)
+    - [Running `solr_to_i2.py`](#running-solr_to_i2py)
+    - [Running `add_media.py`](#running-add_mediapy)
+    - [Running `clean_up_batch.py`](#running-clean_up_batchpy)
 - [Dependencies](#dependencies)
 - [License](#license)
 
@@ -136,7 +136,7 @@ Automates the final cleanup of a batch directory by deleting media files, zippin
 
 To begin the data migration workflow, create a batch directory and place the Solr export CSV files for the collections you want to process in the directory.
 
-### `solr_to_i2.py`
+### Running `solr_to_i2.py`
 
 You can run the script in **two ways**:
 
@@ -165,7 +165,7 @@ Monitor progress in the GUI (if available) or in the terminal. Once processing c
 - **`logs/`** — transformation and exception logs in timestamped CSV files  
 - **`import/`** — TXT files listing PIDs with media datastreams (e.g., HOCR, JP2, TRANSCRIPT)
 
-### `add_media.py`
+### Running `add_media.py`
 
 This script is ran after exporting the relevant media datastreams to the `import/media` subdirectory.   
 
@@ -186,9 +186,9 @@ Monitor progress in the terminal. Once processing completes, output files will b
 - **`import/`** — processed CSV file(s) with filenames for media files in batch
 - **`logs/`** — exception loga in a timestamped CSV file
 
-### `clean_up_batch.py`
+### Running `clean_up_batch.py`
 
-After the batch has been ingested, clean up and archive the batch directory.   
+After the batch has been ingested, this script is ran to clean up and archive the batch directory.   
 
 You can run the script in two ways.
 
