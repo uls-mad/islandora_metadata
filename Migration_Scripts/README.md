@@ -195,7 +195,7 @@ You can run the script in two ways.
 #### Option 1: With `--batch_path` flag
 Provide the path to the batch directory as a command-line argument:
 ```bash
-python3 add_media.py --batch_path "/path/to/batch"
+python3 clean_up_batch.py --batch_path "/path/to/batch"
 ```
 #### Option 2: Without flag
 If no flag is provided, the script will prompt you to select the batch directory using a file dialog or by entering the path in the terminal.
