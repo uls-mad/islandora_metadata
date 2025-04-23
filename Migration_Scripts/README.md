@@ -4,9 +4,9 @@
 - [Overview](#overview)
 - [Files Found Here](#files-found-here)
 - [How to Run the Scripts](#how-to-run-the-scripts)   
-    - [Running `solr_to_i2.py`](#running-solr_to_i2py)
-    - [Running `add_media.py`](#running-add_mediapy)
-    - [Running `clean_up_batch.py`](#running-clean_up_batchpy)
+    - [`solr_to_i2.py`](#running-solr_to_i2py)
+    - [`add_media.py`](#running-add_mediapy)
+    - [`clean_up_batch.py`](#running-clean_up_batchpy)
 - [Dependencies](#dependencies)
 - [License](#license)
 
