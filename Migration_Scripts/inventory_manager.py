@@ -102,9 +102,9 @@ COLLECTIONS_TO_IGNORE = [
 ]
 
 PAGE_MODELS = [
-    'info:fedora/islandora:pageCModel', 
-    'info:fedora/islandora:manuscriptPageCModel',
-    'info:fedora/islandora:newspaperPageCModel'
+    'pageCModel', 
+    'manuscriptPageCModel',
+    'newspaperPageCModel'
 ]
 
 # Load or create inventory DataFrame
@@ -165,7 +165,7 @@ def filter_valid_files(batch_path: str) -> list:
     return valid_files
 
 
-def handle_parent_id(value: str) -> str:
+def normalize_uri(value: str) -> str:
     """
     Process a comma-separated string of values by removing Fedora prefixes, 
     deduplicating, sorting, and joining the values with a pipe ('|') separator.
@@ -218,7 +218,7 @@ def check_record(file: str, record: pd.Series) -> bool:
     """
     global object_inventory
     pid = record['PID']
-    object_model = handle_parent_id(record['RELS_EXT_hasModel_uri_ms'])
+    object_model = normalize_uri(record['RELS_EXT_hasModel_uri_ms'])
     skip = False
 
     if object_model in PAGE_MODELS:
@@ -251,8 +251,8 @@ def handle_record(file: str, record: pd.Series):
     global object_inventory
 
     pid = record['PID']
-    collection = handle_parent_id(record['RELS_EXT_isMemberOfCollection_uri_ms'])
-    object_model = handle_parent_id(record['RELS_EXT_hasModel_uri_ms'])
+    collection = normalize_uri(record['RELS_EXT_isMemberOfCollection_uri_ms'])
+    object_model = normalize_uri(record['RELS_EXT_hasModel_uri_ms'])
     page = object_model in PAGE_MODELS
     skip = False
 
@@ -279,7 +279,7 @@ def handle_record(file: str, record: pd.Series):
                     for field in OBJECT_INVENTORY_FIELDS[2:-1]:
                         value = record.get(field, None)
                         if 'RELS_EXT' in field:
-                            value = handle_parent_id(value)
+                            value = normalize_uri(value)
                         object_inventory.at[
                             row_index, field
                         ] = record.get(field, None)
