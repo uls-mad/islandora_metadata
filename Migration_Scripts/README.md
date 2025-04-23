@@ -3,7 +3,10 @@
 ## Contents
 - [Overview](#overview)
 - [Files Found Here](#files-found-here)
-- [How to Run the Application](#how-to-run-the-application)
+- [How to Run the Scripts](#how-to-run-the-scripts)   
+    - [`solr_to_i2.py`](#solr_to_i2py)
+    - [`add_media.py`](#add_mediapy)
+    - [`clean_up_batch.py`](#clean_up_batchpy)
 - [Dependencies](#dependencies)
 - [License](#license)
 
@@ -23,6 +26,12 @@ This script is the main processing module for transforming Solr metadata records
 - **`process_records()`**: Processes individual CSV files, maps fields, cleans values, and validates records.
 - **GUI Integration**: Uses `tkinter`, if available in the environemnt, to allow users to select input and output directories.
 - **Multithreading**: Runs the processing in a separate thread to keep the GUI responsive.
+
+- Supports:
+  - `--user_id`: Specify your Pitt user ID for tracking config changes
+  - `--batch_path`: Path to the batch directory containing Solr export CSVs
+  - `--batch_size`: Number of records to include in each output file
+  - Interactive dialog via `tkinter` or input via terminal if flags are provided
 
 - Requires: 
     - `batch_manager.py`
@@ -97,28 +106,108 @@ Processes metadata CSV files by associating records with corresponding media fil
 - **`add_media_files()`**: Matches media filenames to records in the DataFrame.
 - **`process_csv_files()`**: Processes all CSV files in the input directory, updating them with media filenames.
 
+- Supports:
+  - `--batch_path`: Path to the batch directory with processed metadata files
+  - Interactive directory selection via `tkinter` or input via terminal if no flag is provided
+
+
 - Requires: 
     - `definitions.py`
     - `file_utils.py`
 
+### `clean_up_batch.py`  
+Automates the final cleanup of a batch directory by deleting media files, zipping the remaining contents, optionally moving the archive to a `Done` directory (at the same level as the batch directory), and deleting the original batch directory.
 
-## How to Run the Application
-To begin the data migration workflow, create a batch directory and add in the Solr export CSV files for the collections in the batch. 
+#### Key components:
+- **`prompt_to_delete()`**: Prompts user to review and confirm deletion of media files.
+- **`zip_batch_directory()`**: Compresses the batch directory into a `.zip` archive.
+- **`move_zip_to_done()`**: Moves the archive to a `Done` folder if it exists one level above.
+- **`delete_batch_directory()`**: Deletes the entire batch directory and its contents.
 
-1. Run `solr_to_i2.py`.
-2. Select the batch directory containing the batch CSV file(s) using the file dialog or enter the directory path in the terminal.
-3. Monitor progress in the GUI and terminal.
-4. Processed files will be saved to their corresponding subdirectories.
-    - Processed metadata records are saved to an output CSV file with a timestamped filename in the `metadata` subdirectory
-    - Logs of exceptions and transformations (if any) are saved to CSVs file with a timestamped filename in the `logs` subdirectory
-    - PIDs for records with media datastreams (HOCR, JP2, TRANSCRIPT) are saved to TXT files in the `import` subdirectory
+- Supports:
+  - `--batch_path` flag to run headlessly or via terminal input
+  - Interactive directory selection via `tkinter` or input via terminal if no flag is provided
 
-After exporting the relevant media datastreams to the `import` subdirectory.
+- Requires:  
+  - `file_utils.py`
 
-5. Run `add_media.py`
-6. Select the batch directory using the file dialog or enter the directory path in the terminal.
-7. Monitor progress in the terminal.
-8. Processed CSV files with media filenames will be saved to the `import` subdirectory. 
+
+## How to Run the Scripts
+
+To begin the data migration workflow, create a batch directory and place the Solr export CSV files for the collections you want to process in the directory.
+
+### `solr_to_i2.py`
+
+You can run the script in **two ways**:
+
+#### Option 1: Use Command-Line Flags
+
+You can provide the following flags when running the script:
+
+- `--user_id` — your Pitt user ID (required if not using prompt)
+- `--batch_path` — the path to the batch directory containing input CSVs
+- `--batch_size` — the number of records per output metadata file (optional, defaults to 5000)
+
+**Example:**
+```bash
+python3 solr_to_i2.py --user_id jdoe25 --batch_path "/path/to/batch" --batch_size 5000
+```
+
+#### Option 2: Run Without Flags
+
+If you don't provide flags, the script will prompt you to enter your user ID and select or input a batch directory. It will also use the default batch size unless otherwise specified.
+
+#### Output
+
+Monitor progress in the GUI (if available) or in the terminal. Once processing completes, output files will be saved to subdirectories inside the batch folder:
+
+- **`metadata/`** — processed metadata records in timestamped CSV files  
+- **`logs/`** — transformation and exception logs in timestamped CSV files  
+- **`import/`** — TXT files listing PIDs with media datastreams (e.g., HOCR, JP2, TRANSCRIPT)
+
+### `add_media.py`
+
+This script is ran after exporting the relevant media datastreams to the `import/media` subdirectory.   
+
+You can run the script in two ways.
+
+#### Option 1: With `--batch_path` flag
+Provide the path to the batch directory as a command-line argument:
+```bash
+python3 add_media.py --batch_path "/path/to/batch"
+```
+#### Option 2: Without flag
+If no flag is provided, the script will prompt you to select the batch directory using a file dialog or by entering the path in the terminal.
+
+#### Output
+
+Monitor progress in the terminal. Once processing completes, output files will be saved to subdirectories inside the batch folder:
+
+- **`import/`** — processed CSV file(s) with filenames for media files in batch
+- **`logs/`** — exception loga in a timestamped CSV file
+
+### `clean_up_batch.py`
+
+After the batch has been ingested, clean up and archive the batch directory.   
+
+You can run the script in two ways.
+
+#### Option 1: With `--batch_path` flag
+Provide the path to the batch directory as a command-line argument:
+```bash
+python3 add_media.py --batch_path "/path/to/batch"
+```
+#### Option 2: Without flag
+If no flag is provided, the script will prompt you to select the batch directory using a file dialog or by entering the path in the terminal.
+
+#### Output
+
+The script will:
+   - Display a summary of media files found
+   - Prompt for confirmation before deleting media
+   - ZIP the remaining contents of the batch directory
+   - Move the ZIP file to the `Done/` directory (if present)
+   - Delete the original batch directory
 
 ## Dependencies
 - Python 3.x
