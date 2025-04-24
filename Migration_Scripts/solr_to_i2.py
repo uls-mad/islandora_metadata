@@ -1710,15 +1710,14 @@ def process_files(
         progress_queue.put((tracker.set_total_files, (len(valid_files),)))
 
         buffer = []
-        batch_count = 1
         datastreams = set()
+        global current_batch
+        current_batch = 1
 
         for filename in valid_files:
             try:
                 global current_file
                 current_file = filename
-                global current_batch
-                current_batch = batch_count
 
                 # Read input CSV into a DataFrame
                 cur_input_path = os.path.join(batch_path, filename)
@@ -1777,7 +1776,7 @@ def process_files(
                     if should_flush_batch(buffer, batch_size, pending_children):
                         records_df, batch_datastreams = flush_batch(
                             buffer,
-                            batch_count,
+                            current_batch,
                             output_path,
                             file_prefix,
                             batch_path,
@@ -1786,7 +1785,7 @@ def process_files(
                         datastreams = datastreams.union(batch_datastreams)
 
                         # Set up next batch
-                        batch_count += 1
+                        current_batch += 1
                         buffer.clear()
 
             except Exception as e:
@@ -1799,7 +1798,7 @@ def process_files(
         if buffer:
             records_df, batch_datastreams = flush_batch(
                 buffer,
-                batch_count,
+                current_batch,
                 output_path,
                 file_prefix,
                 batch_path,
