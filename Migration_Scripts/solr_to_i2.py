@@ -113,44 +113,63 @@ def clean_parent_ids(input_df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: The cleaned DataFrame.
     """
-    if "PID" not in input_df.columns or "RELS_EXT_hasModel_uri_ms" not in input_df.columns:
+    model_uri = "RELS_EXT_hasModel_uri_ms"
+    memberOf_uri = "RELS_EXT_isMemberOf_uri_ms"
+    consituentOf_uri = "RELS_EXT_isConstituentOf_uri_ms"
+    if "PID" not in input_df.columns or model_uri not in input_df.columns:
         return input_df
-
-    # Get all valid PIDs in the DataFrame
-    valid_pids = set(input_df["PID"].dropna())
 
     # Remove references to finding aid parents
     finding_aid_pids = input_df.loc[
-        input_df["RELS_EXT_hasModel_uri_ms"] == "info:fedora/islandora:findingAidCModel",
+        input_df[model_uri] == "info:fedora/islandora:findingAidCModel",
         "PID"
     ].dropna().tolist()
 
-    for pid in finding_aid_pids:
-        if "RELS_EXT_isMemberOf_uri_ms" in input_df.columns:
-            input_df.loc[
-                input_df["RELS_EXT_isMemberOf_uri_ms"].fillna("").str.endswith(pid),
-                "RELS_EXT_isMemberOf_uri_ms"
-            ] = pd.NA
+    if memberOf_uri in input_df.columns:
+        def remove_finding_aid_pids(value):
+            if pd.isna(value):
+                return value
+            items = [item.strip() for item in value.split(",")]
+            filtered_items = [
+                item for item in items \
+                    if item.replace("info:fedora/", "") not in finding_aid_pids
+            ]
+            return ", ".join(filtered_items) if filtered_items else pd.NA
+
+        input_df[memberOf_uri] = input_df[
+            memberOf_uri
+        ].apply(remove_finding_aid_pids)
 
     # Get the set of all valid parent PIDs in the DataFrame
-    parent_mask = input_df["RELS_EXT_hasModel_uri_ms"].isin(PARENT_MODELS)
+    parent_mask = input_df[model_uri].isin(PARENT_MODELS)
     valid_parent_pids = set(input_df.loc[parent_mask, "PID"].dropna())
 
     # Remove any references to parent PIDs not in the DataFrame
-    for col in ["RELS_EXT_isMemberOf_uri_ms", "RELS_EXT_isConstituentOf_uri_ms"]:
+    for col in [memberOf_uri, consituentOf_uri]:
         if col in input_df.columns:
             child_mask = input_df[col].notna()
             for idx in input_df[child_mask].index:
                 parent_value = input_df.at[idx, col]
-                if not any(str(parent_value).endswith(pid) for pid in valid_parent_pids):
-                    # Add exception for missing parent
-                    add_exception(
-                        input_df.at[idx, "PID"],
-                        col,
-                        parent_value,
-                        "parent object not found in batch"
-                    )
-                    input_df.at[idx, col] = pd.NA
+                cleaned_parents = []
+                parent_uris = str(parent_value).split(",")
+
+                for uri in parent_uris:
+                    pid = uri.replace("info:fedora/", "").strip()
+
+                    if pid in valid_parent_pids:
+                        cleaned_parents.append(uri)
+                    else:
+                        add_exception(
+                            input_df.at[idx, "PID"],
+                            col,
+                            uri,
+                            "parent object not found in batch"
+                        )
+                        print(f"parent object {pid} not found in batch")
+
+                # If any valid parents remain, rejoin them
+                input_df.at[idx, col] = ",".join(cleaned_parents) \
+                    if cleaned_parents else pd.NA
 
     return input_df
 
