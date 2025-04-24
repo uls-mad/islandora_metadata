@@ -393,7 +393,12 @@ def get_mapped_field(pid: str, solr_field: str, data: str) -> str | None:
 
     if match.empty:
         if solr_field not in UNMAPPED_FIELDS:
-            add_exception(pid, solr_field, data, "could not find matching I2 field")
+            add_exception(
+                pid, 
+                solr_field, 
+                data, 
+                "could not find matching I2 field"
+            )
         return None
 
     return match.iloc[0]
@@ -810,7 +815,7 @@ def process_collection_id(
             record["id"][0],
             solr_field,
             value,
-            f"Node not found for collection {value}"
+            f"node ID not found for collection PID"
         )
 
     return node_id
@@ -937,7 +942,7 @@ def process_language(pid: str, value: str) -> str:
             pid=pid,
             field="field_language",
             value=value,
-            exception=f"No language term found for code: '{value}'"
+            exception=f"no language term found for code"
         )
         return value
     return matching_row.iloc[0]
@@ -963,7 +968,7 @@ def process_country(pid: str, value: str) -> str:
             pid=pid,
             field="field_place_published_pitt",
             value=value,
-            exception=f"No country term found for code: '{value}'"
+            exception=f"no country term found for code"
         )
         return value
     return matching_row.iloc[0]
