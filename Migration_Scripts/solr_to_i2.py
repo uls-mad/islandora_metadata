@@ -1042,13 +1042,14 @@ def process_name(
             - Updated record with linked agent values added.
             - Updated personal_names dictionary reflecting changes.
     """
+    pid = record['id'][0]
     matching_rows = NAME_MAPPING[
         (NAME_MAPPING['Solr_Field'] == solr_field) & 
         (NAME_MAPPING['Original_Name'] == value)
     ]
 
     if matching_rows.empty:
-        add_exception(record['id'][0], solr_field, value, 
+        add_exception(pid, solr_field, value, 
                       "could not find name in mapping")
         return record, personal_names
 
@@ -1061,7 +1062,7 @@ def process_name(
             # message = f"skipped {name_type} name '{value}'" \
                 # + (f"- Note: {note}" if note else "")
             add_transformation(
-                record['id'][0], 
+                pid, 
                 solr_field, 
                 value, 
                 None, 
@@ -1071,20 +1072,15 @@ def process_name(
 
         new_value = row['Valid_Name']
 
-        if name_type in ['title', 'geographic', 'topic']:
-            if name_type == "title":
-                field = "field_subject_title"
-            elif name_type == "geographic":
-                field = "field_geographic_subject"
-            elif name_type == "topic":
-                field = "field_subject"
+        if name_type not in LINKED_AGENT_TYPES.values():
+            field = SUBJECT_FIELD_MAPPING.get(name_type)
             new_value = add_value(record, solr_field, field, new_value)
             add_exception(
-                record['id'][0],
+                pid,
                 field,
                 new_value,
                 f"confirm whether value should be a linked agent, {name_type} " + 
-                "heading or other"
+                "heading, or other"
             )
             return record, personal_names
         
@@ -1748,7 +1744,7 @@ def process_files(
                 )
 
                 # Initialize variables for parent-child tracking
-                current_record = 0
+                record_count = 0
                 parent_pid = None
                 pending_children = []
 
@@ -1781,7 +1777,7 @@ def process_files(
                     is_last = (idx == input_df.index[-1])
 
                     if TK_AVAILABLE:
-                        if current_record % 10 == 0 or is_last:
+                        if record_count % 10 == 0 or is_last:
                             progress_queue.put(
                                 (tracker.update_processed_records, 
                                  (record_count,))
