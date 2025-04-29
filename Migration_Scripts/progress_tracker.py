@@ -137,15 +137,18 @@ class ProgressTrackerGUI:
         # Reset the progress bar
         self.progress_bar["value"] = 0
 
-    def update_processed_records(self):
+    def update_processed_records(self, count: int):
         """
-        Update the number of processed records.
+        Update the number of processed records to a specific count.
+
+        Args:
+            count (int): The number of records processed so far.
         """
-        self.processed_records.set(self.processed_records.get() + 1)
+        self.processed_records.set(count)
 
         # Update the progress bar
         progress_percentage = (
-            int((self.processed_records.get() / self.total_records.get()) * 100)
+            int((count / self.total_records.get()) * 100)
             if self.total_records.get() > 0
             else 0
         )

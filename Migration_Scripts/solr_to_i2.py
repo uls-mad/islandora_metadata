@@ -165,7 +165,6 @@ def clean_parent_ids(input_df: pd.DataFrame) -> pd.DataFrame:
                             uri,
                             "parent object not found in batch"
                         )
-                        print(f"parent object {pid} not found in batch")
 
                 # If any valid parents remain, rejoin them
                 input_df.at[idx, col] = ",".join(cleaned_parents) \
@@ -935,17 +934,31 @@ def process_language(pid: str, value: str) -> str:
         str: The corresponding language term name if found, otherwise the original value.
     """
     matching_row = LANGUAGE_MAPPING.loc[
-        LANGUAGE_MAPPING['field_code'] == value, "term_name"
+        LANGUAGE_MAPPING['field_code'] == value
     ]
     if matching_row.empty:
         add_exception(
             pid=pid,
             field="field_language",
             value=value,
-            exception=f"no language term found for code"
+            exception="no language term found for code"
         )
         return value
-    return matching_row.iloc[0]
+    else:
+        matching_row = matching_row.iloc[0]
+
+    term_name = matching_row.get('term_name')
+    note = matching_row.get('note')
+
+    # Handle transformation note
+    if note:
+        add_exception(
+            pid,
+            "field_language",
+            term_name,
+            note
+        )
+    return term_name
 
 
 def process_country(pid: str, value: str) -> str:
@@ -1735,6 +1748,7 @@ def process_files(
                 )
 
                 # Initialize variables for parent-child tracking
+                current_record = 0
                 parent_pid = None
                 pending_children = []
 
@@ -1742,6 +1756,9 @@ def process_files(
                 for idx, row in input_df.iterrows():
                     if tracker.cancel_requested.is_set():
                         return
+                    
+                    # Process tracking
+                    record_count += 1
 
                     # Track parent and children relationships
                     parent_pid, pending_children = track_child_objects(
@@ -1761,13 +1778,15 @@ def process_files(
                         continue
 
                     # Update progress for processed record
+                    is_last = (idx == input_df.index[-1])
+
                     if TK_AVAILABLE:
-                        if idx % 10 == 0 or idx == input_df.index[-1]:
+                        if current_record % 10 == 0 or is_last:
                             progress_queue.put(
-                                (tracker.update_processed_records, ())
+                                (tracker.update_processed_records, 
+                                 (record_count,))
                             )
                     else:
-                        is_last = (idx == input_df.index[-1])
                         progress_queue.put(
                             (tracker.update_processed_records, (is_last,))
                         )
