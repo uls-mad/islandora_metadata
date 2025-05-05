@@ -2,9 +2,9 @@ Field,Label,Field_Type,Repeatable
 field_access_terms,Access Control,Entity reference,TRUE
 field_addresses,Addresses,"Text (plain, long)",TRUE
 field_alternative_title_pitt,Alternative Title,"Text (plain, long)",TRUE
-field_classification,Classification (Text),"Text (plain)",TRUE
+field_classification,Classification (Text),Text (plain),TRUE
 field_collection_text,Collection Text,"Text (formatted, long, with summary)",FALSE
-field_coordinates,Coordinates (Text),Geolocation,TRUE
+field_coordinates,Coordinates,Geolocation,TRUE
 field_coordinates_text,Coordinates (Text),Text (plain),TRUE
 field_copyright_date,Copyright Date,EDTF,TRUE
 field_copyright_holder,Copyright Holder,"Text (plain, long)",FALSE
