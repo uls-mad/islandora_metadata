@@ -154,11 +154,11 @@ You can provide the following flags when running the script:
 
 - `--user_id` — your Pitt user ID (required if not using prompt)
 - `--batch_path` — the path to the batch directory containing input CSVs
-- `--batch_size` — the number of records per output metadata file (optional, defaults to 5000)
+- `--batch_size` — the number of records per output metadata file (optional, defaults to 10000)
 
 **Example:**
 ```bash
-python3 solr_to_i2.py --user_id jdoe25 --batch_path "/path/to/batch" --batch_size 5000
+python3 solr_to_i2.py --user_id jdoe25 --batch_path "/path/to/batch" --batch_size 20000
 ```
 
 #### Option 2: Run Without Flags
