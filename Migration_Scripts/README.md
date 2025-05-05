@@ -192,7 +192,7 @@ If no flag is provided, the script will prompt you to select the batch directory
 Monitor progress in the terminal. Once processing completes, output files will be saved to subdirectories inside the batch folder:
 
 - **`import/`** — processed CSV file(s) with filenames for media files in batch
-- **`logs/`** — exception loga in a timestamped CSV file
+- **`logs/`** — exception logs in a timestamped CSV file
 
 ### Running `clean_up_batch.py`
 
@@ -214,7 +214,7 @@ The script will:
    - Display a summary of media files found
    - Prompt for confirmation before deleting media
    - ZIP the remaining contents of the batch directory
-   - Move the ZIP file to the `Done/` directory (if present)
+   - Move the ZIP file to the `Done` directory (if present)
    - Delete the original batch directory
 
 ## Dependencies
