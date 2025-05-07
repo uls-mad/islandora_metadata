@@ -27,9 +27,9 @@ from definitions import DATASTREAMS_MAPPING
 EXPECTED_DSIDS_BY_MODEL = {
     'Image': ['JP2'],
     'Page' : ['JP2'],
-    #'Audio': ['MP3_PROXY', 'PROXY_MP3']
-    #'Digital Document': ['PDF'],
-    #'Video': ['MKV', 'MP4','OGG'], 
+    'Digital Document': ['PDF'],
+    #'Audio': ['PROXY_MP3'],
+    #'Video': ['MKV'], 
 }
 
 

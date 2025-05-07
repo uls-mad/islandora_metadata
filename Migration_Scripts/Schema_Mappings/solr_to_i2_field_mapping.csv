@@ -210,6 +210,11 @@ mods_subject_titleInfo_partName_ms,field_subject_title,,Subject (Title),,Copy to
 RELS_EXT_isMemberOfCollection_uri_ms,field_member_of,yes,Member of,,"If ingesting into a pre-existing collection in Drupal, put its node ID here. Otherwise, leave blank. This column is required by Workbench (even if empty)."
 ,field_display_hints,,,,Controls how objects display. Terms come from Islandora Display taxonomy.
 fedora_datastream_info_JP2_ID_ms,file,,,,Path to main file (original file from which derivatives will be made).
+fedora_datastream_info_PDF_ID_ms,file,,,,Path to main file (original file from which derivatives will be made).
+fedora_datastream_info_TN_ID_ms,thumbnail,,,,
+fedora_datastream_info_TN_LARGE_ID_ms,thumbnail_large,,,,
+fedora_datastream_info_PROXY_MP3_ID_ms,field_media_oembed_video,,,,
+fedora_datastream_info_MKV_ID_ms,field_media_oembed_video,,,,
 RELS_EXT_isMemberOfSite_uri_ms,field_domain_access,yes,Domain,,"Use to fill in Domain column; then delete.
 
 Determines on which domain(s) an object will display to anonymous users. Example entry is: historicpittsburgh_org|digital_library_pitt_edu"
