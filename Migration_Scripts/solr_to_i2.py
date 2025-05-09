@@ -47,7 +47,7 @@ current_file = None
 global current_batch
 current_batch = None
 
-DEFAULT_BATCH_SIZE = 10000
+DEFAULT_BATCH_SIZE = 20000
 
 
 """ Helper Functions """
