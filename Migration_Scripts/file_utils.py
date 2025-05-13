@@ -54,10 +54,10 @@ def create_df(filepath: str) -> pd.DataFrame:
     """
     df = pd.read_csv(
         filepath, 
-        dtype=str,  
-        encoding='utf-8'
+        dtype=str, 
+        encoding='utf-8',
         keep_default_na=False, 
-        na_filter=False,
+        na_filter=False, 
     )
     return df
 
