@@ -53,7 +53,11 @@ def create_df(filepath: str) -> pd.DataFrame:
                       with empty values retained as empty strings (no NaN).
     """
     df = pd.read_csv(
-        filepath, dtype=str, keep_default_na=False, na_filter=False
+        filepath, 
+        dtype=str,  
+        encoding='utf-8'
+        keep_default_na=False, 
+        na_filter=False,
     )
     return df
 
