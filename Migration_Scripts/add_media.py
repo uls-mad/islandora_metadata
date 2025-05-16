@@ -20,6 +20,7 @@ import pandas as pd
 # Import local modules
 from file_utils import get_directory, create_df, write_reports
 from definitions import DATASTREAMS_MAPPING
+import generate_ocr
 
 
 """ Mapping """
@@ -236,6 +237,13 @@ def process_csv_files(metadata_dir: str, import_dir: str, media_dir: str) -> lis
             # Load CSV into DataFrame
             df = create_df(csv_path)
 
+            # Add OCR DSID for newly generated OCR
+            df.loc[
+                (df['ocr'].isna() | (df['ocr'] == '')) \
+                & df['hocr'].notna() & (df['hocr'] != ''), 
+                'ocr'
+            ] = 'OCR'
+
             # Check for objects missing expected media files
             exceptions = check_for_missing_media(
                 df, 
@@ -296,11 +304,14 @@ if __name__ == "__main__":
         log_dir = os.path.join(batch_path, "logs")
         timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
 
+        # Generate any missing OCR files
+        transformations, exceptions = generate_ocr.process_directory(media_dir)
+
         # Process CSV files
-        exceptions = process_csv_files(metadata_dir, import_dir, media_dir)
+        exceptions.append(process_csv_files(metadata_dir, import_dir, media_dir))
 
         # Report exceptions, if any
-        write_reports(log_dir, timestamp, "media", [], exceptions)
+        write_reports(log_dir, timestamp, "media", transformations, exceptions)
 
     except Exception as e:
         print(f"Unexpected error: {e}")

@@ -89,6 +89,7 @@ field_preservica_id,Preservica Identifier,Text (plain),TRUE
 file,,Text (plain),FALSE
 transcript,,Text (plain),FALSE
 hocr,,Text (plain),FALSE
+ocr,,Text (plain),FALSE
 field_media_oembed_video,,Text (plain),FALSE
 thumbnail,,Text (plain),FALSE
 thumbnail_large,,Text (plain),FALSE
