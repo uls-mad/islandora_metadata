@@ -149,6 +149,7 @@ TYPE_MAPPING = {
     'moving image': 'Moving image',
     'notated music': 'Notated music',
     'software, multimedia': 'Multimedia|Software',
+    'software, mutimedia': 'Multimedia|Software',
     'sound recording': 'Audio',
     'Sound Recording': 'Audio',
     'sound recording-musical': 'Audio musical',
@@ -208,11 +209,12 @@ RIGHTS_MAPPING = {
     'http://rightsstatements.org/vocab/InC/1.0/': 'In Copyright'
 }
 
-
 DATASTREAMS_MAPPING = {
-    'hocr': 'HOCR',
     'file': 'JP2',
-    'transcript': 'TRANSCRIPT'
+    'hocr': 'HOCR',
+    'ocr': 'OCR',
+    'transcript': 'TRANSCRIPT',
+    'field_media_oembed_video': 'varies'
 }
 
 
