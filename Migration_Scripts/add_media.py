@@ -23,6 +23,15 @@ from definitions import DATASTREAMS_MAPPING
 import generate_ocr
 
 
+""" Global Variables """
+
+global transformations
+transformations = []
+
+global exceptions
+exceptions = []
+
+
 """ Mapping """
 
 EXPECTED_DSIDS_BY_MODEL = {
@@ -57,21 +66,19 @@ def parse_arguments():
 
 
 def add_exception(
-    exceptions: list, 
+    current_file: str,
     pid: str, 
     field: str, 
-    exception: str, 
-    current_file: str
+    exception: str
 ) -> None:
     """
     Add an exception record to the exceptions list.
 
     Args:
-        exceptions (list): List to store exception records.
+        current_file (str): Name of the current CSV file being processed.
         pid (str): The PID of the record.
         field (str): The datastream field where the exception occurred.
         exception (str): A description of the exception.
-        current_file (str): Name of the current CSV file being processed.
     """
     exceptions.append({
         "File": current_file,
@@ -84,7 +91,6 @@ def add_exception(
 def check_for_missing_media(
     df: pd.DataFrame,
     expected_dsids_by_model: dict,
-    exceptions: list,
     current_file: str
 ) -> list:
     """
@@ -94,7 +100,6 @@ def check_for_missing_media(
     Args:
         df (pd.DataFrame): DataFrame containing metadata, including 'field_model' and 'file'.
         datastreams (dict): Dictionary mapping datastream column names to lists of DSID strings.
-        exceptions (list): List to store exception records.
         current_file (str): Name of the file currently being processed.
 
     Returns:
@@ -102,13 +107,12 @@ def check_for_missing_media(
     """
     # Check for required columns
     if 'field_model' not in df.columns or 'file' not in df.columns:
-        exceptions.append({
-            "File": current_file,
-            "PID": None,
-            "Field": "'field_model' or 'file'",
-            "Exception": "Required field(s) missing"
+        add_exception({
+            current_file,
+            None,
+            "'field_model' or 'file'",
+            "required field(s) missing",
         })
-        return exceptions
 
     for model, expected_dsids in expected_dsids_by_model.items():
         # Filter rows that are of the specified model
@@ -124,21 +128,18 @@ def check_for_missing_media(
                     f"Missing expected media for {model} model: "
                     f"{', '.join(expected_dsids)}"
                 )
-                exceptions.append({
-                    "File": current_file,
-                    "PID": pid,
-                    "Field": "file",
-                    "Exception": exception
+                add_exception({
+                    current_file,
+                    pid,
+                    "file",
+                    exception
                 })
-
-    return exceptions
 
 
 def add_media_files(
     media_files: list,
     df: pd.DataFrame, 
     datastreams: dict, 
-    exceptions: list, 
     current_file: str
 ) -> tuple[pd.DataFrame, list]:
     """
@@ -148,13 +149,10 @@ def add_media_files(
         media_files (list): List of media filenames.
         df (pd.DataFrame): Input DataFrame containing `id` and datastream columns.
         datastreams (dict): Dictionary mapping datastream columns to expected datastream identifiers.
-        exceptions (list): List to store exception records.
         current_file (str): Name of the current CSV file being processed.
 
     Returns:
-        tuple:
-            pd.DataFrame: DataFrame with updated columns containing matching filenames.
-            list: Updated list of exceptions for any unmatched media files.
+        pd.DataFrame: DataFrame with updated columns containing matching filenames.
     """
     for ds_field, dsid in datastreams.items():
         if ds_field in df.columns:
@@ -182,7 +180,6 @@ def add_media_files(
                 # Log that media files were expected but not found
                 if not matching_file:
                     add_exception(
-                        exceptions, 
                         pid, 
                         ds_field, 
                         "No file found", 
@@ -196,7 +193,7 @@ def add_media_files(
             # Update DataFrame column with filenames
             df[ds_field] = df.index.map(filenames_map).fillna('')
 
-    return df, exceptions
+    return df
 
 
 def process_csv_files(metadata_dir: str, import_dir: str, media_dir: str) -> list:
@@ -207,19 +204,16 @@ def process_csv_files(metadata_dir: str, import_dir: str, media_dir: str) -> lis
         metadata_dir (str): Directory containing metadata CSV files.
         import_dir (str): Directory containing I2 import-related files.
         media_dir (str): Directory containing media files.
-
-    Returns:
-        list: A list of exceptions encountered during processing.
     """
-    exceptions = []
 
     if not os.path.isdir(metadata_dir):
         print(f"Error: Metadata folder not found at: {metadata_dir}")
-        return exceptions
+        return
 
     if not os.path.isdir(media_dir) and not os.path.isdir(media_dir):
         print(f"Error: Import folder not found at: {media_dir}")
-        return exceptions
+        return
+        
     elif not os.path.isdir(media_dir):
         media_dir = import_dir
 
@@ -245,19 +239,17 @@ def process_csv_files(metadata_dir: str, import_dir: str, media_dir: str) -> lis
             ] = 'OCR'
 
             # Check for objects missing expected media files
-            exceptions = check_for_missing_media(
+            check_for_missing_media(
                 df, 
                 EXPECTED_DSIDS_BY_MODEL, 
-                exceptions, 
                 current_file
             )
 
             # Update records with media filenames
-            updated_df, exceptions = add_media_files(
+            updated_df = add_media_files(
                 media_files, 
                 df, 
                 DATASTREAMS_MAPPING, 
-                exceptions, 
                 current_file
             )
 
@@ -276,8 +268,6 @@ def process_csv_files(metadata_dir: str, import_dir: str, media_dir: str) -> lis
         print(f"Error during processing: {e}")
         print(traceback.format_exc())
         sys.exit(1)
-
-    return exceptions
 
 
 """ Driver Code """
@@ -305,10 +295,10 @@ if __name__ == "__main__":
         timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
 
         # Generate any missing OCR files
-        transformations, exceptions = generate_ocr.process_directory(media_dir)
+        exceptions.extend(generate_ocr.process_directory(media_dir))
 
         # Process CSV files
-        exceptions.append(process_csv_files(metadata_dir, import_dir, media_dir))
+        process_csv_files(metadata_dir, import_dir, media_dir)
 
         # Report exceptions, if any
         write_reports(log_dir, timestamp, "media", transformations, exceptions)

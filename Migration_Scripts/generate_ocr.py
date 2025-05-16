@@ -18,6 +18,15 @@ from lxml import etree
 from file_utils import get_directory, write_reports
 
 
+""" Global Variables """
+
+global transformations
+transformations = []
+
+global exceptions
+exceptions = []
+
+
 """ Functions """
 
 def parse_arguments():
@@ -41,7 +50,6 @@ def parse_arguments():
 
 
 def add_exception(
-    exceptions: list, 
     input_filename: str, 
     output_filename: str, 
     exception: str
@@ -50,7 +58,6 @@ def add_exception(
     Add an exception record to the exceptions list.
 
     Args:
-        exceptions (list): List to store exception records.
         input_filename (str): The filename of the input media datastream.
         output_filename (str): The filename of the output media datastream.
         exception (str): A description of the exception.
@@ -119,9 +126,6 @@ def process_directory(directory_path: str):
             transformations (list): Records of processed or skipped files.
             exceptions (list): Records of any exceptions that occurred.
     """
-    exceptions = []
-    transformations = []
-
     print("Analyzing HOCR and OCR files...")
 
     # Scan the directory once
@@ -173,7 +177,6 @@ def process_directory(directory_path: str):
 
         except Exception as e:
             add_exception(
-                exceptions,
                 filename,
                 output_filename,
                 f"{e.__class__.__name__}: {str(e)}\n{traceback.format_exc()}"
@@ -214,7 +217,7 @@ if __name__ == "__main__":
         timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
 
         # Process CSV files
-        transformations, exceptions = process_directory(media_dir)
+        process_directory(media_dir)
 
         # Report exceptions, if any
         write_reports(log_dir, timestamp, "ocr", transformations, exceptions)
