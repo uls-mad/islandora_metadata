@@ -231,10 +231,14 @@ def process_csv_files(metadata_dir: str, import_dir: str, media_dir: str):
             # Load CSV into DataFrame
             df = create_df(csv_path)
 
+            # Ensure 'ocr' column exists
+            if 'ocr' not in df.columns:
+                df['ocr'] = ''
+
             # Add OCR DSID for newly generated OCR
             df.loc[
-                (df['ocr'].isna() | (df['ocr'] == '')) \
-                & df['hocr'].notna() & (df['hocr'] != ''), 
+                (df['ocr'].isna() | (df['ocr'] == '')) &
+                df['hocr'].notna() & (df['hocr'] != ''),
                 'ocr'
             ] = 'OCR'
 
