@@ -231,16 +231,17 @@ def process_csv_files(metadata_dir: str, import_dir: str, media_dir: str):
             # Load CSV into DataFrame
             df = create_df(csv_path)
 
-            # Ensure 'ocr' column exists
-            if 'ocr' not in df.columns:
-                df['ocr'] = ''
+            # Ensure 'extracted_text' column exists
+            if 'extracted_text' not in df.columns:
+                df['extracted_text'] = ''
 
             # Add OCR DSID for newly generated OCR
-            df.loc[
-                (df['ocr'].isna() | (df['ocr'] == '')) &
-                df['hocr'].notna() & (df['hocr'] != ''),
-                'ocr'
-            ] = 'OCR'
+            if 'hocr' in df.columns:
+                df.loc[
+                    (df['extracted_text'].isna() | (df['extracted_text'] == '')) &
+                    df['hocr'].notna() & (df['hocr'] != ''),
+                    'extracted_text'
+                ] = 'OCR'
 
             # Check for objects missing expected media files
             check_for_missing_media(
