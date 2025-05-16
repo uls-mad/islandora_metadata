@@ -73,6 +73,36 @@ def save_pids_for_media(
     """
     import_dir = os.path.join(batch_dir, "import")
     os.makedirs(import_dir, exist_ok=True) 
+
+    # Write a PIDS file
+    pids = set(df['id'].dropna().unique())
+
+    # Define the output file path
+    txt_filename = f"PIDs.txt"
+    txt_filepath = os.path.join(import_dir, txt_filename)
+    
+    # Read existing PIDs from the file (if it exists)
+    existing_pids = set()
+    if os.path.exists(txt_filepath):
+        with open(txt_filepath, "r", encoding="utf-8") as f:
+            existing_pids = {line.strip() for line in f}
+
+    # Determine new PIDs to write
+    new_pids = pids - existing_pids
+
+    if new_pids:
+        # Append only new PIDs to the file
+        with open(txt_filepath, "a", encoding="utf-8") as f:
+            for pid in sorted(new_pids):
+                f.write(f"{pid}\n")
+        
+        # Report on added PIDS in output, if any
+        print(f"Added {len(new_pids)} new PIDs to {txt_filepath}")
+    else:
+        print(f"No new PIDs to add. File already up to date."
+        )
+
+    # Get datastreams for batch
     datastreams = set()
 
     for ds_field, dsid in datastreams_map.items():
@@ -84,36 +114,10 @@ def save_pids_for_media(
             # Get all PIDs from the 'id' column
             pids = set(filtered_df['id'].dropna().unique())
             
+            # Add datastream for output
             if pids:
-                # Add datastream for output
                 datastreams.add(dsid)
 
-                # Define the output file path
-                txt_filename = f"{dsid}_pids.txt"
-                txt_filepath = os.path.join(import_dir, txt_filename)
-                
-                # Read existing PIDs from the file (if it exists)
-                existing_pids = set()
-                if os.path.exists(txt_filepath):
-                    with open(txt_filepath, "r", encoding="utf-8") as f:
-                        existing_pids = {line.strip() for line in f}
-
-                # Determine new PIDs to write
-                new_pids = pids - existing_pids
-
-                if new_pids:
-                    # Append only new PIDs to the file
-                    with open(txt_filepath, "a", encoding="utf-8") as f:
-                        for pid in sorted(new_pids):
-                            f.write(f"{pid}\n")
-                    
-                    # Report on added PIDS in output, if any
-                    print(f"Added {len(new_pids)} new PIDs to {txt_filepath}")
-                else:
-                    print(f"No new PIDs to add for {dsid}. " 
-                          + "File already up to date."
-                    )
-                    
     return datastreams
 
 
@@ -166,11 +170,12 @@ def prepare_config(
     content = content.replace("[USER_ID]", user_id)
 
     # Uncomment additional files for datastreams in batch
-    if 'HOCR' in datastreams or 'TRANSCRIPT' in datastreams:
+    if any(key in datastreams for key in ('HOCR', 'OCR', 'TRANSCRIPT')):
         content = content.replace("#additional_files", "additional_files")
 
     for dsid, comment in {
         'HOCR': "# - hocr",
+        'OCR': "# - extracted_text",
         'TRANSCRIPT': "# - transcript"
     }.items():
         if dsid in datastreams:

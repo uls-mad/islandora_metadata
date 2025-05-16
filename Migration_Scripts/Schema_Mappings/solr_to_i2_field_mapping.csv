@@ -5,6 +5,7 @@ ancestors_ms,,,,,Used for batching records by collection; can delete this column
 RELS_EXT_isSequenceNumber_literal_ms,field_weight,,,,Remove leading 0's.
 fedora_datastream_info_TRANSCRIPT_ID_ms,transcript,,,,Transcript file
 fedora_datastream_info_HOCR_ID_ms,hocr,,,,HOCR file
+fedora_datastream_info_OCR_ID_ms,ocr,,,,Extracted text file
 RELS_EXT_hasModel_uri_ms,field_model,yes,Model*,,"Use for determining Resource Type, then delete
 
 Use for determining display logic, along with Model. Terms come from Islandora Models vocab."

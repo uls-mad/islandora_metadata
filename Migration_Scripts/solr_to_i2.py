@@ -1160,6 +1160,8 @@ def process_subject(
     Returns:
         dict: The updated record.
     """
+    pid = record['id'][0]
+
     # Filter rows where Solr_Field matches mods_field and Original_Heading matches value
     matching_rows = SUBJECT_MAPPING[
         (SUBJECT_MAPPING['Solr_Field'] == solr_field) & 
@@ -1168,7 +1170,7 @@ def process_subject(
 
     if matching_rows.empty:
         add_exception(
-            record['id'][0], 
+            pid, 
             solr_field, 
             value,
             "could not find subject in mapping"
@@ -1191,7 +1193,7 @@ def process_subject(
                 if is_removal else note
             )
             add_transformation(
-                record['id'][0],
+                pid,
                 solr_field,
                 value,
                 valid_heading,

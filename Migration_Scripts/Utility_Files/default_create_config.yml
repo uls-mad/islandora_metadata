@@ -24,6 +24,7 @@ columns_with_term_names:
 #additional_files:
 # - hocr: 41
 # - transcript: 9
+# - extracted_text: 2
 #validate_terms_exist: false
 #allow_adding_terms: true
 #log_term_creation: false
