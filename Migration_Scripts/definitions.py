@@ -212,7 +212,7 @@ RIGHTS_MAPPING = {
 DATASTREAMS_MAPPING = {
     'file': 'JP2',
     'hocr': 'HOCR',
-    'ocr': 'OCR',
+    'extracted_text': 'OCR',
     'transcript': 'TRANSCRIPT',
     'field_media_oembed_video': 'varies'
 }
