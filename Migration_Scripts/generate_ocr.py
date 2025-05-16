@@ -189,7 +189,8 @@ def process_directory(directory_path: str):
             flush=True
         )
 
-    return transformations, exceptions
+    # Report exceptions, if any
+    write_reports(log_dir, timestamp, "ocr", transformations, exceptions)
 
 
 
@@ -218,9 +219,6 @@ if __name__ == "__main__":
 
         # Process CSV files
         process_directory(media_dir)
-
-        # Report exceptions, if any
-        write_reports(log_dir, timestamp, "ocr", transformations, exceptions)
 
     except Exception as e:
         print(f"Unexpected error: {e}")
