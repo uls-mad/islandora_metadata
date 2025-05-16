@@ -107,12 +107,12 @@ def check_for_missing_media(
     """
     # Check for required columns
     if 'field_model' not in df.columns or 'file' not in df.columns:
-        add_exception({
+        add_exception(
             current_file,
             None,
             "'field_model' or 'file'",
             "required field(s) missing",
-        })
+        )
 
     for model, expected_dsids in expected_dsids_by_model.items():
         # Filter rows that are of the specified model
@@ -128,12 +128,12 @@ def check_for_missing_media(
                     f"Missing expected media for {model} model: "
                     f"{', '.join(expected_dsids)}"
                 )
-                add_exception({
+                add_exception(
                     current_file,
                     pid,
                     "file",
                     exception
-                })
+                )
 
 
 def add_media_files(
@@ -179,11 +179,11 @@ def add_media_files(
 
                 # Log that media files were expected but not found
                 if not matching_file:
-                    add_exception(
+                    add_exception( 
+                        current_file,
                         pid, 
                         ds_field, 
-                        "No file found", 
-                        current_file
+                        "No file found"
                     )
 
                 # Convert the list of found media filenames to a string
@@ -196,7 +196,7 @@ def add_media_files(
     return df
 
 
-def process_csv_files(metadata_dir: str, import_dir: str, media_dir: str) -> list:
+def process_csv_files(metadata_dir: str, import_dir: str, media_dir: str):
     """
     Processes all CSV files in the given directory, updating them with matching media filenames.
 
