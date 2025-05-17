@@ -110,7 +110,7 @@ def extract_body_text(file_path: str) -> str:
     return ''
 
 
-def process_directory(directory_path: str):
+def process_directory(input_dir: str, log_dir: str):
     """
     Processes all .shtml files in the given directory:
     - Extracts text from the <body> element of each XHTML file.
@@ -119,7 +119,8 @@ def process_directory(directory_path: str):
     - Tracks progress and logs transformations and exceptions.
 
     Args:
-        directory_path (str): Path to the directory containing .shtml files.
+        input_dir (str): Path to the directory containing .shtml files.
+        log_fir (str): Path to the directory for logs.
 
     Returns:
         tuple: (transformations, exceptions)
@@ -129,7 +130,7 @@ def process_directory(directory_path: str):
     print("Analyzing HOCR and OCR files...")
 
     # Scan the directory once
-    all_files = os.listdir(directory_path)
+    all_files = os.listdir(input_dir)
 
     # Cache base names of existing .asc files
     asc_files = {
@@ -155,12 +156,12 @@ def process_directory(directory_path: str):
     # Process SHTML files
     print("Generating OCR from HOCR...")
     for idx, filename in enumerate(shtml_files, start=1):
-        input_path = os.path.join(directory_path, filename)
+        input_path = os.path.join(input_dir, filename)
 
         # Construct output filename and path
         basename = filename.replace("HOCR", "OCR")
         output_filename = os.path.splitext(basename)[0] + '.asc'
-        output_path = os.path.join(directory_path, output_filename)
+        output_path = os.path.join(input_dir, output_filename)
 
         # Report progress
         print(
@@ -193,7 +194,6 @@ def process_directory(directory_path: str):
     write_reports(log_dir, timestamp, "ocr", transformations, exceptions)
 
 
-
 """ Driver Code """
 
 if __name__ == "__main__":
@@ -218,7 +218,7 @@ if __name__ == "__main__":
         timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
 
         # Process CSV files
-        process_directory(media_dir)
+        process_directory(media_dir, log_dir)
 
     except Exception as e:
         print(f"Unexpected error: {e}")
