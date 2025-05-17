@@ -300,7 +300,7 @@ if __name__ == "__main__":
         timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
 
         # Generate any missing OCR files
-        generate_ocr.process_directory(media_dir)
+        generate_ocr.process_directory(media_dir, log_dir)
 
         # Process CSV files
         process_csv_files(metadata_dir, import_dir, media_dir)
