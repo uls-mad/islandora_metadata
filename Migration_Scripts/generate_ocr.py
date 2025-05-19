@@ -191,6 +191,7 @@ def process_directory(input_dir: str, log_dir: str):
         )
 
     # Report exceptions, if any
+    timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
     write_reports(log_dir, timestamp, "ocr", transformations, exceptions)
 
 
@@ -212,10 +213,8 @@ if __name__ == "__main__":
         if batch_path is None:
             batch_path = get_directory('input', input_prompt, TK_AVAILABLE)
         print(f"\nProcessing batch directory: {batch_path}")
-        import_dir = os.path.join(batch_path, "import")
         media_dir = os.path.join(batch_path, "import", "media")
         log_dir = os.path.join(batch_path, "logs")
-        timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
 
         # Process CSV files
         process_directory(media_dir, log_dir)
