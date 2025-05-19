@@ -173,8 +173,9 @@ def process_directory(input_dir: str, log_dir: str):
         try:
             # Extract and save text
             text = extract_body_text(input_path)
-            with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(text)
+            if text:
+                with open(output_path, 'w', encoding='utf-8') as f:
+                    f.write(text)
 
         except Exception as e:
             add_exception(
