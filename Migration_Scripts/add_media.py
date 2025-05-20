@@ -182,7 +182,7 @@ def add_media_files(
                     add_exception( 
                         current_file,
                         pid, 
-                        ds_field, 
+                        f"{ds_field} ({dsid})", 
                         "No file found"
                     )
 
