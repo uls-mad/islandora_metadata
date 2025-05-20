@@ -70,7 +70,6 @@ def add_exception(
 
 
 def add_transformation(
-    transformations: list, 
     input_filename: str, 
     output_filename: str, 
     transformation: str
@@ -79,7 +78,6 @@ def add_transformation(
     Add an transformation record to the transformations list.
 
     Args:
-        transformations (list): List to store transformation records.
         input_filename (str): The filename of the input media datastream.
         output_filename (str): The filename of the output media datastream.
         current_file (str): Name of the current CSV file being processed.
@@ -176,6 +174,12 @@ def process_directory(input_dir: str, log_dir: str):
             if text:
                 with open(output_path, 'w', encoding="ascii") as f:
                     f.write(text)
+            else:
+                add_transformation(
+                    filename,
+                    output_filename,
+                    "skipping, HOCR file empty"
+                )
 
         except Exception as e:
             add_exception(
