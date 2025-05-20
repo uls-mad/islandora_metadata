@@ -1671,8 +1671,8 @@ def process_record(filename: str, row: dict) -> dict:
         record = add_attributed_names(record, personal_names)
 
         # Add map fields
-        if geo_field:
-            record = add_geo_field(record, pid)
+        # if geo_field:
+        #     record = add_geo_field(record, pid)
 
     except Exception as e:
                 print(f"Error processing row {pid}: {e}")
