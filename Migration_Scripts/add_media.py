@@ -174,7 +174,8 @@ def add_media_files(
             # Get matching media files for each record
             for _, row in filtered_df.iterrows():
                 pid = str(row['id'])
-                basename = f"{pid.replace(':', '_')}_{dsid}"
+                row_dsid = str(row[ds_field]).split('|')[0]
+                basename = f"{pid.replace(':', '_')}_{row_dsid}"
                 matching_file = media_basenames.get(basename)
 
                 # Log that media files were expected but not found
@@ -182,7 +183,7 @@ def add_media_files(
                     add_exception( 
                         current_file,
                         pid, 
-                        f"{ds_field} ({dsid})", 
+                        f"{ds_field} ({row_dsid})", 
                         "No file found"
                     )
 
