@@ -625,6 +625,8 @@ def add_value(
                 if prefix else field_row.iloc[0]['prefix']
 
     if prefix:
+        if field == "field_note":
+            prefix += " "
         value = f"{prefix}{value}"
 
     if value and value not in values:
