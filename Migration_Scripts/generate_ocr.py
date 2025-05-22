@@ -172,7 +172,7 @@ def process_directory(input_dir: str, log_dir: str):
             # Extract and save text
             text = extract_body_text(input_path)
             if text:
-                with open(output_path, 'w', encoding="ascii") as f:
+                with open(output_path, 'w', encoding="utf-8") as f:
                     f.write(text)
             else:
                 add_transformation(
