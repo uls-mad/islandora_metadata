@@ -1427,8 +1427,8 @@ def validate_record(record: dict, df: pd.DataFrame) -> dict:
                         pid,
                         field,
                         value,
-                        f"Expected an integer, but got " +
-                        f"{type(value).__name__}: {value}",
+                        f"expected an integer, but got " +
+                        f"{type(value).__name__}",
                     )
 
         if field_manager.Repeatable == "FALSE" and len(values) > 1:
