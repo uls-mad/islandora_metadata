@@ -115,60 +115,72 @@ def clean_parent_ids(input_df: pd.DataFrame) -> pd.DataFrame:
     """
     model_uri = "RELS_EXT_hasModel_uri_ms"
     memberOf_uri = "RELS_EXT_isMemberOf_uri_ms"
-    consituentOf_uri = "RELS_EXT_isConstituentOf_uri_ms"
-    if "PID" not in input_df.columns or model_uri not in input_df.columns:
+    constituentOf_uri = "RELS_EXT_isConstituentOf_uri_ms"
+
+    required_columns = {"PID", model_uri}
+    if not required_columns.issubset(input_df.columns):
         return input_df
 
     # Remove references to finding aid parents
-    finding_aid_pids = input_df.loc[
-        input_df[model_uri] == "info:fedora/islandora:findingAidCModel",
-        "PID"
-    ].dropna().tolist()
+    finding_aid_pids = set(
+        input_df.loc[input_df[model_uri] == "info:fedora/islandora:findingAidCModel", "PID"]
+        .dropna()
+        .astype(str)
+    )
 
     if memberOf_uri in input_df.columns:
-        def remove_finding_aid_pids(value):
+        def remove_finding_aid_refs(value):
             if pd.isna(value):
                 return value
-            items = [item.strip() for item in value.split(",")]
-            filtered_items = [
-                item for item in items \
-                    if item.replace("info:fedora/", "") not in finding_aid_pids
+            parents = [p.strip() for p in str(value).split(",")]
+            cleaned = [
+                p for p in parents if p.replace("info:fedora/", "") not in finding_aid_pids
             ]
-            return ", ".join(filtered_items) if filtered_items else pd.NA
+            return ", ".join(cleaned) if cleaned else pd.NA
 
-        input_df[memberOf_uri] = input_df[
-            memberOf_uri
-        ].apply(remove_finding_aid_pids)
+        input_df[memberOf_uri] = input_df[memberOf_uri].apply(remove_finding_aid_refs)
 
-    # Get the set of all valid parent PIDs in the DataFrame
+    # Get all valid parent PIDs in the DataFrame
     parent_mask = input_df[model_uri].isin(PARENT_MODELS)
-    valid_parent_pids = set(input_df.loc[parent_mask, "PID"].dropna())
+    valid_parent_pids = set(
+        input_df.loc[parent_mask, "PID"]
+        .dropna()
+        .astype(str)
+    )
 
-    # Remove any references to parent PIDs not in the DataFrame
-    for col in [memberOf_uri, consituentOf_uri]:
+    # Check and clean parent fields
+    for col in [memberOf_uri, constituentOf_uri]:
         if col in input_df.columns:
             child_mask = input_df[col].notna()
             for idx in input_df[child_mask].index:
-                parent_value = input_df.at[idx, col]
-                cleaned_parents = []
-                parent_uris = str(parent_value).split(",")
+                try:
+                    parent_value = input_df.at[idx, col]
+                    cleaned_parents = []
+                    parent_uris = [v.strip() for v in str(parent_value).split(",")]
 
-                for uri in parent_uris:
-                    pid = uri.replace("info:fedora/", "").strip()
+                    for uri in parent_uris:
+                        pid = uri.replace("info:fedora/", "").strip()
+                        if pid in valid_parent_pids:
+                            cleaned_parents.append(uri)
+                        else:
+                            add_exception(
+                                str(input_df.at[idx, "PID"]),
+                                col,
+                                uri,
+                                "parent object not found in batch"
+                            )
 
-                    if pid in valid_parent_pids:
-                        cleaned_parents.append(uri)
-                    else:
-                        add_exception(
-                            input_df.at[idx, "PID"],
-                            col,
-                            uri,
-                            "parent object not found in batch"
-                        )
+                    input_df.at[idx, col] = ", ".join(cleaned_parents) if cleaned_parents else pd.NA
 
-                # If any valid parents remain, rejoin them
-                input_df.at[idx, col] = ",".join(cleaned_parents) \
-                    if cleaned_parents else pd.NA
+                except Exception as e:
+                    add_exception(
+                        str(input_df.at[idx, "PID"]) if "PID" in input_df.columns else "UNKNOWN",
+                        col,
+                        str(parent_value),
+                        f"error during parent cleaning: {e}"
+                    )
+                    
+                    input_df.at[idx, col] = pd.NA
 
     return input_df
 
