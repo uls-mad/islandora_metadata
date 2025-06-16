@@ -200,7 +200,7 @@ def check_file(file: str) -> bool:
     return file in object_inventory['File'].values
 
 
-def check_record(file: str, record: pd.Series) -> bool:
+def check_record(file: str, record: pd.Series) -> Tuple[bool, Union[str, None]]:
     """
     Checks if a record should be skipped based on its PID and file association.
 
@@ -214,24 +214,32 @@ def check_record(file: str, record: pd.Series) -> bool:
         record (pd.Series): A Pandas Series representing the record.
 
     Returns:
-        bool: True if the record should be skipped, False otherwise.
+        tuple: (skip (bool), inventory_file (str or None))
+            skip: True if the record should be skipped.
+            inventory_file: The file from the inventory that the PID is assigned to (if any).
     """
     global object_inventory
-    pid = record['PID']
-    object_model = normalize_uri(record['RELS_EXT_hasModel_uri_ms'])
+
+    pid = record.get('PID', None)
+    object_model = normalize_uri(record.get('RELS_EXT_hasModel_uri_ms', ''))
     skip = False
 
+    if not pid:
+        return False, None  # Can't skip if PID is missing
+
     if object_model in PAGE_MODELS:
-        pid = record['RELS_EXT_isMemberOf_uri_ms'].replace('info:fedora/', '')
+        parent_uri = record.get('RELS_EXT_isMemberOf_uri_ms', '')
+        pid = parent_uri.replace('info:fedora/', '') if parent_uri else pid
 
     matching_rows = object_inventory.loc[object_inventory['PID'] == pid]
 
     inventory_file = None
     if not matching_rows.empty:
-        inventory_file = matching_rows.iloc[0]['File']
+        inventory_file = matching_rows.iloc[0].get('File')
         skip = (inventory_file != file)
 
     return skip, inventory_file
+
 
 
 def handle_record(file: str, record: pd.Series):
