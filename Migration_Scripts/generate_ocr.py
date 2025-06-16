@@ -140,7 +140,7 @@ def process_directory(input_dir: str, log_dir: str):
     # Filter .shtml files without a matching .asc file
     shtml_files = [
         f for f in all_files
-        if f.lower().endswith('.shtml')
+        if f.lower().endswith(('.shtml', '.xml'))
         and os.path.splitext(f.replace("HOCR", "OCR"))[0] not in asc_files
     ]
 
