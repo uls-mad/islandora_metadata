@@ -207,7 +207,7 @@ def parse_arguments() -> List[str]:
         "--credentials_file",
         "-c",
         type=str,
-        default="../../etc",
+        default="/workbench/etc/google_ulswfown_service_account.json",
         help="Path to the Google service account credentials JSON."
     )
     parser.add_argument(
