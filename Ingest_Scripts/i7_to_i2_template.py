@@ -412,8 +412,9 @@ def main() -> None:
     args = parse_arguments()
 
     # Initialize Tk window
-    root = Tk()
-    root.withdraw()
+    if TK_AVAILABLE:
+        root = Tk()
+        root.withdraw()
 
     try:
         mapping_csv = (
@@ -633,13 +634,13 @@ def main() -> None:
         log_cols = ["action", "field", "reason", *optional_cols]
         log_df = pd.DataFrame(log_rows, columns=log_cols).fillna("")
 
-        log_path = str(Path(out_csv).with_name(Path(out_csv).stem + "_log.csv"))
+        log_path = str(Path(output_path).with_name(Path(output_path).stem + "_log.csv"))
         log_df.to_csv(log_path, index=False, encoding="utf-8")
 
         # Notify user of process completion
         messagebox.showinfo(
             "Done", 
-            f"Output saved:\n{out_csv}\n\nLog saved:\n{log_path}"
+            f"Output saved:\n{output_path}\n\nLog saved:\n{log_path}"
         )
 
     except Exception as exc:
