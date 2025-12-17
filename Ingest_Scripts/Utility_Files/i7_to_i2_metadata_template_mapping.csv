@@ -1,49 +1,75 @@
-csv_field,machine_name,label,required,prefix,notes,source
-address,field_addresses,Addresses,optional,,,CTB
-copyright_note,field_rights_notes,Copyright Note,optional,,,CTB
-contributor,field_linked_agent,Contributors,"required, if applicable",relators:ctb:,Need to confirm linked agent type,CTB|MAD
-contributor_corporate,field_linked_agent,Contributors,"required, if applicable",relators:ctb:corporate_body:,,CTB
-contributor_personal,field_linked_agent,Contributors,"required, if applicable",relators:ctb:person:,,CTB
-copyright_status,field_rights_statement,Rights Statement,required,,convert to RightsStatements vocab,CTB
-creator,field_linked_agent,Contributors,"required, if applicable",relators:cre:,Need to confirm linked agent type,CTB|MAD
-creator_corporate,field_linked_agent,Contributors,"required, if applicable",relators:cre:corporate_body:,,CTB
-creator_personal,field_linked_agent,Contributors,"required, if applicable",relators:cre:person:,,CTB
-depositor,field_depositor,Contributing Institution,required,,,DCC
-description,field_description_long,Description,required,,,CTB
-extent,field_extent,Extent,optional,,,CTB
-filename,file,File,required,,,WF
-format,field_physical_form,Form,optional,,,CTB
-genre,field_genre,Genre,required,genre:,,CTB
-genre_japanese_prints,field_genre,Genre,"required, if applicable",genre_japanese_prints:,,
-identifier,field_pid,PID,required,,,DCC
-interviewee,field_linked_agent,Contributors,"required, if applicable",relators:ivr:person:,,CTB
-interviewer,field_linked_agent,Contributors,"required, if applicable",relators:ivr:person:,,CTB
-language,field_language,Language,"required, if applicable",,,CTB
-media_object_filename,file,File,required,,,WF
-media_object_identifier,field_pid,PID,required,,,WF
-media_object_title,title,Title,required,,,WF
-normalized_date,field_edtf_date,Date,"required, if applicable",,convert to EDTF based on normalized_date_qualifier,CTB
-normalized_date,field_date_str,Date String,"required, if applicable",,convert to EDTF based on normalized_date_qualifier,CTB
-normalized_date_qualifier,,,"required, if applicable",,used to create EDTF date,CTB
-pub_place,field_place_published_pitt,Place Published,optional,,,CTB
-publisher,field_publisher_pitt,Publisher,optional,,,CTB
-related_parent_item,parent_id,Parent Identifier (Ingest Only),required,,,WF
-rights_holder,field_copyright_holder,Copyright Holder,"required, if applicable",,,CTB
-source_citation,field_source_citation,Source Citation,,,,DCC
-source_collection,field_source_collection,Source Collection Title,,,,DCC
-source_collection_id,field_source_collection_id,Source Collection Identifier,,,,DCC
-source_container,field_source_location,Archival Container,,,,DCC
-source_id,field_local_identifier,Local Identifier,optional,,,CTB
-source_identifier,field_local_identifier,Local Identifier,optional,,,CTB
-source_other_level,field_series_information,Series Information,,,"concatenate with source_series, source_subseries",DCC
-source_series,field_series_information,Series Information,,,"concatenate with source_subseries, source_other_level",DCC
-source_subseries,field_series_information,Series Information,,,"concatenate with source_series, source_other_level",DCC
-subject_geographic,field_geographic_subject,Subject (Geographic),,,,CTB|MAD
-subject_name,field_subjects_name,Subject (Name),,,,CTB|MAD
-subject_topic,field_subject,Subject (Topic),,,,CTB|MAD
-title,field_full_title,Full Title,required,,,CTB
-title,title,Title,required,,,CTB
-type_of_resource,field_type_of_resource,Type of Resource,required,,,CTB
-field_model,field_model,Model,required,,,DCC
-field_member_of,field_member_of,Member of,required,,,DCC
-field_domain_access,field_domain_access,Domain Access,required,,,DCC
+i7_field,i2_field,obligation,field_type,content_type
+identifier,identifier,required,Text (plain),av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+id,identifier,required,Text (plain),av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+media_object_identifier,identifier,required,Text (plain),av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+title,title,required,"Text (formatted, long)",av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+media_object_title,title,required,"Text (formatted, long)",av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+description,description,required,"Text (formatted, long)",av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+language,language,"required, if applicable",Entity reference,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+edition,edition,"required, if applicable",Text (plain),books
+,volume,"required, if applicable",Text (plain),serials
+,issue,"required, if applicable",Text (plain),serials
+,frequency,"required, if applicable","Text (plain, long)",serials
+normalized_date,date,required,EDTF,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+normalized_date_qualifier,date,,EDTF,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+copyright_date,copyright_date,"required, if applicable",EDTF,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+copyright_status,copyright_status,required,Entity reference,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+rights_holder,copyright_holder,"required, if applicable","Text (plain, long)",av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+,rights_notes,optional,"Text (plain, long)",av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+publisher,publisher,"required, if applicable","Text (plain, long)",av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+pub_place,publication_place,"required, if applicable","Text (plain, long)",av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+creator,creator_person,"required, if applicable",Typed Relation,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+creator,creator_corporate,"required, if applicable",Typed Relation,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+creator,creator_conference,"required, if applicable",Typed Relation,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+creator,creator_family,"required, if applicable",Typed Relation,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+,photographer_person,"required, if applicable",Typed Relation,photographs
+,photographer_corporate,"required, if applicable",Typed Relation,photographs
+interviewee,interviewee,"required, if applicable",Typed Relation,interviews
+interviewer,interviewer,"required, if applicable",Typed Relation,interviews
+,conductor,"required, if applicable",Typed Relation,musical_recordings
+,instrumentalist,"required, if applicable",Typed Relation,musical_recordings
+,singer,"required, if applicable",Typed Relation,musical_recordings
+,composer,"required, if applicable",Typed Relation,notated_music
+,lyricist,"required, if applicable",Typed Relation,notated_music
+,arranger,"required, if applicable",Typed Relation,notated_music
+contributor,contributor_person,"required, if applicable",Typed Relation,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+contributor,contributor_corporate,"required, if applicable",Typed Relation,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+subject_name,subject_name_person,"required, if applicable",Entity reference,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+subject_name,subject_name_corporate,"required, if applicable",Entity reference,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+subject_name,subject_name_conference,"required, if applicable",Entity reference,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+subject_name,subject_name_family,"required, if applicable",Entity reference,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+subject_topic,subject_topic,required,Entity reference,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+subject_geographic,subject_geographic,"required, if applicable",Entity reference,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+,subject_temporal,"required, if applicable",Entity reference,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+,subject_title,"required, if applicable",Entity reference,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+genre,genre,required,Entity reference,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+type_of_resource,type_of_resource,required,Entity reference,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+,alternative_title,optional,"Text (plain, long)",books|manuscripts|serials
+,preceding_title,optional,"Text (plain, long)",serials
+,succeeding_title,optional,"Text (plain, long)",serials
+,related_title,optional,"Text (plain, long)",books|manuscripts|serials
+,part_of,optional,"Text (plain, long)",books|manuscripts|serials
+format,format,recommended,Entity reference,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+extent,extent,recommended,Text (plain),av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+,isbn,"required, if applicable",Text (plain),books
+,issn,"required, if applicable",Text (plain),serials
+,music_publisher_number,"required, if applicable","Text (plain, long)",notated_music
+,table_of_contents,optional,"Text (formatted, long)",books|manuscripts|serials
+address,address,optional,"Text (plain, long)",images|maps|photographs
+,thoroughfares,optional,"Text (plain, long)",images|maps|photographs
+,coordinates,recommended,Geolocation,maps
+,coordinates_text,recommended,Text (plain),maps
+,projection,recommended,"Text (plain, long)",maps
+,scale,recommended,Text (plain),maps
+depositor,depositor,required,Entity reference,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+source_identifier,source_identifier,recommended,Text (plain),av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+source_collection,source_collection,"required, if applicable",Entity reference,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+source_collection_id,source_collection_id,"required, if applicable",Entity reference,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+,source_repository,"required, if applicable",Entity reference,av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+source_citation,source_citation,"required, if applicable","Text (formatted, long)",av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+source_container,source_container,"required, if applicable",Text (plain),av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+source_series,source_series,recommended,"Text (plain, long)",manuscripts
+source_subseries,source_subseries,recommended,"Text (plain, long)",manuscripts
+source_other_level,source_other_level,recommended,"Text (plain, long)",manuscripts
+note,note,optional,"Text (formatted, long)",av|books|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+file,media_object_filename,,,
