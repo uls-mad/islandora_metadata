@@ -638,13 +638,20 @@ def main() -> None:
         log_df.to_csv(log_path, index=False, encoding="utf-8")
 
         # Notify user of process completion
-        messagebox.showinfo(
-            "Done", 
-            f"Output saved:\n{output_path}\n\nLog saved:\n{log_path}"
-        )
+        if TK_AVAILABLE:
+            messagebox.showinfo(
+                "Done", 
+                f"Output saved:\n{output_path}\n\nLog saved:\n{log_path}"
+            )
+        else:
+            print(
+                "Done!\n", 
+                f"Output saved:\n{output_path}\n\nLog saved:\n{log_path}"
+            )
 
     except Exception as exc:
-        messagebox.showerror("Error", str(exc))
+        if TK_AVAILABLE:
+            messagebox.showerror("Error", str(exc))
         print(f"ERROR: {exc}", file=sys.stderr)
         sys.exit(1)
     finally:
