@@ -634,7 +634,11 @@ def main() -> None:
         log_cols = ["action", "field", "reason", *optional_cols]
         log_df = pd.DataFrame(log_rows, columns=log_cols).fillna("")
 
-        log_path = str(Path(output_path).with_name(Path(output_path).stem + "_log.csv"))
+        log_dir = os.path.join(args.batch_path, "logs")
+        log_path = os.path.join(
+                log_dir, 
+                f"{google_sheet}_{ct_label}_log.csv"
+            )
         log_df.to_csv(log_path, index=False, encoding="utf-8")
 
         # Notify user of process completion
