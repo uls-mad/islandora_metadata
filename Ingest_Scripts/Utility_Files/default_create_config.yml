@@ -15,7 +15,6 @@ allow_missing_files: true
 perform_soft_checks: true
 standalone_media_url: true
 output_csv_include_input_csv: true
-export_csv_term_mode: name
 delete_tmp_upload: true
 adaptive_pause: 2
 adaptive_pause_threshold: 2.5 
