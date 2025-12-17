@@ -1,0 +1,48 @@
+csv_field,machine_name,label,required,prefix,notes,source
+address,field_addresses,Addresses,optional,,,CTB
+copyright_note,field_rights_notes,Copyright Note,optional,,,CTB
+contributor,field_linked_agent,Contributors,"required, if applicable",relators:ctb:,Need to confirm linked agent type,CTB|MAD
+contributor_corporate,field_linked_agent,Contributors,"required, if applicable",relators:ctb:corporate_body:,,CTB
+contributor_personal,field_linked_agent,Contributors,"required, if applicable",relators:ctb:person:,,CTB
+copyright_status,field_rights_statement,Rights Statement,required,,convert to RightsStatements vocab,CTB
+creator,field_linked_agent,Contributors,"required, if applicable",relators:cre:,Need to confirm linked agent type,CTB|MAD
+creator_corporate,field_linked_agent,Contributors,"required, if applicable",relators:cre:corporate_body:,,CTB
+creator_personal,field_linked_agent,Contributors,"required, if applicable",relators:cre:person:,,CTB
+depositor,field_depositor,Contributing Institution,required,,,DCC
+description,field_description_long,Description,required,,,CTB
+extent,field_extent,Extent,optional,,,CTB
+filename,file,File,required,,,WF
+format,field_physical_form,Form,optional,,,CTB
+genre,field_genre,Genre,required,,,CTB
+identifier,field_pid,PID,required,,,DCC
+interviewee,field_linked_agent,Contributors,"required, if applicable",relators:ivr:person:,,CTB
+interviewer,field_linked_agent,Contributors,"required, if applicable",relators:ivr:person:,,CTB
+language,field_language,Language,"required, if applicable",,,CTB
+media_object_filename,file,File,required,,,WF
+media_object_identifier,field_pid,PID,required,,,WF
+media_object_title,title,Title,required,,,WF
+normalized_date,field_edtf_date,Date,"required, if applicable",,convert to EDTF based on normalized_date_qualifier,CTB
+normalized_date,field_date_str,Date String,"required, if applicable",,convert to EDTF based on normalized_date_qualifier,CTB
+normalized_date_qualifier,,,"required, if applicable",,used to create EDTF date,CTB
+pub_place,field_place_published_pitt,Place Published,optional,,,CTB
+publisher,field_publisher_pitt,Publisher,optional,,,CTB
+related_parent_item,parent_id,Parent Identifier (Ingest Only),required,,,WF
+rights_holder,field_copyright_holder,Copyright Holder,"required, if applicable",,,CTB
+source_citation,field_source_citation,Source Citation,,,,DCC
+source_collection,field_source_collection,Source Collection Title,,,,DCC
+source_collection_id,field_source_collection_id,Source Collection Identifier,,,,DCC
+source_container,field_source_location,Archival Container,,,,DCC
+source_id,field_local_identifier,Local Identifier,optional,,,CTB
+source_identifier,field_local_identifier,Local Identifier,optional,,,CTB
+source_other_level,field_series_information,Series Information,,,"concatenate with source_series, source_subseries",DCC
+source_series,field_series_information,Series Information,,,"concatenate with source_subseries, source_other_level",DCC
+source_subseries,field_series_information,Series Information,,,"concatenate with source_series, source_other_level",DCC
+subject_geographic,field_geographic_subject,Subject (Geographic),,,,CTB|MAD
+subject_name,field_subjects_name,Subject (Name),,,,CTB|MAD
+subject_topic,field_subject,Subject (Topic),,,,CTB|MAD
+title,field_full_title,Full Title,required,,,CTB
+title,title,Title,required,,,CTB
+type_of_resource,field_type_of_resource,Type of Resource,required,,,CTB
+field_model,field_model,Model,required,,,DCC
+field_member_of,field_member_of,Member of,required,,,DCC
+field_domain_access,field_domain_access,Domain Access,required,,,DCC

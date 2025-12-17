@@ -95,3 +95,5 @@ thumbnail,,Text (plain),FALSE
 thumbnail_large,,Text (plain),FALSE
 field_collection_text,Collection Text,"Text (formatted, long, with summary)",FALSE
 field_main_banner,Main Banner,Image,FALSE
+field_access_conditions,Access Conditions,"Text (plain, long)",TRUE
+field_scope_and_content,Scope and Content,"Text (formatted, long)",TRUE

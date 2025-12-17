@@ -91,6 +91,7 @@ mods_titleInfo_alternative_title_ms,field_alternative_title_pitt,,Alternative Ti
 dc.rights,field_rights_statement,,Rights Statement,,Use mods_accessCondition fields instead. But NOTE - rights data doesn't seem to be in any MODS accessCondition field for Mirskey collection - only in dc.rights?
 mods_identifier_music_plate_ms,field_music_publisher_number,,Music Publisher Number,,Copy to Music Publisher Number
 mods_identifier_oclc_ms,field_oclc_number,,OCLC Number,,
+mods_subject_name_family_namePart_ms,field_subjects_name,,Subject (Name),family:,"Add prefix of family: (or other, as applicable)"
 mods_subject_name_personal_namePart_ms,field_subjects_name,,Subject (Name),person:,"Add prefix of person: (or other, as applicable)"
 mods_originInfo_eventType_publisher_publisher_ms,field_publisher_pitt,,Publisher,,Copy to Publisher
 mods_originInfo_encoding_marc_point_start_qualifier_questionable_dateIssued_ms,field_edtf_date,,Date,,Copy to Date
@@ -219,3 +220,61 @@ fedora_datastream_info_MKV_ID_ms,field_media_oembed_video,,,,
 RELS_EXT_isMemberOfSite_uri_ms,field_domain_access,yes,Domain,,"Use to fill in Domain column; then delete.
 
 Determines on which domain(s) an object will display to anonymous users. Example entry is: historicpittsburgh_org|digital_library_pitt_edu"
+mods_abstract__ms,field_description_long,,,,
+mods_abstract_Abstract_ms,field_description_long,,,,"Should this be mapped to ""Description"" or something else?"
+mods_abstract_Scope_and_content_ms,field_scope_and_content,,,,"Should we create a separate ""Scope and content"" field? This field often has data that is distinct from what is in ""Abstract"""
+mods_abstract_Subject_ms,field_scope_and_content,,,,"When there is data in this field, there isn't in the other fields. This is very similar to ""Scope and content"""
+mods_abstract_Summary_ms,field_scope_and_content,,,,"When there is data in this field, there almost always isn't in the other fields (only 5 exceptions). This could mapped to the same field as ""Abstract"" or ""Scope and content"", though it is most similar to the latter and even has the exact same value in 2 records. "
+mods_accessCondition_restriction_on_access_ms,field_access_conditions,,,,"Could be cleaned up for consistency, if we map"
+mods_accessCondition_use_and_reproduction_ms,field_access_conditions,,,,"Could be cleaned up for consistency, if we map"
+mods_location_physicalLocation_ms,field_source_repository,,,,May require manual cleaning
+mods_note_action_ms,field_note,,,Processing: ,Information about who processed what; check Pitt object
+mods_note_additional_physical_form_ms,field_note,,,Other Format: ,
+mods_note_funding_ms,field_note,,,Funding: ,"Mostly, ""Cataloging of this collection was funded by a Basic Processing grant from NHPRC."""
+mods_note_original_location_ms,field_note,,,Original Location: ,
+mods_note_ownership_ms,field_note,,,Ownership: ,
+mods_note_preferred_citation_ms,field_source_citation,,,,
+mods_note_publications_ms,field_note,,,Publications: ,
+mods_note_system_details_ms,field_access_conditions,,,,
+mods_originInfo_encoding_marc_copyrightDate_ms,field_edtf_date,,,,May require manual cleaning
+mods_originInfo_encoding_marc_dateIssued_ms,field_edtf_date,,,,May require manual cleaning
+mods_originInfo_encoding_marc_keyDate_yes_dateCreated_ms,field_edtf_date,,,,May require manual cleaning
+mods_originInfo_encoding_marc_keyDate_yes_point_end_dateIssued_ms,field_edtf_date,,,,May require manual cleaning
+mods_originInfo_encoding_marc_keyDate_yes_point_start_dateIssued_ms,field_edtf_date,,,,May require manual cleaning
+mods_originInfo_keyDate_yes_dateOther_ms,field_edtf_date,,,,May require manual cleaning
+mods_originInfo_place_placeTerm_code_ms,field_place_published_pitt,,,,
+mods_originInfo_type_display_dateOther_ms,field_edtf_date,,,,May require manual cleaning
+mods_physicalDescription_form_all_ms,field_physical_form,,,,
+mods_physicalDescription_form_authority_gmd_ms,field_physical_form,,,,
+mods_physicalDescription_form_authority_marccategory_ms,field_physical_form,,,,
+mods_physicalDescription_form_authority_marcform_ms,field_physical_form,,,,
+mods_physicalDescription_form_authority_marcsmd_ms,field_physical_form,,,,
+mods_physicalDescription_form_carrier_authority_rdacarrier_ms,field_physical_form,,,,
+mods_physicalDescription_form_carrier_ms,field_physical_form,,,,
+mods_physicalDescription_form_media_authority_rdacontent_ms,field_physical_form,,,,
+mods_physicalDescription_form_media_authority_rdamedia_ms,field_physical_form,,,,
+mods_physicalDescription_form_media_ms,field_physical_form,,,,
+mods_physicalDescription_note_arrangement_ms,field_note,,,Physical Arrangement: ,
+mods_relatedItem_constituent_titleInfo_title_ms,field_related_title_constituent,,,,
+mods_relatedItem_host_identifier_local_ms,field_related_title_part_of,,,,May require manual cleaning
+mods_relatedItem_original_note_ms,field_access_conditions,,,,
+mods_relatedItem_otherFormat_identifier_local_ms,field_related_title_other_format,,,,
+mods_relatedItem_titleInfo_title_ms,field_related_title,,,,May require manual cleaning
+mods_subject_occupation_ms,field_subject,,,,May require manual cleaning
+mods_subject_titleInfo_partNumber_ms,field_subject_title,,,,
+mods_titleInfo_alternative_partName_ms,field_alternative_title_pitt,,,,
+mods_name_corporate_contributor_namePart_ms,field_linked_agent,,,relators:ctb,
+mods_name_corporate_former_owner_namePart_ms,field_linked_agent,,,relators:fmo,
+mods_name_corporate_namePart_ms,field_linked_agent,,,corporate_body:,
+mods_name_corporate_photographer_namePart_ms,field_linked_agent,,,relators:pht,
+mods_name_family_creator_namePart_ms,field_linked_agent,,,relators:cre,
+mods_name_family_namePart_ms,field_linked_agent,,,family:,
+mods_name_personal_collector_(col)_namePart_ms,field_linked_agent,,,relators:col:person:,
+mods_name_personal_collector_namePart_ms,field_linked_agent,,,relators:col:person:,
+mods_name_personal_creator_authority_marcrelator_namePart_ms,field_linked_agent,,,relators:cre:person:,
+mods_name_personal_donor_namePart_ms,field_linked_agent,,,relators:dnrl:person:,
+mods_name_personal_interviewee_namePart_ms,field_linked_agent,,,relators:ive:person:,
+mods_name_personal_photographer_authority_marcrelator_namePart_ms,field_linked_agent,,,relators:pht:person:,
+mods_name_personal_writer_of_accompanying_material_(wam)_namePart_ms,field_linked_agent,,,relators:wam:person:,
+mods_subject_name_family_namePart_ms,field_subjects_name,,,family:,
+mods_titleInfo_alternative_partName_ms,field_alternative_title_pitt,,,,
