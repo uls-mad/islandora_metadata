@@ -1,0 +1,40 @@
+task: create
+host: "https://i2.digital.library.pitt.edu/"
+username: ingester
+password: [IMPORT_PASSWORD]
+input_dir: /workbench/batches/[BATCH_DIRECTORY]/import/media
+input_csv: "https://docs.google.com/spreadsheets/d/[INGEST_SHEET_ID]/edit"
+google_sheets_gid: [GID]
+output_csv: /workbench/batches/[BATCH_DIRECTORY]/export/output_[BATCH_PREFIX].csv
+log_file_path: /workbench/batches/[BATCH_DIRECTORY]/logs/workbench_[BATCH_PREFIX].log
+temp_dir: /workbench/batches/[BATCH_DIRECTORY]/tmp/
+rollback_config_file_path: /workbench/batches/[BATCH_DIRECTORY]/rollback/rollback_[BATCH_PREFIX].yml
+rollback_csv_file_path: /workbench/batches/[BATCH_DIRECTORY]/rollback/rollback_[BATCH_PREFIX].csv
+csv_id_to_node_id_map_path: /workbench/[USER_ID]/tmp/csv_id_to_node_id_map.db
+allow_missing_files: true
+perform_soft_checks: true
+standalone_media_url: true
+output_csv_include_input_csv: true
+export_csv_term_mode: name
+delete_tmp_upload: true
+adaptive_pause: 2
+adaptive_pause_threshold: 2.5 
+http_cache_storage: memory
+http_cache_storage_expire_after: 600
+columns_with_term_names:
+ - field_temporal_subject
+#additional_files:
+# - transcript: 9
+#validate_terms_exist: false
+#allow_adding_terms: true
+#log_term_creation: false
+#query_csv_id_to_node_id_map_for_parents: false
+#field_for_media_title: [machine name of some field that has a unique identifier unless you just want to use Title, then leave this out]
+#field_for_remote_filename: field_pid [machine name of some field that has a unique identifier; used when pulling files from another site, e.g., i7. If you just want to use Title for this, then instead use use_node_title_for_remote_filename: true]
+#validate_title_length: false [use this if your site uses the Node Title Length module to allow for longer titles]
+#log_file_name_and_line_number: true
+#log_json: true
+#log_request_url: true
+#log_headers: true
+#log_response_status_code: true
+#log_response_body: true

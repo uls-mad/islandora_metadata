@@ -1,0 +1,98 @@
+Field,Label,Field_Type,Repeatable
+id,,Text (plain),FALSE
+node_id,,Number (integer),FALSE
+field_pid,PID,Text (plain),FALSE
+title,,Text (plain),FALSE
+field_full_title,Full Title,"Text (formatted, long)",FALSE
+field_display_title,Title,Text (plain),FALSE
+field_uniform_title,Uniform Title,"Text (formatted, long)",FALSE
+field_alternative_title_pitt,Alternative Title,"Text (plain, long)",TRUE
+field_edition,Edition Statement,Text (plain),TRUE
+field_linked_agent,Contributors,Typed Relation,TRUE
+field_edtf_date,Date,EDTF,TRUE
+field_date_str,Date String,Text (plain),TRUE
+field_copyright_date,Copyright Date,EDTF,TRUE
+field_publisher_pitt,Publisher,"Text (plain, long)",TRUE
+field_place_publication,Publication Place,"Text (plain, long)",TRUE
+field_place_published_pitt,Place Published,Entity reference,TRUE
+field_place_published_country,Country of Publication,Entity reference,TRUE
+field_distributor,Distributor,"Text (plain, long)",TRUE
+field_place_distribution,Distribution Place,"Text (plain, long)",TRUE
+field_manufacturer,Manufacturer,"Text (plain, long)",TRUE
+field_place_manufacture,Manufacture Place,"Text (plain, long)",TRUE
+field_producer,Producer,"Text (plain, long)",TRUE
+field_place_production,Production Place,"Text (plain, long)",TRUE
+field_mode_of_issuance,Mode of Issuance,Entity reference,TRUE
+field_frequency,Frequency,"Text (plain, long)",TRUE
+field_language,Language,Entity reference,TRUE
+field_description_long,Description,"Text (formatted, long)",FALSE
+field_table_of_contents,Table Of Contents,"Text (formatted, long)",FALSE
+field_classification,Classification (Text),Text (plain),TRUE
+field_lcc_classification,Library of Congress Classification,Text (plain),TRUE
+field_classification,Classification (Text),Text (plain),TRUE
+field_subject,Subject (Topic),Entity reference,TRUE
+field_subject_genre,Subject (Genre),Entity reference,TRUE
+field_subjects_name,Subject (Name),Entity reference,TRUE
+field_subject_title,Subject (Title),Entity reference,TRUE
+field_geographic_subject,Subject (Geographic),Entity reference,TRUE
+field_temporal_subject,Subject (Temporal),Entity reference,TRUE
+field_genre,Genre,Entity reference,TRUE
+field_muscomp_genre,Musical Composition Genre,"Text (plain, long)",TRUE
+field_type_of_resource,Type of Resource,Entity reference,FALSE
+field_physical_form,Form,Entity reference,TRUE
+field_extent,Extent,Text (plain),TRUE
+field_addresses,Addresses,"Text (plain, long)",TRUE
+field_thoroughfares,Thoroughfares,"Text (plain, long)",TRUE
+field_geographic_features,Geographic Features,"Text (plain, long)",TRUE
+field_scale,Scale,Text (plain),TRUE
+field_coordinates,Coordinates,Geolocation,TRUE
+field_coordinates_text,Coordinates (Text),Text (plain),TRUE
+field_land_grantor,Land Grantor,"Text (plain, long)",TRUE
+field_note,Note,"Text (formatted, long)",TRUE
+field_statement_of_resp,Statement of Responsibility,"Text (formatted, long)",TRUE
+field_related_title,Related Title,"Text (plain, long)",TRUE
+field_related_title_part_of,Part of,"Text (plain, long)",TRUE
+field_related_title_preceding,Preceding Title,"Text (plain, long)",TRUE
+field_related_title_succeeding,Succeeding Title,"Text (plain, long)",TRUE
+field_related_title_constituent,Includes,"Text (plain, long)",TRUE
+field_related_title_original,Original Version,"Text (plain, long)",TRUE
+field_related_title_other_format,Other Format,"Text (plain, long)",TRUE
+field_related_title_other_versio,Other Version,"Text (plain, long)",TRUE
+field_related_title_referenced,Referenced By,"Text (plain, long)",TRUE
+field_identifier,Identifier,Text (plain),TRUE
+field_local_identifier,Local Identifier,Text (plain),TRUE
+field_record_source_id,Record Source Identifier,Text (plain),FALSE
+field_isbn,ISBN,Text (plain),TRUE
+field_issn,ISSN,Text (plain),TRUE
+field_oclc_number,OCLC Number,Text (plain),TRUE
+field_music_publisher_number,Music Publisher Number,"Text (plain, long)",TRUE
+field_source_collection_id,Source Collection Identifier,Entity reference,TRUE
+field_source_collection,Source Collection Title,Entity reference,TRUE
+field_source_location,Archival Container,"Text (plain, long)",TRUE
+field_series_information,Series Information,"Text (plain, long)",TRUE
+field_source_repository,Source Repository,Entity reference,TRUE
+field_source_citation,Source Citation,"Text (formatted, long)",TRUE
+field_depositor,Contributing Institution,Entity reference,TRUE
+field_rights_statement,Rights Statement,Entity reference,TRUE
+field_copyright_holder,Copyright Holder,"Text (plain, long)",FALSE
+field_rights_notes,Copyright Note,"Text (plain, long)",TRUE
+parent_id,,Text (plain),TRUE
+field_member_of,Member of,Entity reference,TRUE
+field_weight,Weight,Number (integer),FALSE
+field_model,Model,Entity reference,TRUE
+field_resource_type,Type,Entity reference,TRUE
+field_domain_access,Domain Access,Entity reference,TRUE
+field_domain_all_affiliates,Send to all affiliates,Boolean,FALSE
+field_display_hints,Display hints,Entity reference,TRUE
+field_access_terms,Access Control,Entity reference,TRUE
+field_preservica_date,Preservica Export Date,EDTF,TRUE
+field_preservica_id,Preservica Identifier,Text (plain),TRUE
+file,,Text (plain),FALSE
+transcript,,Text (plain),FALSE
+hocr,,Text (plain),FALSE
+extracted_text,,Text (plain),FALSE
+field_media_oembed_video,,Text (plain),FALSE
+thumbnail,,Text (plain),FALSE
+thumbnail_large,,Text (plain),FALSE
+field_collection_text,Collection Text,"Text (formatted, long, with summary)",FALSE
+field_main_banner,Main Banner,Image,FALSE

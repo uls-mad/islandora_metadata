@@ -1,0 +1,73 @@
+field,machine_name,field_type,taxonomy,prefix
+identifier,field_pid,Text (plain),,
+title,field_full_title,"Text (formatted, long)",,
+edition,field_edition,"Text (formatted, long)",,
+volume,field_full_title,"Text (formatted, long)",,
+issue,field_full_title,"Text (formatted, long)",,
+date,field_edtf_date,EDTF,,
+copyright_date,field_copyright_date,EDTF,,
+copyright_status,field_rights_statement,Entity reference,Rights Statement,
+copyright_holder,field_copyright_holder,"Text (plain, long)",,
+rights_notes,field_rights_notes,"Text (plain, long)",,
+publisher,field_publisher_pitt,"Text (plain, long)",,
+publication_place,field_place_publication,"Text (plain, long)",,
+frequency,field_frequency,"Text (plain, long)",,
+language,field_language,Entity reference,Language,
+description,field_description_long,"Text (formatted, long)",,
+creator_person,field_linked_agent,Typed relation,Person,relator:cre:person:
+creator_corporate,field_linked_agent,Typed relation,Corporate Body,relator:cre:corporate_body:
+creator_conference,field_linked_agent,Typed relation,Conference,relator:cre:conference:
+creator_family,field_linked_agent,Typed relation,Family,relator:cre:family:
+interviewee,field_linked_agent,Typed relation,Person,relator:ive:person:
+interviewer,field_linked_agent,Typed relation,Person,relator:ivr:person:
+conductor,field_linked_agent,Typed relation,Person,relator:cnd:person:
+instrumentalist,field_linked_agent,Typed relation,Person,relator:itr:person:
+singer,field_linked_agent,Typed relation,Person,relator:sng:person:
+photographer_person,field_linked_agent,Typed relation,Person,relator:pht:person:
+photographer_corporate,field_linked_agent,Typed relation,Corporate Body,relator:pht:corporate_body:
+composer,field_linked_agent,Typed relation,Person,relator:cmp:person:
+lyricist,field_linked_agent,Typed relation,Person,relator:lyr:person:
+arranger,field_linked_agent,Typed relation,Person,relator:arr:person:
+contributor_person,field_linked_agent,Typed relation,Person,relator:ctb:person:
+contributor_corporate,field_linked_agent,Typed relation,Corporate Body,relator:ctb:corporate_body:
+subject_name_person,field_subjects_name,Entity reference,Person,person:
+subject_name_corporate,field_subjects_name,Entity reference,Corporate Body,corporate_body:
+subject_name_conference,field_subjects_name,Entity reference,Conference,conference:
+subject_name_family,field_subjects_name,Entity reference,Family,family:
+subject_topic,field_subject,Entity reference,Subject,
+subject_geographic,field_geographic_subject,Entity reference,Subject (Geographic),
+subject_temporal,field_temporal_subject,Entity reference,Subject (Temporal),
+subject_title,field_subject_title,Entity reference,Subject (Title),
+genre,field_genre,Entity reference,Genre,genre:
+genre_japanese_prints,field_genre,Entity reference,Genre (Japanese Prints),genre_japanese_prints:
+type_of_resource,field_type_of_resource,Entity reference,Type of Resource,
+alternative_title,field_alternative_title_pitt,"Text (plain, long)",,
+uniform_title,field_uniform_title,"Text (formatted, long)",,
+preceding_title,field_related_title_preceding,"Text (plain, long)",,
+succeeding_title,field_related_title_succeeding,"Text (plain, long)",,
+related_title,field_related_title,"Text (plain, long)",,
+part_of,field_related_title_part_of,"Text (plain, long)",,
+format,field_physical_form,Entity reference,Physical Form,
+extent,field_extent,Text (plain),,
+isbn,field_isbn,Text (plain),,
+issn,field_issn,Text (plain),,
+music_publisher_number,field_music_publisher_number,"Text (plain, long)",,
+table_of_contents,field_table_of_contents,"Text (formatted, long)",,
+address,field_addresses,"Text (plain, long)",,
+thoroughfares,field_thoroughfares,"Text (plain, long)",,
+geographic_features,field_geographic_features,"Text (plain, long)",,
+coordinates,field_coordinates,Geolocation,,
+coordinates_text,field_coordinates_text,Text (plain),,
+projection,field_projection,Text (plain),,
+scale,field_scale,Text (plain),,
+depositor,field_depositor,Entity reference,Contributing Institution,
+source_identifier,field_local_identifier,Text (plain),,
+source_collection,field_source_collection,Entity reference,Source Collection Title,
+source_collection_id,field_source_collection_id,Text (plain),Source Collection Identifier,
+source_repository,field_source_repository,Entity reference,Source Repository,
+source_citation,field_source_citation,"Text (formatted, long)",,
+source_container,field_source_location,"Text (plain, long)",,
+source_series,field_series_information,"Text (plain, long)",,
+source_subseries,field_series_information,"Text (plain, long)",,
+source_other_level,field_series_information,"Text (plain, long)",,
+note,field_note,"Text (formatted, long)",,

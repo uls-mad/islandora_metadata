@@ -1,0 +1,14 @@
+field,machine_name,field_type,taxonomy
+id,id,"Text (plain)",
+field_pid,field_pid,"Text (plain)",
+node_id,node_id,"Text (plain)",
+title,field_full_title,"Text (plain)",
+file,file,"Text (plain)",
+field_model,field_model,"Entity reference","Islandora Models"
+field_resource_type,field_resource_type,"Entity reference","Resource Types"
+field_member_of,field_member_of,"Entity reference",
+field_domain_access,field_domain_access,"Entity reference",
+field_depositor,field_depositor,"Entity reference","Contributing Institution"
+weight,field_weight,"Number (integer)",
+published,published,"Number (ingeger)",
+parent_id,parent_id,"Text (plain)",
