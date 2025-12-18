@@ -291,6 +291,7 @@ def merge_sheets(
                   manifest DataFrame.
         Exception: For unexpected errors during merging.
     """
+    # Define the required and applicable optional columns
     required_columns = [
         "id",
         "file",
@@ -374,14 +375,13 @@ def merge_sheets(
             )
             return merged, pd.DataFrame()
 
-        # Identify overlapping columns to compare (excluding keys)
+        # Identify overlapping columns to compare (excluding IDs and join keys)
         overlap_cols = [
             c for c in manifest_df.columns 
             if c in metadata_df.columns and c not in ["id", "node_id"]
         ]
 
         # Left merge on the normalized keys
-        # Use a suffix for the manifest side to facilitate comparison
         merged = pd.merge(
             manifest_df,
             metadata_df,
@@ -392,27 +392,26 @@ def merge_sheets(
         )
         logger.info("Merge completed successfully.")
 
-        # Compare values and deduplicate overlapping columns
+        # Deduplicate: Compare values and drop manifest version
         for col in overlap_cols:
             manifest_col = f"{col}_manifest"
             
-            # Identify rows where both sheets have a value but they differ
-            # Use fillna('') so that two NaN values are treated as equal
-            mismatch_mask = (
-                merged["__identifier_join__"].notna() & 
+            # Check for mismatches in rows where a metadata match exists
+            matched_mask = merged["__identifier_join__"].notna()
+            mismatches = merged[
+                matched_mask & 
                 (merged[manifest_col].fillna('') != merged[col].fillna(''))
-            )
+            ]
             
-            mismatch_count = mismatch_mask.sum()
-            if mismatch_count > 0:
+            if not mismatches.empty:
                 logger.warning(
-                    f"Value mismatch in column '{col}': {mismatch_count} rows " \
-                    "differ between manifest and metadata. Keeping metadata."
+                    f"Data discrepancy in column '{col}': {len(mismatches)} " \
+                    "rows differ. Keeping metadata values."
                 )
-            
-            # Drop the manifest version; metadata version (col) is already kept
+
+            # Deduplicate by dropping the manifest column as requested
             merged.drop(columns=[manifest_col], inplace=True)
-            logger.info(f"Removed duplicate manifest column: {col}")
+            logger.info(f"Dropped duplicate manifest column: {col}")
 
         # Unmatched = metadata rows with a real identifier that isn’t in manifest
         in_manifest = metadata_df["__identifier_join__"].isin(
