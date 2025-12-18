@@ -262,6 +262,10 @@ def _normalize_for_join(series: pd.Series) -> pd.Series:
     return s
 
 
+import pandas as pd
+import logging
+import os
+
 def merge_sheets(
     manifest_df: pd.DataFrame,
     metadata_df: pd.DataFrame,
@@ -269,7 +273,8 @@ def merge_sheets(
     logger: logging.Logger
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Merge manifest and metadata DataFrames per workflow rules.
+    Merge manifest and metadata DataFrames per workflow rules, 
+    deduplicating overlapping columns and logging mismatches.
 
     Args:
         manifest_df (pd.DataFrame): Manifest DataFrame with at least 'id' and
@@ -309,36 +314,16 @@ def merge_sheets(
         "transcript",
         "thumbnail",
     ]
-    # Identify all columns to keep
-    columns_to_keep = required_columns[:]
 
     if ingest_task == "update":
         required_columns.insert(1, "node_id")
     
-    # Add optional columns only if they exist in the input DataFrame
     try:
-        for col in optional_columns:
-            if col in manifest_df.columns:
-                columns_to_keep.append(col)
-
-        # Ensure Required Columns Exist
-        
         # Check for missing required columns and add them
-        missing_required_cols = [
-            col for col in required_columns if col not in manifest_df.columns
-        ]
-        
-        if missing_required_cols:
-            print(
-                f"INFO: Adding missing required columns to manifest: {', '.join(
-                    missing_required_cols
-                )}")
-            for col in missing_required_cols:
-                # Add the missing column with default NaN/None values
+        for col in required_columns:
+            if col not in manifest_df.columns:
                 manifest_df[col] = pd.NA
 
-        # Select and reorder the columns
-        
         # Ensure the final list of columns to keep is correctly ordered
         final_column_order = [
             col for col in required_columns if col in manifest_df.columns
@@ -348,7 +333,7 @@ def merge_sheets(
             if col in manifest_df.columns:
                 final_column_order.append(col)
                 
-        # Use the .reindex() method to keep only the desired columns in the correct order
+        # Use reindex to keep only desired columns in the correct order
         manifest_df = manifest_df.reindex(columns=final_column_order)
 
         if "identifier" not in metadata_df.columns:
@@ -375,23 +360,68 @@ def merge_sheets(
             )
             return merged, pd.DataFrame()
 
-        # Left merge on the normalized keys
+        # Identify overlapping columns (excluding join keys and ID columns)
+        common_cols = set(manifest_df.columns).intersection(
+            set(metadata_df.columns)
+        )
+        common_cols = {
+            c for c in common_cols 
+            if not c.startswith("__") and c not in ("id", "identifier")
+        }
+
+        if common_cols:
+            logger.info(
+                f"Overlapping columns found: {list(common_cols)}. " \
+                "Priority: Metadata Sheet."
+            )
+
+        # Left merge on the normalized keys with temporary suffix
         merged = pd.merge(
             manifest_df,
             metadata_df,
             how="left",
             left_on="__id_join__",
             right_on="__identifier_join__",
-            suffixes=("", "_metadata")
+            suffixes=("", "_OVERLAP_META")
         )
         logger.info("Merge completed successfully.")
 
-        # Unmatched = metadata rows with a real identifier that isn’t in manifest
+        # Deduplicate and Log Mismatches
+        for col in common_cols:
+            meta_col = f"{col}_OVERLAP_META"
+            
+            if meta_col in merged.columns:
+                # Compare values only for rows where a match was found
+                matched_rows = merged[merged["__identifier_join__"].notna()]
+                
+                # fillna('') ensures NaN == NaN is treated as a match
+                mismatches = matched_rows[
+                    matched_rows[col].fillna('') != \
+                    matched_rows[meta_col].fillna('')
+                ]
+                
+                mismatch_count = len(mismatches)
+                if mismatch_count > 0:
+                    logger.warning(
+                        f"Data discrepancy in column '{col}': {mismatch_count} " \
+                        "rows differ between manifest and metadata. " \
+                        "Keeping metadata values."
+                    )
+
+                # Overwrite manifest version with metadata version
+                merged[col] = merged[meta_col]
+                
+                # Drop the temporary overlap column
+                merged.drop(columns=[meta_col], inplace=True)
+                logger.info(f"Deduplicated column '{col}'.")
+
+        # Unmatched = metadata rows with a real identifier that isn't in manifest
         in_manifest = metadata_df["__identifier_join__"].isin(
             manifest_df["__id_join__"]
         )
         nonempty = metadata_df["__identifier_join__"].notna()
         unmatched = metadata_df[nonempty & ~in_manifest].copy()
+        
         if not unmatched.empty:
             logger.warning("%d unmatched metadata rows found.", len(unmatched))
 
@@ -404,9 +434,6 @@ def merge_sheets(
 
         return merged, unmatched
 
-    except KeyError:
-        # Already logged above, just re-raise
-        raise
     except Exception:
         logger.exception("Unexpected error during merge_sheets.")
         raise
