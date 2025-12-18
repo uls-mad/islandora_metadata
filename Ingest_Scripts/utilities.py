@@ -87,22 +87,39 @@ def get_directory(io_type: str, title: str, tk_available: bool) -> str:
 
 def create_df(filepath: str) -> pd.DataFrame:
     """
-    Reads a CSV file into a Pandas DataFrame with all values treated as strings.
+    Reads a CSV or Excel file into a Pandas DataFrame with all values as strings.
 
     Args:
-        filepath (str): The path to the CSV file.
+        filepath (str): The path to the CSV or Excel file.
 
     Returns:
-        pd.DataFrame: A DataFrame containing the CSV data with all values as strings,
+        pd.DataFrame: A DataFrame containing the data with all values as strings,
                       with empty values retained as empty strings (no NaN).
     """
-    df = pd.read_csv(
-        filepath, 
-        dtype=str, 
-        encoding='utf-8',
-        keep_default_na=False, 
-        na_filter=False, 
-    )
+    # Determine the file extension
+    ext = os.path.splitext(filepath)[1].lower()
+
+    # Load CSV data
+    if ext == '.csv':
+        df = pd.read_csv(
+            filepath,
+            dtype=str,
+            encoding='utf-8',
+            keep_default_na=False,
+            na_filter=False
+        )
+    # Load Excel data
+    elif ext in ['.xlsx', '.xls']:
+        df = pd.read_excel(
+            filepath,
+            dtype=str,
+            keep_default_na=False,
+            na_filter=False
+        )
+    # Raise error if format is not supported
+    else:
+        raise ValueError(f"Unsupported file format: {ext}")
+
     return df
 
 
