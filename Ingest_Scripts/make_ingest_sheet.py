@@ -348,7 +348,7 @@ def merge_sheets(
             if col in manifest_df.columns:
                 final_column_order.append(col)
                 
-        # Reindex to keep only the desired columns in the correct order
+        # Use the .reindex() method to keep only the desired columns in the correct order
         manifest_df = manifest_df.reindex(columns=final_column_order)
 
         if "identifier" not in metadata_df.columns:
@@ -375,12 +375,6 @@ def merge_sheets(
             )
             return merged, pd.DataFrame()
 
-        # Identify overlapping columns to compare (excluding IDs and join keys)
-        overlap_cols = [
-            c for c in manifest_df.columns 
-            if c in metadata_df.columns and c not in ["id", "node_id"]
-        ]
-
         # Left merge on the normalized keys
         merged = pd.merge(
             manifest_df,
@@ -388,30 +382,9 @@ def merge_sheets(
             how="left",
             left_on="__id_join__",
             right_on="__identifier_join__",
-            suffixes=("_manifest", "")
+            suffixes=("", "_metadata")
         )
         logger.info("Merge completed successfully.")
-
-        # Deduplicate: Compare values and drop manifest version
-        for col in overlap_cols:
-            manifest_col = f"{col}_manifest"
-            
-            # Check for mismatches in rows where a metadata match exists
-            matched_mask = merged["__identifier_join__"].notna()
-            mismatches = merged[
-                matched_mask & 
-                (merged[manifest_col].fillna('') != merged[col].fillna(''))
-            ]
-            
-            if not mismatches.empty:
-                logger.warning(
-                    f"Data discrepancy in column '{col}': {len(mismatches)} " \
-                    "rows differ. Keeping metadata values."
-                )
-
-            # Deduplicate by dropping the manifest column as requested
-            merged.drop(columns=[manifest_col], inplace=True)
-            logger.info(f"Dropped duplicate manifest column: {col}")
 
         # Unmatched = metadata rows with a real identifier that isn’t in manifest
         in_manifest = metadata_df["__identifier_join__"].isin(
