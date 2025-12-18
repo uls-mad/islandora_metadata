@@ -292,6 +292,12 @@ def merge_sheets(manifest_df, metadata_df, ingest_task, logger):
         "thumbnail",
     ]
     
+    # Drop manifest columns not in required or optional lists
+    allowed_cols = required_columns + optional_columns
+    manifest_df = manifest_df[
+        [c for c in manifest_df.columns if c in allowed_cols]
+    ]
+
     # Ensure all required columns exist in manifest
     for col in required_columns:
         if col not in manifest_df.columns:
