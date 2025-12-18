@@ -97,6 +97,11 @@ def parse_arguments() -> AppConfig:
         help="The user ID to associate with the operation."
     )
     parser.add_argument(
+        "-t", "--ingest_task", 
+        type=str, 
+        choices=["create", "update"], 
+        help="Workbench task: 'create' or 'update'.")
+    parser.add_argument(
         "-b", "--batch_path", 
         type=str, 
         help="Path to a batch directory for Workbench ingests.")
@@ -127,11 +132,6 @@ def parse_arguments() -> AppConfig:
         default="/workbench/etc/google_ulswfown_service_account.json",
         help="Path to the Google service account credentials JSON.")
     parser.add_argument(
-        "-t", "--ingest_task", 
-        type=str, 
-        choices=["create", "update"], 
-        help="Workbench task: 'create' or 'update'.")
-    parser.add_argument(
         "-l", "--metadata_level", 
         type=str, 
         choices=["minimal", "complete"], 
@@ -148,11 +148,17 @@ def parse_arguments() -> AppConfig:
     # Prompt user for missing required arguments
     if not args.user_id:
         args.user_id = prompt_for_input("Enter your Pitt user ID: ")
+    if not args.ingest_task:
+        choice_input = prompt_for_input(
+            "Enter the Workbench ingest task (create/update): ", 
+            valid_choices=['create', 'update']
+        )
+        args.ingest_task = choice_input
     if not args.batch_path:
         args.batch_path = prompt_for_input(
             "Enter the path to the Workbench batch directory: "
         )
-    if not args.manifest_id:
+    if not args.manifest_id and args.ingest_task == "create":
         args.manifest_id = prompt_for_input(
             "Enter the Google Sheet ID for the manifest: "
         )
@@ -164,22 +170,12 @@ def parse_arguments() -> AppConfig:
         args.credentials_file = prompt_for_input(
             "Enter the path to the Google credentials JSON file: "
         )
-        
-    # Handle choices-based interactive prompts
-    if not args.ingest_task:
-        choice_input = prompt_for_input(
-            "Enter the Workbench ingest task (create/update): ", 
-            valid_choices=['create', 'update']
-        )
-        args.ingest_task = choice_input
-        
     if not args.metadata_level:
         choice_input = prompt_for_input(
             "Enter the metadata level (minimal/complete): ", 
             valid_choices=['minimal', 'complete']
         )
         args.metadata_level = choice_input
-        
     if not args.publish:
         choice_input = prompt_for_input(
             "Should the ingest batch be published (y/n)?: ", 
@@ -227,6 +223,8 @@ def load_input_sheets(config: AppConfig) -> Tuple[pd.DataFrame, pd.DataFrame]:
         )
     elif config.manifest_sheet:
         manifest_df = create_df(config.manifest_sheet)
+    else:
+        manifest_df = pd.DataFrame()
 
     # ---------- Load metadata ----------
     if config.metadata_id:
@@ -262,34 +260,18 @@ def _normalize_for_join(series: pd.Series) -> pd.Series:
     return s
 
 
-def merge_sheets(
-    manifest_df: pd.DataFrame,
-    metadata_df: pd.DataFrame,
-    ingest_task: str,
-    logger: logging.Logger
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+def merge_sheets(manifest_df, metadata_df, ingest_task, logger):
     """
-    Merge manifest and metadata DataFrames per workflow rules.
+    Merge manifest and metadata DataFrames and validate data integrity.
 
     Args:
-        manifest_df (pd.DataFrame): Manifest DataFrame with at least 'id' and
-            'node_id' columns.
-        metadata_df (pd.DataFrame): Metadata DataFrame, optionally including 
-            data in the 'identifier' column.
-        ingest_task (str): Task that Workbench will perform. 
-        logger (logging.Logger): Logger for process updates.
+        manifest_df (pd.DataFrame): The primary manifest sheet.
+        metadata_df (pd.DataFrame): The supplemental metadata sheet.
+        ingest_task (object): The task object for context.
+        logger (logging.Logger): Logger instance for status reporting.
 
     Returns:
-        tuple[pd.DataFrame, pd.DataFrame]:
-            - Merged DataFrame that contains only 'id' and 'node_id' from
-              the manifest, plus all metadata columns.
-            - DataFrame of unmatched metadata rows (those with non-empty
-              identifiers not present in the manifest). Empty if none.
-
-    Raises:
-        KeyError: If required columns ('id', 'node_id') are missing from the
-                  manifest DataFrame.
-        Exception: For unexpected errors during merging.
+        tuple: (pd.DataFrame, pd.DataFrame) The merged sheet and unmatched rows.
     """
     # Define the required and applicable optional columns
     required_columns = [
@@ -309,107 +291,58 @@ def merge_sheets(
         "transcript",
         "thumbnail",
     ]
-    # Identify all columns to keep
-    columns_to_keep = required_columns[:]
-
-    if ingest_task == "update":
-        required_columns.insert(1, "node_id")
     
-    # Add optional columns only if they exist in the input DataFrame
-    try:
-        for col in optional_columns:
-            if col in manifest_df.columns:
-                columns_to_keep.append(col)
+    # Ensure all required columns exist in manifest
+    for col in required_columns:
+        if col not in manifest_df.columns:
+            manifest_df[col] = None
+            logger.info(f"Added missing required column: {col}")
 
-        # Ensure Required Columns Exist
-        
-        # Check for missing required columns and add them
-        missing_required_cols = [
-            col for col in required_columns if col not in manifest_df.columns
-        ]
-        
-        if missing_required_cols:
-            print(
-                f"INFO: Adding missing required columns to manifest: {', '.join(
-                    missing_required_cols
-                )}")
-            for col in missing_required_cols:
-                # Add the missing column with default NaN/None values
-                manifest_df[col] = pd.NA
+    # Validate or rename metadata merge key
+    if "identifier" not in metadata_df.columns:
+        if "id" in metadata_df.columns:
+            metadata_df = metadata_df.rename(columns={"id": "identifier"})
+        else:
+            logger.error("Merge failed: metadata missing 'id' or 'identifier'")
+            raise ValueError("Missing required merge column in metadata_df")
 
-        # Select and reorder the columns
-        
-        # Ensure the final list of columns to keep is correctly ordered
-        final_column_order = [
-            col for col in required_columns if col in manifest_df.columns
-        ]
-        
-        for col in optional_columns:
-            if col in manifest_df.columns:
-                final_column_order.append(col)
-                
-        # Use the .reindex() method to keep only the desired columns in the correct order
-        manifest_df = manifest_df.reindex(columns=final_column_order)
+    # Identify overlapping columns for post-merge validation
+    common_cols = set(manifest_df.columns).intersection(set(metadata_df.columns))
+    common_cols.discard("id")
+    common_cols.discard("identifier")
 
-        if "identifier" not in metadata_df.columns:
+    # Perform left merge on id and identifier
+    ingest_sheet = pd.merge(
+        manifest_df,
+        metadata_df,
+        left_on="id",
+        right_on="identifier",
+        how="left",
+        suffixes=("_manifest", "_metadata")
+    )
+
+    # Filter rows that have no matching metadata
+    unmatched = ingest_sheet[ingest_sheet["identifier"].isna()].copy()
+
+    # Compare values in duplicate columns and resolve
+    for col in common_cols:
+        manifest_col = f"{col}_manifest"
+        metadata_col = f"{col}_metadata"
+        
+        # Check for discrepancies between the two sheets
+        mismatch_count = (
+            ingest_sheet[manifest_col] != ingest_sheet[metadata_col]
+        ).sum()
+        if mismatch_count > 0:
             logger.warning(
-                "Metadata sheet is missing the 'identifier' column; " \
-                "adding empty column."
+                f"Column '{col}' has {mismatch_count} mismatching values"
             )
-            # Insert an empty identifier column at the beginning
-            metadata_df.insert(0, "identifier", pd.NA)
 
-        # Build normalized join keys (do NOT overwrite original columns)
-        manifest_df["__id_join__"] = _normalize_for_join(manifest_df["id"])
-        metadata_df["__identifier_join__"] = _normalize_for_join(
-            metadata_df["identifier"]
-        )
+        # Keep metadata values and remove manifest duplicates
+        ingest_sheet[col] = ingest_sheet[metadata_col]
+        ingest_sheet = ingest_sheet.drop(columns=[manifest_col, metadata_col])
 
-        # If all identifiers are empty after normalization, append columns
-        if not metadata_df["__identifier_join__"].notna().any():
-            logger.info("Metadata identifiers are empty; appending columns.")
-            merged = pd.concat(
-                [manifest_df[["id", "node_id"]].reset_index(drop=True),
-                 metadata_df.reset_index(drop=True)],
-                axis=1
-            )
-            return merged, pd.DataFrame()
-
-        # Left merge on the normalized keys
-        merged = pd.merge(
-            manifest_df,
-            metadata_df,
-            how="left",
-            left_on="__id_join__",
-            right_on="__identifier_join__",
-            suffixes=("", "_metadata")
-        )
-        logger.info("Merge completed successfully.")
-
-        # Unmatched = metadata rows with a real identifier that isn’t in manifest
-        in_manifest = metadata_df["__identifier_join__"].isin(
-            manifest_df["__id_join__"]
-        )
-        nonempty = metadata_df["__identifier_join__"].notna()
-        unmatched = metadata_df[nonempty & ~in_manifest].copy()
-        if not unmatched.empty:
-            logger.warning("%d unmatched metadata rows found.", len(unmatched))
-
-        # Drop helper join columns from merged output
-        merged.drop(
-            columns=["__id_join__", "__identifier_join__"],
-            errors="ignore",
-            inplace=True
-        )
-
-        return merged, unmatched
-
-    except KeyError:
-        # Already logged above, just re-raise
-        raise
-    except Exception:
-        logger.exception("Unexpected error during merge_sheets.")
-        raise
+    return ingest_sheet, unmatched
 
 
 def should_flush_batch(buffer: list, batch_size: int) -> bool:
@@ -1299,8 +1232,8 @@ def process_files(
     progress_queue: Queue,
     logger: logging.Logger,
     tracker: ProgressTracker, 
-    manifest: pd.DataFrame, 
-    metadata: pd.DataFrame, 
+    manifest_df: pd.DataFrame, 
+    metadata_df: pd.DataFrame, 
     config: AppConfig
 ) -> None:
     """
@@ -1321,9 +1254,13 @@ def process_files(
         # --- Stage 1: Initial Data Merge and Preparation ---
         
         # Merge sheets
-        ingest_sheet, unmatched_records = merge_sheets(
-            manifest, metadata, config.ingest_task, logger
-        )
+        if config.ingest_task == "create":
+            ingest_sheet, unmatched_records = merge_sheets(
+                manifest_df, metadata_df, config.ingest_task, logger
+            )
+        else:
+            ingest_sheet = metadata_df
+            unmatched_records = pd.DataFrame()
 
         # Handle publication status for batch
         publish_value = 1 if config.publish else 0
@@ -1457,7 +1394,6 @@ if __name__ == "__main__":
         tracker = ProgressTracker()
 
         # Convert manifest and metadata files to DataFrames
-        # TODO: Update load_input_sheets to accept the config object
         manifest_df, metadata_df = load_input_sheets(config)
 
         # Run file/record processing in a separate thread
