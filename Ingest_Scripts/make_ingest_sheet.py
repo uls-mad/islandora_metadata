@@ -117,7 +117,7 @@ def parse_arguments() -> AppConfig:
     parser.add_argument(
         "--manifest_sheet", 
         type=str, 
-        help="Tab name in the manifest sheet (optional).")
+        help="Path to manifest on local device (optional).")
     parser.add_argument(
         "-d", "--metadata_id", 
         type=str, 
@@ -125,7 +125,7 @@ def parse_arguments() -> AppConfig:
     parser.add_argument(
         "--metadata_sheet", 
         type=str, 
-        help="Tab name in the metadata sheet (optional).")
+        help="Path to metadata sheet on local device (optional).")
     parser.add_argument(
         "-c", "--credentials_file", 
         type=str, 
@@ -158,15 +158,17 @@ def parse_arguments() -> AppConfig:
         args.batch_path = prompt_for_input(
             "Enter the path to the Workbench batch directory: "
         )
-    if not args.manifest_id and args.ingest_task == "create":
+    if not args.manifest_id \
+        and args.ingest_task == "create" \
+        and not args.metadata_sheet:
         args.manifest_id = prompt_for_input(
             "Enter the Google Sheet ID for the manifest: "
         )
-    if not args.metadata_id:
+    if not args.metadata_id and not args.metadata_sheet:
         args.metadata_id = prompt_for_input(
             "Enter the Google Sheet ID for the metadata: "
         )
-    if not args.credentials_file:
+    if not args.credentials_file and args.metadata_id:
         args.credentials_file = prompt_for_input(
             "Enter the path to the Google credentials JSON file: "
         )
@@ -235,6 +237,7 @@ def load_input_sheets(config: AppConfig) -> Tuple[pd.DataFrame, pd.DataFrame]:
         )
     elif config.metadata_sheet:
         metadata_df = create_df(config.metadata_sheet)
+    
 
     return manifest_df, metadata_df
 
@@ -1393,7 +1396,7 @@ if __name__ == "__main__":
         setup_batch_directory(config.batch_path)
 
         # Set up logger
-        logger = setup_logger('make_metadata_sheet', config.log_path)
+        logger = setup_logger('make_ingest_sheet', config.log_path)
 
         # Initialize progress queue and tracker
         update_queue = Queue()
