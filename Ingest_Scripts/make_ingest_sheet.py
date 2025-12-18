@@ -168,7 +168,7 @@ def parse_arguments() -> AppConfig:
         args.metadata_id = prompt_for_input(
             "Enter the Google Sheet ID for the metadata: "
         )
-    if not args.credentials_file and args.metadata_id:
+    if not args.credentials_file and (args.manifest_id or args.metadata_id):
         args.credentials_file = prompt_for_input(
             "Enter the path to the Google credentials JSON file: "
         )
