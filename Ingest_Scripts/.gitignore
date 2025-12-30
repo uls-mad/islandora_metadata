@@ -1,3 +1,4 @@
 .env
 /Tests
 /credentials.json
+/__pycache__
