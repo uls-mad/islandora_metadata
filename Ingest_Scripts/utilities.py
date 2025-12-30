@@ -1,3 +1,7 @@
+#!/bin/python3 
+
+# --- Modules ---
+
 # Import standard modules
 import os
 import logging
@@ -22,7 +26,7 @@ LOG_FORMATTER = logging.Formatter(
 )
 
 
-""" Functions """
+# --- Functions ---
 
 def prompt_for_input(
         prompt_text: str, 

@@ -1,6 +1,6 @@
 #!/bin/python3 
 
-""" Modules """
+# --- Modules ---
 
 # Import standard module
 import os
@@ -9,7 +9,7 @@ import os
 from utilities import create_df
 
 
-""" FIELD LISTS """
+# --- Field Lists ---
 
 REQUIRED_FIELDS = [
     'id',
@@ -140,7 +140,7 @@ PARENT_MODELS = [
 ]
 
 
-""" MAPPINGS """
+# --- Mappings ---
 
 MODEL_MAPPING = {
     'Collection': {
@@ -263,7 +263,7 @@ RIGHTS_MAPPING = {
 }
 
 
-""" IMPORTED MAPPINGS """
+# --- Imported Mappings ---
 
 # Read in Fields
 fields_csv = os.path.join(
