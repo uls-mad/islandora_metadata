@@ -1,20 +1,20 @@
 #!/usr/bin/python3
+
+"""Merge manifest and metadata Google Sheets using flexible identifier rules.
+
+This script automates the merging of a manifest Google Sheet with a metadata 
+Google Sheet. It supports two primary workflows:
+1. ID-Based Merge: If metadata identifiers exist, it performs a left join 
+   between manifest 'id' and metadata 'identifier'.
+2. Direct Append: If no identifiers are present in the metadata, columns 
+   are appended directly to the manifest rows.
+
+Unmatched records (metadata identifiers not found in the manifest) are 
+logged to a separate CSV for review.
 """
-make_metadata_sheet.py
 
-Script to merge a manifest Google Sheet with a metadata Google Sheet.
-The merge rules are:
-- If the metadata sheet has non-empty 'identifier' values, perform a left
-  merge on manifest.id and metadata.identifier.
-- If there are identifiers in metadata that do not match manifest IDs,
-  they are written to a separate "_unmatched.csv".
-- If the metadata sheet has no identifier values, its columns are appended
-  directly to the manifest.
+# --- Modules ---
 
-Output: merged CSV file and optional unmatched log.
-"""
-
-""" Modules """
 # Import standard modules
 import argparse
 from datetime import datetime
@@ -26,23 +26,20 @@ import pandas as pd
 from utilities import *
 
 
-""" Functions """
+# --- Functions ---
 
 def parse_arguments() -> argparse.Namespace:
-    """
-    Parse and return command-line arguments, prompting for missing values.
+    """Parse and return command-line arguments, prompting for missing values.
 
     Required arguments:
         --manifest_id (str): Google Sheet ID for the manifest file.
         --metadata_id (str): Google Sheet ID for the metadata file.
         --credentials_file (str): Path to the Google service account credentials 
             JSON file.
-        --output_file (str): Path to save the merged CSV output.
-        --log_file (str): Path to save the process log file.
 
     Optional arguments:
-        --manifest-sheet (str): Tab name in the manifest sheet.
-        --metadata-sheet (str): Tab name in the metadata sheet.
+        --manifest_sheet (str): Tab name in the manifest sheet.
+        --metadata_sheet (str): Tab name in the metadata sheet.
 
     Returns:
         argparse.Namespace: Parsed arguments with all required fields
@@ -52,14 +49,17 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Merge manifest and metadata Google Sheets."
     )
-
+    parser.add_argument(
+        "-b", "--batch_path", 
+        type=str, 
+        help="Path to a batch directory for Workbench ingests.")
     parser.add_argument(
         "--manifest_id",
         type=str,
         help="Google Sheet ID for the manifest file."
     )
     parser.add_argument(
-        "--manifest-sheet",
+        "--manifest_sheet",
         type=str,
         help="Tab name in the manifest sheet (optional)."
     )
@@ -69,25 +69,15 @@ def parse_arguments() -> argparse.Namespace:
         help="Google Sheet ID for the metadata file."
     )
     parser.add_argument(
-        "--metadata-sheet",
+        "--metadata_sheet",
         type=str,
         help="Tab name in the metadata sheet (optional)."
     )
     parser.add_argument(
-        "--credentials_file",
+        "-c", "--credentials_file",
         type=str,
         default="/workbench/etc/google_ulswfown_service_account.json",
         help="Path to the Google service account credentials JSON."
-    )
-    parser.add_argument(
-        "--output_file",
-        type=str,
-        help="Path to save the merged CSV output."
-    )
-    # TODO: Confirm that this should be a parameter or if should be auto-determined
-    parser.add_argument(
-        "--log_file",
-        help="Path to save the process log file."
     )
 
     args = parser.parse_args()
@@ -105,17 +95,12 @@ def parse_arguments() -> argparse.Namespace:
         args.metadata_id = prompt_for_input(
             "Enter the Google Sheet ID for the metadata: "
         )
-    if not args.credentials_file:
-        args.credentials_file = prompt_for_input(
-            "Enter the path to the Google credentials JSON file: "
-        )
 
     return args
 
 
 def _normalize_for_join(series: pd.Series) -> pd.Series:
-    """
-    Normalize an ID series for joining.
+    """Normalize an ID series for joining.
 
     Args:
         series (pd.Series): Input series (e.g., manifest IDs or metadata identifiers).
@@ -139,8 +124,7 @@ def merge_sheets(
     metadata_df: pd.DataFrame,
     logger: logging.Logger
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Merge manifest and metadata DataFrames per workflow rules.
+    """Merge manifest and metadata DataFrames per workflow rules.
 
     Args:
         manifest_df (pd.DataFrame): Manifest DataFrame with at least 'id' and
@@ -182,7 +166,9 @@ def merge_sheets(
             metadata_df.insert(0, "identifier", pd.NA)
 
         # Build normalized join keys (do NOT overwrite original columns)
-        manifest_df["__id_join__"] = _normalize_for_join(manifest_df["id"])
+        manifest_df["__id_join__"] = _normalize_for_join(
+            manifest_df["id"]
+        )
         metadata_df["__identifier_join__"] = _normalize_for_join(
             metadata_df["identifier"]
         )
@@ -235,10 +221,29 @@ def merge_sheets(
 
 
 def main():
+    """Execute the metadata and manifest sheet merging workflow.
+
+    Automate the process of aligning physical file manifests with descriptive 
+    metadata. Perform the following sequence:
+
+    1.  **Environment Setup:** Generates unique file prefixes using timestamps 
+        and configures a file-based logger.
+    2.  **Data Acquisition:** Retrieves two distinct Google Sheets (Manifest 
+        and Metadata) using provided IDs and sheet names.
+    3.  **Data Integration:** Merges the two datasets based on a shared key 
+        (handled by `merge_sheets`).
+    4.  **Reporting & Output:** Saves the successfully merged records to a 
+        final CSV and exports any "orphan" metadata rows to an unmatched log 
+        for manual review.
+
+    Side Effects:
+        - Creates a log file in the `logs` subdirectory.
+        - Writes a merged metadata CSV to the `metadata` subdirectory.
+        - Writes an `unmatched.csv` log if metadata rows do not match files.
     """
-    Main entry point for merging metadata and manifest sheets.
-    """
+    # --- Initialization & Logging Setup ---
     args = parse_arguments()
+
     # Get batch directory and timestamp for output files
     batch_dir = os.path.basename(args.batch_path.rstrip(os.sep))
     timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
@@ -249,7 +254,7 @@ def main():
     log_path = os.path.join(log_dir, f"{file_prefix}.log")
     logger = setup_logger('make_metadata_sheet', log_path)
 
-    # Read in Google Sheets
+    # Import Google sheeets
     logger.info("Reading manifest Google Sheet")
     manifest_df = read_google_sheet(
         args.manifest_id,
@@ -264,15 +269,16 @@ def main():
         credentials_file=args.credentials_file
     )
 
-    # Merge Google Sheets
+    # Merge Google sheets
     logger.info("Merging sheets")
     merged, unmatched = merge_sheets(manifest_df, metadata_df, logger)
 
-    # Save merged output
+    # Export merged results
     output_dir = os.path.join(args.batch_path, "metadata")
     output_path = os.path.join(output_dir, f"{file_prefix}_metadata.csv")
+    
     logger.info("Saving merged sheet to %s", output_path)
-    merged.to_csv(args.output_file, index=False, encoding='utf-8')
+    merged.to_csv(output_path, index=False, encoding='utf-8')
 
     # Log unmatched rows from metadata sheet
     if not unmatched.empty:
