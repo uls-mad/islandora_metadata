@@ -1,18 +1,41 @@
 #!/bin/python3 
 
-""" Modules """
+"""Batch process metadata and manifest records for Workbench ingest tasks.
+
+Merge archival manifest data with descriptive metadata, validate fields against 
+controlled vocabularies and schema, and partition the transformed records into 
+manageable batches for system ingest, if necessary. Support both 'create' and 
+'update' Workbench ingest workflows.
+
+Main Features:
+- Multi-threaded execution: Processes records in a background thread while 
+  monitoring progress in the main thread.
+- Data Validation: Enforces EDTF date standards, coordinate formatting, and 
+  controlled vocabulary matching.
+- Batch Management: Automatically flushes records into CSV chunks based on 
+  a configurable batch size.
+- Interactive CLI: Prompts for required identifiers and paths if they are not 
+  provided as command-line arguments.
+
+Usage:
+    python3 make_ingest_sheet.py
+    python3 make_ingest_sheet.py -u jdoe10 -t update -b /workbench/batches/[BATCH_DIR] -l complete -p y
+"""
+
+# ---------------------------------------------------------------------------
+# Modules
+# ---------------------------------------------------------------------------
 
 # Import standard modules
 import os
-import sys
 import re
-import threading
 import time
-import traceback
 import argparse
+import traceback
+import threading
 from queue import Queue
 from datetime import datetime
-from typing import Dict, List, Set, Tuple, Union, Optional
+from typing import Dict, List, Tuple, Union, Optional
 
 # Import third-party modules
 import pandas as pd
@@ -25,7 +48,9 @@ from batch_manager import *
 from progress_tracker import *
 
 
-""" Global Variables """
+# ---------------------------------------------------------------------------
+# Global Variables
+# ---------------------------------------------------------------------------
 
 global transformations
 transformations = []
@@ -42,7 +67,9 @@ current_batch = None
 DEFAULT_BATCH_SIZE = 10000
 
 
-""" Class """
+# ---------------------------------------------------------------------------
+# Class
+# ---------------------------------------------------------------------------
 
 class AppConfig:
     """
@@ -79,14 +106,15 @@ class AppConfig:
         self.metadata_sheet = metadata_sheet  
 
 
-""" Helper Functions """
+# ---------------------------------------------------------------------------
+# Helper Functions
+# ---------------------------------------------------------------------------
 
 def parse_arguments() -> AppConfig:
-    """
-    Parse command-line arguments and interactively prompt for missing required values.
+    """Parse command-line arguments and prompt for missing required values.
 
     Returns:
-        AppConfig: An object containing all parsed and prompted configuration settings.
+        AppConfig: An object containing all parsed and configuration settings.
     """
     parser = argparse.ArgumentParser(description="Process CSV files in batches.")
     
@@ -147,13 +175,14 @@ def parse_arguments() -> AppConfig:
     
     # Prompt user for missing required arguments
     if not args.user_id:
-        args.user_id = prompt_for_input("Enter your Pitt user ID: ")
+        args.user_id = prompt_for_input(
+            "Enter your Pitt user ID: "
+        )
     if not args.ingest_task:
-        choice_input = prompt_for_input(
+        args.ingest_task = prompt_for_input(
             "Enter the Workbench ingest task (create/update): ", 
             valid_choices=['create', 'update']
         )
-        args.ingest_task = choice_input
     if not args.batch_path:
         args.batch_path = prompt_for_input(
             "Enter the path to the Workbench batch directory: "
@@ -162,35 +191,31 @@ def parse_arguments() -> AppConfig:
         and args.ingest_task == "create" \
         and not args.metadata_sheet:
         args.manifest_id = prompt_for_input(
-            "Enter the Google Sheet ID for the manifest: "
+            "Enter the Google Sheet ID for the manifest sheet: "
         )
     if not args.metadata_id and not args.metadata_sheet:
         args.metadata_id = prompt_for_input(
-            "Enter the Google Sheet ID for the metadata: "
+            "Enter the Google Sheet ID for the metadata sheet: "
         )
     if not args.credentials_file and (args.manifest_id or args.metadata_id):
         args.credentials_file = prompt_for_input(
             "Enter the path to the Google credentials JSON file: "
         )
     if not args.metadata_level:
-        choice_input = prompt_for_input(
+        args.metadata_level = prompt_for_input(
             "Enter the metadata level (minimal/complete): ", 
             valid_choices=['minimal', 'complete']
         )
-        args.metadata_level = choice_input
     if not args.publish:
-        choice_input = prompt_for_input(
+        args.publish = prompt_for_input(
             "Should the ingest batch be published (y/n)?: ", 
             valid_choices=['y', 'n']
         )
-        args.publish = choice_input
-    
+
     # Convert 'y'/'n' string to boolean True/False for the AppConfig class
     args.publish = (args.publish == 'y')
 
     # Return the Config Object
-        # Convert the argparse.Namespace object's contents into a dictionary, 
-        # then unpack that dictionary to initialize the AppConfig instance.
     return AppConfig(**vars(args))
 
 
@@ -243,8 +268,7 @@ def load_input_sheets(config: AppConfig) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def _normalize_for_join(series: pd.Series) -> pd.Series:
-    """
-    Normalize an ID series for joining.
+    """Normalize an ID series for joining.
 
     Args:
         series (pd.Series): Input series (e.g., manifest IDs or metadata identifiers).
@@ -263,18 +287,22 @@ def _normalize_for_join(series: pd.Series) -> pd.Series:
     return s
 
 
-def merge_sheets(manifest_df, metadata_df, ingest_task, logger):
-    """
-    Merge manifest and metadata DataFrames and validate data integrity.
+def merge_sheets(manifest_df, metadata_df, logger):
+    """Merge manifest and metadata DataFrames and validate data integrity.
+
+    This function aligns file-level manifest data with descriptive metadata. It
+    standardizes the manifest schema, merges datasets on unique identifiers,
+    and identifies any metadata records that lack a corresponding file match.
 
     Args:
-        manifest_df (pd.DataFrame): The primary manifest sheet.
-        metadata_df (pd.DataFrame): The supplemental metadata sheet.
-        ingest_task (object): The task object for context.
-        logger (logging.Logger): Logger instance for status reporting.
+        manifest_df (pd.DataFrame): The primary manifest sheet containing file info.
+        metadata_df (pd.DataFrame): The supplemental descriptive metadata sheet.
+        logger (logging.Logger): Logger instance for status and mismatch reporting.
 
     Returns:
-        tuple: (pd.DataFrame, pd.DataFrame) The merged sheet and unmatched rows.
+        tuple[pd.DataFrame, pd.DataFrame]: A tuple containing:
+            - ingest_sheet: The merged and resolved master DataFrame.
+            - unmatched: Rows from the merge that failed to find metadata.
     """
     # Define the required and applicable optional columns
     required_columns = [
@@ -297,14 +325,15 @@ def merge_sheets(manifest_df, metadata_df, ingest_task, logger):
     
     # Drop manifest columns not in required or optional lists
     allowed_cols = required_columns + optional_columns
+    
     manifest_df = manifest_df[
         [c for c in manifest_df.columns if c in allowed_cols]
-    ]
+    ].copy()
 
     # Ensure all required columns exist in manifest
     for col in required_columns:
         if col not in manifest_df.columns:
-            manifest_df[col] = None
+            manifest_df.loc[:, col] = None
             logger.info(f"Added missing required column: {col}")
 
     # Validate or rename metadata merge key
@@ -355,8 +384,7 @@ def merge_sheets(manifest_df, metadata_df, ingest_task, logger):
 
 
 def should_flush_batch(buffer: list, batch_size: int) -> bool:
-    """
-    Determine whether the current batch should be flushed to disk.
+    """Determine whether the current batch should be flushed to disk.
 
     Args:
         buffer (list): List of processed records.
@@ -374,8 +402,7 @@ def flush_batch(
     batch_count: int,
     config: AppConfig,
 ) -> pd.DataFrame:
-    """
-    Write the current buffer to a CSV, save PIDs for media, and prepare a config file.
+    """Write the current buffer to a CSV and prepare a config file.
 
     Args:
         buffer (list): List of processed records.
@@ -387,14 +414,15 @@ def flush_batch(
         pd.DataFrame: DataFrame written from records buffer.
     """
     # --- Step 1: Write Batch CSV ---
-    sub_batch_prefix = f"{config.file_prefix}_{batch_count}_ingest_{config.metadata_level}"
+    sub_batch_prefix = f"{config.file_prefix}_{batch_count}_ingest_" + \
+        config.metadata_level
     sub_batch_file = f"{sub_batch_prefix}.csv"
     sub_batch_path = os.path.join(config.output_path, sub_batch_file)
     records_df = records_to_csv(buffer, sub_batch_path)
 
     # --- Step 2: Check for Additional Media Files  ---
     media_files = []
-    if "transcript" in records_df.columns: # Can extend this to add more media files
+    if "transcript" in records_df.columns: # Can extend to add more media files
         media_files.append("transcript")
 
     # --- Step 3: Prepare Config File ---
@@ -410,8 +438,7 @@ def flush_batch(
 
 
 def initialize_record() -> dict:
-    """
-    Initialize a record with fields as empty dictionaries or lists.
+    """Initialize a record with fields as empty dictionaries or lists.
 
     Returns:
         dict: A record with fields initialized appropriately.
@@ -424,27 +451,37 @@ def initialize_record() -> dict:
 
 def get_mapped_field(
     pid: str, 
-    csv_field: str, data: str
+    csv_field: str, 
+    data: str
 ) -> Tuple[str | None, str | None]:
-    """
-    Retrieve the mapped Islandora 2 machine field name and associated taxonomy
-    for a given CSV field.
+    """Map a metadata template field to its Islandora 2 machine name and taxonomy.
+
+    This function converts legacy CSV headers to Islandora 2 (I2) machine field 
+    names. If the field is recognized in the mapping, it returns the specific 
+    machine name and its associated taxonomy; otherwise, it logs a warning using 
+    the provided record context.
 
     Args:
-        pid (str): The PID of the current record (used for logging).
-        csv_field (str): The CSV field name to be mapped.
-        data (str): The data value (used for logging if mapping is not found).
+        pid: The unique identifier for the current record, used for 
+            contextual logging of mapping errors.
+        csv_field: The raw header name from the source CSV to be translated.
+        data: The actual cell value, included in logs to help troubleshoot 
+            why a specific value failed to map.
 
     Returns:
-        tuple(machine_name or None, taxonomy or None)
+        tuple[str | None, str | None]: A tuple containing the mapped I2 
+            machine name and the associated taxonomy name. Both values 
+            will be None if no mapping exists for the provided field.
     """
     match = TEMPLATE_FIELD_MAPPING.loc[
-        TEMPLATE_FIELD_MAPPING['field'] == csv_field, ['machine_name', 'taxonomy']
+        TEMPLATE_FIELD_MAPPING['field'] == csv_field, 
+        ['machine_name', 'taxonomy']
     ]
 
     if match.empty:
         match = MANIFEST_FIELD_MAPPING.loc[
-            MANIFEST_FIELD_MAPPING['field'] == csv_field, ['machine_name', 'taxonomy']
+            MANIFEST_FIELD_MAPPING['field'] == csv_field, 
+            ['machine_name', 'taxonomy']
         ]
         if match.empty:
             add_exception(
@@ -473,8 +510,7 @@ def add_exception(
     value: Union[str, List[str]], 
     exception: str
 ) -> None:
-    """
-    Add an exception record to the exceptions list.
+    """Add an exception record to the exceptions list.
 
     Args:
         pid (str): The PID of the record.
@@ -499,8 +535,7 @@ def add_transformation(
     new_value: str,
     transformation: str
 ) -> None:
-    """
-    Add a transformation record to the transformations list.
+    """Add a transformation record to the transformations list.
 
     Args:
         pid (str): The PID of the record.
@@ -521,64 +556,98 @@ def add_transformation(
 
 
 def split_and_clean(text: str) -> List[str]:
-    """
-    Split a string on non-escaped commas, remove escape characters, and filter out empty strings.
+    """Tokenize a string by semicolon delimiters.
+
+    This function splits the input text on every semicolon (';'). It 
+    automatically handles variations like 'value1;value2', 'value1; value2', 
+    or 'value1 ; value2'. It ensures that the resulting list contains only 
+    non-empty, trimmed strings.
 
     Args:
-        text (str): The input string to process.
+        text: The raw input string containing multi-valued metadata 
+            delimited by semicolons.
 
     Returns:
-        list: A list of cleaned string parts.
+        list[str]: A list of cleaned, non-empty string tokens.
     """
-    # Remove white spaces
-    cleaned_text = remove_whitespaces(text)
-    # Create a list of values
-    parts = cleaned_text.split('; ')
-    # Remove escape characters and filter out empty strings
-    return [part.strip() for part in parts if part.strip()]
+    if not text:
+        return []
+
+    # Split on semicolon plus any surrounding whitespace
+    parts = re.split(r'\s*;\s*', text)
+
+    # Clean up individual parts and filter out empty strings
+    return [p.strip() for p in parts if p.strip()]
 
 
-def remove_whitespaces(text: str) -> str:
-    """
-    Remove newline characters, trailing whitespaces, and multiple spaces from a string.
+def remove_whitespaces(text: str, allow_newlines: bool = False) -> str:
+    """Sanitize string by collapsing whitespace, optionally preserving paragraph breaks.
+
+    Standardize text by replacing tabs and multiple consecutive spaces with a 
+    single space. If allow_newlines is True, preserve up to two consecutive 
+    newlines; otherwise, collapse all whitespace into a single line.
 
     Args:
-        text (str): The input string to clean.
+        text: The raw input string to be cleaned.
+        allow_newlines: Whether to preserve up to two consecutive newlines. 
+            Defaults to False (single-line output).
 
     Returns:
-        str: A cleaned string.
+        str: The sanitized string. Returns an empty string if the input 
+            is not a string type.
     """
-    if isinstance(text, str):
-        cleaned_text = text.replace("\n    ", " ").replace("\n", "").strip()
-        cleaned_text = re.sub(r"\s+", " ", cleaned_text)
-        return cleaned_text.strip()
-    return ""
+    if not isinstance(text, str):
+        return ""
+
+    if allow_newlines:
+        # Collapse horizontal whitespace (tabs/spaces) but keep newlines
+        cleaned = re.sub(r"[ \t]+", " ", text)
+        # Limit consecutive newlines to a maximum of two
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    else:
+        # Standard behavior: collapse ALL whitespace (including \n) into one space
+        cleaned = re.sub(r"\s+", " ", text)
+
+    return cleaned.strip()
 
 
 def get_parent_domain(df: pd.DataFrame, pid: str, parent_id: str) -> list[str]:
-    """
-    Retrieves the parent domain(s) for a given PID by matching its parent_id in 
-    the DataFrame and mapping the domain URIs using the DOMAIN_MAPPING dictionary.
+    """Inherit domain access values from a parent record.
+
+    This function performs a recursive-style lookup by locating a parent record 
+    via its PID, extracting its site membership URIs, and translating those 
+    URIs into human-readable domain strings using the `DOMAIN_MAPPING` 
+    dictionary.
 
     Args:
-        df (pd.DataFrame): The DataFrame containing metadata records.
-        pid (str): The PID of the current record, used for error reporting.
-        parent_id (str): The PID of the parent record to look up.
+        df: The master DataFrame containing all metadata records.
+        pid: The PID of the current child record (used for logging context).
+        parent_id: The PID of the parent record to be queried.
 
     Returns:
-        list[str]: A list of mapped domain access values, or an empty list
-                   if no values are found or an error occurs.
+        list[str]: A list of mapped domain strings (e.g., ['Public Site', 'Archives']).
+            Returns an empty list if the parent is not found, has no domains, 
+            or if an error occurs during lookup.
+
+    Note:
+        Logs failures to the global exception tracker via `add_exception` if 
+        the lookup or mapping process encounters an error.
     """
     parent_domains = []
     try:
-        match = df.loc[df["PID"] == parent_id, "RELS_EXT_isMemberOfSite_uri_ms"]
-        if not match.empty:
-            # Clean and split values, then map using DOMAIN_MAPPING
-            raw_values = split_and_clean(match.values[0])
-            parent_domains = [
-                DOMAIN_MAPPING.get(val, "") \
-                for val in raw_values if DOMAIN_MAPPING.get(val, "")
-            ]
+        # Locate parent row and extract the membership column
+        match = df.loc[df["id"] == parent_id, "field_domain_access"]
+        
+        if not match.empty and pd.notna(match.values[0]):
+            # Tokenize the URIs (e.g., "http://site.org; http://other.org")
+            parent_domains = split_and_clean(str(match.values[0]))
+            
+            # # Map URIs to internal domain names; ignore values not in DOMAIN_MAPPING
+            # parent_domains = [
+            #     mapped for val in raw_values 
+            #     if (mapped := DOMAIN_MAPPING.get(val))
+            # ]
+            
     except Exception as e:
         message = f"error retrieving parent domain: {e}"
         add_exception(pid, "field_domain_access", None, message)
@@ -592,19 +661,29 @@ def add_value(
     field: str, 
     value: str, 
     prefix: str = None
-) -> str:
-    """
-    Add a value to a field in the record, optionally prepending a prefix.
+) -> str | None:
+    """Add a processed value to a record field with dynamic prefixing.
+
+    This function sanitizes the input value, resolves optional prefixes (including 
+    special 'rlt' relationship placeholders), and appends the value to the 
+    specified field list within the record dictionary.
 
     Args:
-        record (dict): The record to update.
-        csv_field (str): The CSV field name.
-        field (str): The record field name.
-        value (str): The value to add.
-        prefix (str, optional): The prefix to prepend to the value.
+        record: The dictionary representing the metadata record being built.
+        csv_field: The source column header from the CSV (used for prefix lookup).
+        field: The target machine name for the field in the record dictionary.
+        value: The raw data string to be added.
+        prefix: An optional string to prepend to the value. If it starts with 
+            'rlt', it is dynamically replaced using `TEMPLATE_FIELD_MAPPING`.
 
     Returns:
-        value (str): The value added to the record.
+        str | None: The processed and prefixed value that was added to the 
+            record. Returns None if the target field is missing or invalid.
+
+    Side Effects:
+        - Modifies the `record` dictionary in-place by updating the list of 
+          values for the given `field`.
+        - Logs an error via `add_exception` if the target `field` is not provided.
     """
     if not field:
         add_exception(
@@ -613,13 +692,15 @@ def add_value(
             value, 
             f"missing I2 field for value from CSV field {csv_field}"
         )
-        return record
+        return None
 
     value = remove_whitespaces(value)
     values = record.get(field, [])
 
     if csv_field and (not prefix or prefix.startswith("rlt")):
-        field_row = TEMPLATE_FIELD_MAPPING[TEMPLATE_FIELD_MAPPING['field'] == csv_field]
+        field_row = TEMPLATE_FIELD_MAPPING[
+            TEMPLATE_FIELD_MAPPING['field'] == csv_field
+        ]
         if not field_row.empty:
             prefix = prefix.replace("rlt", field_row.iloc[0]['prefix']) \
                 if prefix else field_row.iloc[0]['prefix']
@@ -629,8 +710,7 @@ def add_value(
 
     if value and value not in values:
         values.append(value)
-
-    #print(f'Values: {values} | csv_field: {csv_field} | Field: {field} Value: {value}')
+        
     record[field] = values
 
     return value
@@ -640,8 +720,7 @@ def add_title(
     record: dict, 
     value: str
 ) -> dict:
-    """
-    Add a title value to the record from CSV field data.
+    """Add a title value to the record from CSV field data.
 
     Args:
         record (dict): The record to update.
@@ -656,53 +735,14 @@ def add_title(
     return record
 
 
-def validate_collection_id(
-    pid: str, 
-    value: str
-) -> str | None:
-    """
-    Processes a collection ID by mapping it to its corresponding node ID.
-
-    If the collection ID is found in `COLLECTION_NODE_MAPPING`, the corresponding `node_id` is returned.
-    Otherwise, an exception is logged, and `None` is returned.
-
-    Args:
-        record (dict): The record being processed, containing metadata fields.
-        value (str): The collection ID to be mapped.
-
-    Returns:
-        str | None: The corresponding node ID if found, otherwise None.
-    """
-    node_id = value
-    matching_rows = COLLECTION_NODE_MAPPING.loc[
-        COLLECTION_NODE_MAPPING["node_id"] == value
-    ]
-    if matching_rows.empty:
-        matching_rows = COLLECTION_NODE_MAPPING.loc[
-            COLLECTION_NODE_MAPPING["id"] == value, "node_id"
-        ]
-        if not matching_rows.empty:
-            node_id = matching_rows.iloc[0]
-        else:
-            add_exception(
-                pid,
-                "field_member_of",
-                value,
-                f"node ID not found for collection PID"
-            )
-
-    return node_id
-
-
 def process_model(
     record: dict,
     field: str,
     value: str,
 ) -> bool:
-    """
-    Validate and process an object model.
+    """Validate and process an object model.
 
-    The function looks up ``value`` in the global ``MODEL_MAPPING`` dictionary.
+    This function looks up ``value`` in the global ``MODEL_MAPPING`` dictionary.
     If a matching model configuration is found, it adds the corresponding
     ``resource_type`` and ``display_hint`` values to the record and returns 
     ``True``. If no match is found, it logs a transformation exception and 
@@ -751,20 +791,87 @@ def process_model(
     return True
 
 
-def validate_domain(pid: str, value: str) -> bool:
-    """
-    Checks if the given value exists in the DOMAIN_MAPPING dictionary as a value.
-    If it exists, returns True. If not, adds an exception and returns False.
+def process_title(record, title_parts):
+    title = title_parts.get('title')
+    if title:
+        title += f", vol. {title_parts.get('volume')}" if title_parts.get('volume') else ""
+        title += f", no. {title_parts.get('number')}" if title_parts.get('number') else ""
+        add_title(record, title)
+    return title
+
+
+def validate_collection_id(
+    pid: str, 
+    value: str
+) -> str:
+    """Map a collection identifier to its corresponding system Node ID.
+
+    This function attempts to resolve collection identifiers using the 
+    `COLLECTION_NODE_MAPPING` DataFrame. If the value is already a valid 
+    `node_id` or can be mapped from a legacy `id`, the resolved Node ID 
+    is returned. 
+
+    If no mapping is found, an exception is logged, but the function returns 
+    the original `value`. This preserves the data in the output CSV for 
+    manual remediation.
 
     Args:
-        pid (str): The unique identifier for the record being processed.
-        value (str): The value to check in the DOMAIN_MAPPING dictionary.
+        pid: The unique identifier for the current record (used for error logging).
+        value: The collection ID or PID string to be validated and mapped.
 
     Returns:
-        bool: True if the value is found as a value in DOMAIN_MAPPING; False otherwise.
+        str: The resolved Node ID if found; otherwise, the original input value.
 
     Side Effects:
-        If the value is not found, an exception is added using the `add_exception` function.
+        Logs a 'node ID not found' exception via `add_exception` if the 
+        identifier cannot be resolved.
+    """
+    # Step 1: Check if the value is already a valid node_id
+    match_exists = not COLLECTION_NODE_MAPPING.loc[
+        COLLECTION_NODE_MAPPING["node_id"] == value
+    ].empty
+
+    if match_exists:
+        return value
+
+    # Step 2: Attempt to map from legacy 'id' to 'node_id'
+    mapping = COLLECTION_NODE_MAPPING.loc[
+        COLLECTION_NODE_MAPPING["id"] == value, "node_id"
+    ]
+
+    if not mapping.empty:
+        return mapping.iloc[0]
+
+    # Step 3: No match found—log the error but return the original value
+    add_exception(
+        pid,
+        "field_member_of",
+        value,
+        "node ID not found for collection PID"
+    )
+    
+    return value
+
+
+def validate_domain(pid: str, value: str) -> bool:
+    """Validate that a domain string exists within the allowed mapping.
+
+    This function performs a membership check against the values of the 
+    `DOMAIN_MAPPING` dictionary. It ensures that the metadata provided 
+    matches one of the recognized site domains in the target system. 
+    If the value is unrecognized, it records a validation error for the 
+    specific record.
+
+    Args:
+        pid: The unique identifier for the record (used for logging errors).
+        value: The domain access string to be validated (e.g., "Public Site").
+
+    Returns:
+        bool: True if the value is a valid mapped domain, False otherwise.
+
+    Side Effects:
+        Appends a record to the global exception tracker via `add_exception` 
+        if the domain is invalid.
     """
     # Check if the value exists in DOMAIN_MAPPING as a value
     if value in DOMAIN_MAPPING.values():
@@ -781,8 +888,8 @@ def validate_domain(pid: str, value: str) -> bool:
 
 
 def validate_edtf_date(pid: str, value: str) -> bool:
-    """
-    Validates if the given date string is in a valid EDTF (Extended Date/Time Format).
+    """Validates if the given date string is in a valid EDTF (Extended Date/Time Format).
+
     Args:
         pid (str): The PID of the current record, used for error reporting.
         value (str): The value to be validated according to EDTF.
@@ -801,8 +908,7 @@ def validate_term(
     value: str,
     taxonomy: str,
 ) -> bool:
-    """
-    Validate that a term exists in the specified taxonomy.
+    """Validate that a term exists in the specified taxonomy.
 
     This function checks whether ``value`` appears in the global ``TAXONOMIES``
     DataFrame with the given ``taxonomy`` (stored in the ``'Vocabulary'`` column).
@@ -837,24 +943,31 @@ def validate_term(
 
 
 def validate_coordinates(pid: str, value: str) -> bool:
-    """
-    Validate that a string contains a valid latitude/longitude pair in
-    decimal or sexagesimal (DMS) format.
+    """Validate geographical coordinates in Decimal or Sexagesimal (DMS) format.
 
-    The value must contain two coordinates separated by a comma or semicolon.
-    Examples:
-        "40.446, -79.982"
-        "40°26'46\"N, 79°58'56\"W"
-
-    If invalid, the function logs an exception with:
-        add_exception(pid, "field_coordinates", value, "<reason>")
+    This function parses a coordinate pair string, ensuring it contains two 
+    distinct parts (latitude and longitude) separated by a comma or semicolon. 
+    It supports:
+    
+    1.  **Decimal Degrees (DD):** e.g., "40.446, -79.982"
+    2.  **Degrees Minutes Seconds (DMS):** e.g., "40°26'46\\"N, 79°58'56\\"W"
+    
+    This function performs internal normalization to decimal degrees to verify 
+    that the values fall within physical global ranges:
+    - Latitude: $[-90, 90]$
+    - Longitude: $[-180, 180]$
 
     Args:
-        pid (str): Record identifier for logging context.
-        value (str): Coordinate string to validate.
+        pid: The unique identifier for the record, used for logging errors.
+        value: The raw coordinate string to be validated.
 
     Returns:
-        bool: True if valid, False otherwise.
+        bool: True if the coordinates are well-formed and within valid ranges; 
+            False otherwise.
+
+    Side Effects:
+        If validation fails, records the specific failure reason (e.g., range 
+        error or formatting error) via the global `add_exception` tracker.
     """
     def fail(message: str) -> bool:
         """Log invalid coordinate and return False."""
@@ -938,9 +1051,7 @@ def validate_coordinates(pid: str, value: str) -> bool:
 
         return dd
 
-    # -----------------------------
-    # Unified coordinate parser
-    # -----------------------------
+    # --- Unified coordinate parser ---
     def parse_coord_pair(lat_token: str, lon_token: str) -> tuple[float, float] | None:
         """
         Try parsing both latitude and longitude in decimal or DMS form.
@@ -965,9 +1076,7 @@ def validate_coordinates(pid: str, value: str) -> bool:
 
         return lat, lon
 
-    # -----------------------------
-    # Validate
-    # -----------------------------
+    # --- Validate ---
     result = parse_coord_pair(lat_str, lon_str)
 
     if result is None:
@@ -976,16 +1085,7 @@ def validate_coordinates(pid: str, value: str) -> bool:
     return True
 
 
-def process_title(record, title_parts):
-    title = title_parts.get('title')
-    if title:
-        title += f", vol. {title_parts.get('volume')}" if title_parts.get('volume') else ""
-        title += f", no. {title_parts.get('number')}" if title_parts.get('number') else ""
-        add_title(record, title)
-    return title
-
-
-def validate_record(record: dict, df: pd.DataFrame) -> dict:
+def validate_record(record: dict, ingest_sheet: pd.DataFrame) -> dict:
     """
     Validate the fields and values of a metadata record.
 
@@ -1051,7 +1151,7 @@ def validate_record(record: dict, df: pd.DataFrame) -> dict:
             if field == 'title' and not record[field]:
                 add_value(record, None, 'title', pid)
             elif field == 'field_domain_access' and not record[field]:
-                parent_domains = get_parent_domain(df, pid, parent_id)
+                parent_domains = get_parent_domain(ingest_sheet, pid, parent_id)
                 for domain in parent_domains:
                     add_value(
                         record, 
@@ -1168,17 +1268,35 @@ def records_to_csv(records: list, destination: str):
     return df
 
 
-""" Key Functions """
+# ---------------------------------------------------------------------------
+# Key Functions
+# ---------------------------------------------------------------------------
 
 def process_record(row: dict) -> dict:
-    """
-    Process a CSV row dictionary into a transformed metadata record.
+    """Transform a raw CSV row into a structured metadata record.
+
+    This function handles the transformation pipeline for a single record. 
+    It performs the following sequence:
+    1.  **Initialization:** Creates a fresh record and anchors it with a PID.
+    2.  **Field Mapping:** Identifies target system fields for each CSV column.
+    3.  **Sanitization:** Handles whitespace removal and multi-value splitting.
+    4.  **Validation & Remediation:** Routes data through specialized handlers 
+        for coordinates, dates, controlled vocabularies, and system models.
+    5.  **Assembly:** Merges title components and finalizes the record structure.
 
     Args:
-        row (dict): Dictionary representing a CSV row.
+        row: A dictionary representing a single row from the source CSV, 
+            where keys are headers and values are raw cell data.
 
     Returns:
-        dict: Transformed metadata record.
+        dict: The transformed record dictionary containing mapped, cleaned, 
+            and validated data.
+
+    Side Effects:
+        - Logs validation failures and processing errors to the global 
+          exception tracker via `add_exception`.
+        - Prints traceback and error details to the console if a row-level 
+          exception occurs.
     """
     # Initialize record
     record = initialize_record()
@@ -1196,12 +1314,13 @@ def process_record(row: dict) -> dict:
             # Confirm that input field is mapped and data exists in field
             i2_field, taxonomy = get_mapped_field(pid, csv_field, data)
             if not i2_field or pd.isna(data):
-                # print(f"skipped field {csv_field}")
                 continue
 
-            # Preproccess values
+            # Preprocess values
             if i2_field in DELIMITED_FIELDS:
                 values = split_and_clean(data)
+            elif i2_field in FORMATTED_FIELDS:
+                values = [remove_whitespaces(data, allow_newlines=True)]
             else:
                 values = [remove_whitespaces(data)]
 
@@ -1222,6 +1341,7 @@ def process_record(row: dict) -> dict:
                     validate_term(pid, csv_field, value, taxonomy)
                 elif i2_field in DATE_FIELDS:
                     validate_edtf_date(pid, value)
+                
                 # Add CSV data to I2 field
                 if value:
                     add_value(record, csv_field, i2_field, value)
@@ -1230,9 +1350,9 @@ def process_record(row: dict) -> dict:
         process_title(record, title_parts)
 
     except Exception as e:
-                print(f"Error processing row {pid}: {e}")
-                print(traceback.format_exc())
-                add_exception(pid, "row_error", "", str(e))
+        print(f"Error processing row {pid}: {e}")
+        print(traceback.format_exc())
+        add_exception(pid, "row_error", "", str(e))
 
     return record
 
@@ -1245,17 +1365,32 @@ def process_files(
     metadata_df: pd.DataFrame, 
     config: AppConfig
 ) -> None:
-    """
-    Process all records from the merged manifest and metadata sheets in batches.
+    """Handle the end-to-end processing and batching of metadata records.
+
+    This function executes the ingest workflow in four stages:
+    1.  **Preparation:** Merges manifest and metadata (if applicable), logs 
+        unmatched records, and initializes thread-safe progress tracking.
+    2.  **Transformation:** Iterates through records, applying cleaning, 
+        validation, and formatting. Supports real-time user cancellation.
+    3.  **Batch Management:** Buffers processed records and "flushes" them to 
+        disk based on the configured batch size to manage memory efficiency.
+    4.  **Reporting:** Finalizes the run by flushing remaining buffers and 
+        generating transformation and exception reports.
 
     Args:
-        progress_queue (Queue): Thread-safe queue for reporting progress.
-        logger (logging.Logger): The logger instance.
-        tracker (ProgressTracker): Instance to track progress.
-        manifest (pd.DataFrame): The loaded manifest data.
-        metadata (pd.DataFrame): The loaded metadata data.
-        config (AppConfig): The application configuration object containing 
-                            all paths, sizes, and settings.
+        progress_queue: Thread-safe queue for UI/console progress updates.
+        logger: Logger instance for recording process milestones and errors.
+        tracker: ProgressTracker instance for monitoring the current file state.
+        manifest_df: DataFrame containing the manifest data.
+        metadata_df: DataFrame containing the metadata records.
+        config: Application configuration object containing batch sizes, 
+            directory paths, and ingest settings.
+
+    Side Effects:
+        - Writes unmatched records to a CSV file in the log directory.
+        - Updates the global `current_batch` variable.
+        - Generates multiple CSV batch files and final diagnostic reports.
+        - Communicates with the main thread via `progress_queue`.
     """
     global current_batch
     
@@ -1265,7 +1400,7 @@ def process_files(
         # Merge sheets
         if config.ingest_task == "create":
             ingest_sheet, unmatched_records = merge_sheets(
-                manifest_df, metadata_df, config.ingest_task, logger
+                manifest_df, metadata_df, logger
             )
         else:
             ingest_sheet = metadata_df
@@ -1365,15 +1500,41 @@ def process_files(
         logger.error("Error during file processing.", exc_info=True)
         print(f"Error during processing: {e}")
         print(traceback.format_exc())
-        # Note: If this function is run in a separate thread, sys.exit(1) here 
-        # won't stop the main thread/program immediately, but will stop the current thread.
-        # Pass an error message back through the queue?
-        # sys.exit(1)
 
 
-""" Driver Code """
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
-if __name__ == "__main__":
+def main():
+    """Entry point for the metadata ingest generation tool.
+
+    This function manages the high-level application lifecycle, 
+    performing the following steps:
+    
+    1.  **Configuration & Environment:** Parses CLI arguments and generates 
+        unique, timestamped directory paths for outputs and logs.
+    2.  **Initialization:** Prepares the local filesystem, initializes 
+        thread-safe progress tracking, and sets up centralized logging.
+    3.  **Data Loading:** Reads source manifest and metadata files into 
+        memory as DataFrames.
+    4.  **Concurrent Execution:** Spawns a background worker thread via 
+        `process_files` to perform heavy data transformations without 
+        blocking the main execution context.
+    5.  **Monitoring:** Implements a polling loop in the main thread to 
+        consume the `progress_queue`, ensuring real-time status updates 
+        are dispatched until processing concludes.
+
+    Args:
+        None (Processes inputs via CLI arguments and `parse_arguments`).
+
+    Side Effects:
+        - Creates a `metadata/` and `logs/` directory at the batch path.
+        - Spawns a new `threading.Thread` for data processing.
+        - Writes detailed execution logs to the filesystem.
+        - Modifies the state of the provided `ProgressTracker` and 
+          `AppConfig` objects.
+    """
     # Parse arguments and get the AppConfig object
     config = parse_arguments()
     
@@ -1437,3 +1598,12 @@ if __name__ == "__main__":
         if 'logger' in locals():
             logger.error("An error occurred during execution:", exc_info=True)
         print(traceback.format_exc())
+    
+    finally:
+        # If the thread is still running for some reason, ensure it stops
+        if 'tracker' in locals():
+            tracker.cancel_requested.set()
+
+
+if __name__ == "__main__":
+    main()
