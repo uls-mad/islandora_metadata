@@ -8,7 +8,7 @@ authority sources (LCSH, AAT, etc.) from URIs, and generates the necessary
 YAML configuration files required for Drupal Workbench operations.
 
 Usage:
-    python taxonomy_generator.py -t /workbench/batches/[BATCH_DIR]/remediation/[TAXONOMY_PROJECT_COMPLETE].csv
+    python setup_taxonomy_ingest.py -t /workbench/batches/[BATCH_DIR]/remediation/[TAXONOMY_PROJECT_COMPLETE].csv
 
 Dependencies:
     - pandas: For data manipulation.
