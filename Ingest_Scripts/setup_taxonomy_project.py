@@ -139,7 +139,7 @@ def main():
 
     # Define output filename and path
     batch_name = os.path.basename(args.batch_path.rstrip(os.sep))
-    filename = f"{batch_name}_taxonomy_remediation.csv"
+    filename = f"{batch_name}_taxonomy_project.csv"
     output_file = os.path.join(remediation_path, filename)
 
     # Save processed data to CSV
