@@ -132,6 +132,13 @@ DELIMITED_FIELDS = [
     'field_thoroughfares',
 ]    
 
+FORMATTED_FIELDS = [
+    'field_description_long',
+    'field_table_of_contents',
+    'field_note',
+    'field_statement_of_resp'
+]
+
 PARENT_MODELS = [
     'Compound Object',
     'Paged Content',
