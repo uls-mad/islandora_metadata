@@ -19,6 +19,9 @@ try:
 except ImportError:
     TK_AVAILABLE = False
 
+
+# --- Constants ---
+
 # Setup the log file format
 LOG_FORMATTER = logging.Formatter(
     fmt='%(asctime)s.%(msecs)03d %(levelname)s %(message)s',
