@@ -1,0 +1,9 @@
+task: create_terms
+host: "https://i2.digital.library.pitt.edu/"
+username: ingester
+password: [PASSWORD]
+input_csv: [INPUT_CSV]
+vocab_id: [VOCAB_ID]
+log_file_path: [INPUT_DIR]/logs/[VOCAB_ID]_workbench.log
+input_dir: [INPUT_DIR]
+temp_dir: [INPUT_DIR]/tmp/
