@@ -20,7 +20,6 @@ BATCH_SUBDIRS = [
     "configs",
     "export",
     "import",
-    "import/media",
     "logs",
     "metadata",
     "rollback",

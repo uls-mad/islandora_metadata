@@ -2,7 +2,7 @@ task: create
 host: "https://i2.digital.library.pitt.edu/"
 username: ingester
 password: [IMPORT_PASSWORD]
-input_dir: /workbench/batches/[BATCH_DIRECTORY]/import/media
+input_dir: /workbench/batches/[BATCH_DIRECTORY]/import
 input_csv: "https://docs.google.com/spreadsheets/d/[INGEST_SHEET_ID]/edit"
 google_sheets_gid: [GID]
 output_csv: /workbench/batches/[BATCH_DIRECTORY]/export/output_[BATCH_PREFIX].csv
