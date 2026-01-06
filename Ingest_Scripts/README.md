@@ -8,6 +8,7 @@
     - [`make_ingest_sheet.py`](#make_ingest_sheetpy)
     - [`setup_taxonomy_project.py`](#setup_taxonomy_projectpy)
     - [`setup_taxonomy_ingest.py`](#setup_taxonomy_ingestpy)
+    - [`batch_manager.py`](#batch_managerpy)
     - [`utilities.py`](#utilitiespy)
     - [`definitions.py`](#definitionspy)
 - [Dependencies](#dependencies)
@@ -59,6 +60,16 @@ This script imports a completed taxonomy remediation project (CSV) (once the `te
 - **URI Resolution**: Determines authority sources (AAT, LCSH, NAF, VIAF) based on URI patterns.
 - **Config Generation**: Automatically populates YAML templates with batch paths and environment credentials.
 
+### `batch_manager.py`
+Handles batch processing for digital object workflows by setting up directories and managing PID tracking for media imports.  
+
+#### Key components:
+This script automates the creation of the local workspace required for a successful Workbench ingest.
+
+Key Components:
+- **Standardized Batch Hierarchy**: Automatically generates a uniform set of subdirectories (including /configs, /import, /logs, and /media). 
+- **Dynamic YAML Configuration**: Customizes configuration file templates by injecting batch-specific metadata, such as unique batch prefixes, user IDs, and local file paths.
+
 ### `utilities.py`
 Provides cross-script helper functions for file handling and data standardization.
 
@@ -81,7 +92,7 @@ This script serves as the central configuration hub for the entire toolkit, cont
 - Python 3.10+
 - pandas: For data transformation and analysis.
 - pathlib: For OS-agnostic path management.
-- python-dotenv: For managing sensitive import credentials (e.g., `IMPORT_PASSWORD`).
+- python-dotenv: For managing sensitive import credentials.
 - edtf: For extended date-time format validation.
 
 ## License
