@@ -30,15 +30,15 @@ import re
 import sys
 from pathlib import Path
 from typing import Callable, Dict, List, Set
-
-# Import third-party modules
-import pandas as pd
 try:
     from tkinter import Tk, filedialog, messagebox
     import tkinter as tk
     TK_AVAILABLE = True
 except ImportError:
     TK_AVAILABLE = False
+
+# Import third-party modules
+import pandas as pd
 
 # Import local modules
 from definitions import COPYRIGHT_STATUS_MAPPING, TYPE_MAPPING, LANGUAGE_MAPPING
