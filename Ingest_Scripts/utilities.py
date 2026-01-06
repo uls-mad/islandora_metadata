@@ -302,7 +302,7 @@ def read_google_sheet(sheet_id: str,
 
     Args:
         sheet_id (str): ID of the Google Sheet.
-        sheet_name (str, optional): Tab name. If None, first tab is used.
+        sheet_name (str, optional): Tab name. If None or "None", first tab is used.
         credentials_file (str): Path to service account JSON credentials.
         logger (logging.Logger, optional): Logger for error/info messages.
 
@@ -310,27 +310,30 @@ def read_google_sheet(sheet_id: str,
         pd.DataFrame: Data from the sheet with padded rows and empty rows removed.
 
     Raises:
-        ValueError: If the given sheet/tab name does not exist.
-        Exception: For unexpected errors during the fetch.
+        ValueError: If the sheet ID is invalid, permissions are missing, or tab doesn't exist.
     """
     service = connect_to_google_sheet(credentials_file, logger=logger)
 
-    try:
-        # Auto-detect first sheet if none given
-        if not sheet_name:
-            meta = service.spreadsheets().get(
-                spreadsheetId=sheet_id
-            ).execute()
+    # Handle tab name (auto-detect if sheet_name is None or "None")
+    if not sheet_name or str(sheet_name).strip() == "None":
+        try:
+            meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
             sheet_name = meta['sheets'][0]['properties']['title']
+        except HttpError as e:
+            msg = f"Access Denied or Invalid ID: Could not reach Google Sheet {sheet_id}. Check permissions for your service account."
+            if logger:
+                logger.error(msg)
+                logger.exception(e)
+            raise ValueError(msg) from e
 
-        # Fetch data from the sheet/tab
+    # Fetch data from specified tab
+    try:
         result = service.spreadsheets().values().get(
             spreadsheetId=sheet_id,
             range=sheet_name
         ).execute()
-
     except HttpError as e:
-        msg = f"Failed to fetch '{sheet_name}' tab from Google Sheet {sheet_id}"
+        msg = f"Tab Not Found: Failed to fetch '{sheet_name}' from Google Sheet {sheet_id}. Check the tab name."
         if logger:
             logger.error(msg)
             logger.exception(e)
@@ -341,6 +344,7 @@ def read_google_sheet(sheet_id: str,
             logger.exception(msg)
         raise
 
+    # Process result into a DataFrame
     values = result.get('values', [])
     if not values:
         return pd.DataFrame()
@@ -352,7 +356,7 @@ def read_google_sheet(sheet_id: str,
     max_cols = len(headers)
     padded_rows = [row + [None] * (max_cols - len(row)) for row in rows]
 
-    # Drop rows that are completely empty
+    # Drop rows that are completely empty or contain common null-strings
     filtered_rows = [
         r for r in padded_rows
         if any(cell not in (None, "", " ", "nan", "NaN") for cell in r)
