@@ -23,7 +23,26 @@ import os
 import pandas as pd
 
 # Import local module
+from definitions import ALLOWED_CONTENT_TYPES
 from utilities import *
+
+
+# --- CONSTANT ---
+
+METADATA_TEMPLATE_MAPPING = {
+    "av":                   "1QZJTlxuexgZcEEH2ykvyXMjPhGVPvFgNSGL4ouVS8Do",
+    "interview":            "1SAlG6PX5CTG0iqmBm8-T1BYrbOq8de6HQxUcJYMhbOQ",
+    "notated_music":        "1Wzsc7GfuXBJfcQ9P_JkuPwcCOeDspG5T7hWvCyAf-Io",
+    "serial":               "1-Dsf42gQ6e6r_ll0cITt6lvi_qozzCEvqaHZDC4VfB0",
+    "map":                  "18AXRba8mlCSwWBzuuV4CL4XU3dqPrs2iPunBYQXnVo4",
+    "photograph":           "1QRVYJ4441rM0yRSH35UpZWYRLkFpMKNc_212G1dwzUU",
+    "manuscript":           "1BJZYwe0t2Yz7tOhSD8ns2S8R7MjQqDlOe5-v7jtXqsc",
+    "image":                "1DamM4LiGOG0fjMUx_RrODgORX6EiNHbG_SIoKabkn9o",
+    "book":                 "1zdgJkH5QCoIWFKHrdC-v2lnTKlQVi_vNg3x59tm5FsM",
+    "musical_recording":    "1I8qkiNQN_bcQfS2R_31QbjAIGb9xEuIbrSBBeUIw5vo",
+    "photograph":           "1QRVYJ4441rM0yRSH35UpZWYRLkFpMKNc_212G1dwzUU",
+    "japanese_prints":      "17NPFIBTDrtZ7Fk_rkE1EYIk9xBoShoejOfxoTU16c-Y",
+}
 
 
 # --- Functions ---
@@ -74,6 +93,13 @@ def parse_arguments() -> argparse.Namespace:
         help="Tab name in the metadata sheet (optional)."
     )
     parser.add_argument(
+        "-t", "--content_type",
+        type=str,
+        help=(
+            f"Allowed: {', '.join(sorted(ALLOWED_CONTENT_TYPES))}"
+        ),
+    )
+    parser.add_argument(
         "-c", "--credentials_file",
         type=str,
         default="/workbench/etc/google_ulswfown_service_account.json",
@@ -81,6 +107,10 @@ def parse_arguments() -> argparse.Namespace:
     )
 
     args = parser.parse_args()
+
+    # Get ID for metadata template, if content_type provided
+    if args.content_type:
+        args.metadata_id = METADATA_TEMPLATE_MAPPING.get(args.content_type)
 
     # Prompt for required arguments if missing
     if not args.batch_path:
@@ -127,34 +157,42 @@ def merge_sheets(
     """Merge manifest and metadata DataFrames per workflow rules.
 
     Args:
-        manifest_df (pd.DataFrame): Manifest DataFrame with at least 'id' and
-            'node_id' columns.
+        manifest_df (pd.DataFrame): Manifest DataFrame with at least an 'id' column.
+            'node_id' is included if present.
         metadata_df (pd.DataFrame): Metadata DataFrame, optionally including 
             data in the 'identifier' column.
         logger (logging.Logger): Logger for process updates.
 
     Returns:
         tuple[pd.DataFrame, pd.DataFrame]:
-            - Merged DataFrame that contains only 'id' and 'node_id' from
-              the manifest, plus all metadata columns.
+            - Merged DataFrame containing 'id' (and 'node_id' if available) 
+              from the manifest, plus all metadata columns.
             - DataFrame of unmatched metadata rows (those with non-empty
-              identifiers not present in the manifest). Empty if none.
+              identifiers not present in the manifest).
 
     Raises:
-        KeyError: If required columns ('id', 'node_id') are missing from the
-                  manifest DataFrame.
+        KeyError: If the 'id' column is missing from the manifest DataFrame.
         Exception: For unexpected errors during merging.
     """
     try:
-        # Ensure required manifest columns exist
-        if not {"id", "node_id"}.issubset(manifest_df.columns):
-            msg = "Manifest is missing one or more of the required columns: " \
-            "'id', 'node_id'"
+        # Identify available columns
+        # 'id' is mandatory; 'node_id' is optional
+        if "id" not in manifest_df.columns:
+            msg = "Manifest is missing the required column: 'id'"
             logger.error(msg)
             raise KeyError(msg)
 
-        # Keep only id and node_id from the manifest
-        manifest_df = manifest_df[["id", "node_id"]].copy()
+        manifest_cols = ["id"]
+        if "node_id" in manifest_df.columns:
+            manifest_cols.append("node_id")
+            logger.info("Found 'node_id' in manifest; including in output.")
+        else:
+            logger.info(
+                "'node_id' not found in manifest; proceeding with 'id' only."
+            )
+
+        # Prepare DataFrames
+        manifest_df = manifest_df[manifest_cols].copy()
         metadata_df = metadata_df.copy()
 
         if "identifier" not in metadata_df.columns:
@@ -162,10 +200,9 @@ def merge_sheets(
                 "Metadata sheet is missing the 'identifier' column; " \
                 "adding empty column."
             )
-            # Insert an empty identifier column at the beginning
             metadata_df.insert(0, "identifier", pd.NA)
 
-        # Build normalized join keys (do NOT overwrite original columns)
+        # Normalize keys for joining
         manifest_df["__id_join__"] = _normalize_for_join(
             manifest_df["id"]
         )
@@ -175,11 +212,19 @@ def merge_sheets(
 
         # If all identifiers are empty after normalization, append columns
         if not metadata_df["__identifier_join__"].notna().any():
-            logger.info("Metadata identifiers are empty; appending columns.")
+            logger.info(
+                "Metadata identifiers are empty; appending columns by position."
+            )
             merged = pd.concat(
-                [manifest_df[["id", "node_id"]].reset_index(drop=True),
+                [manifest_df[manifest_cols].reset_index(drop=True),
                  metadata_df.reset_index(drop=True)],
                 axis=1
+            )
+            # Remove helper columns if they were included in the metadata_df copy
+            merged.drop(
+                columns=["__id_join__", "__identifier_join__"], 
+                errors="ignore", 
+                inplace=True
             )
             return merged, pd.DataFrame()
 
@@ -194,12 +239,11 @@ def merge_sheets(
         )
         logger.info("Merge completed successfully.")
 
-        # Unmatched = metadata rows with a real identifier that isn’t in manifest
-        in_manifest = metadata_df["__identifier_join__"].isin(
-            manifest_df["__id_join__"]
-        )
+        # Identify unmatched records (rows with an identifier not in manifest)
+        in_manifest = metadata_df["__identifier_join__"].isin(manifest_df["__id_join__"])
         nonempty = metadata_df["__identifier_join__"].notna()
         unmatched = metadata_df[nonempty & ~in_manifest].copy()
+        
         if not unmatched.empty:
             logger.warning("%d unmatched metadata rows found.", len(unmatched))
 
@@ -279,12 +323,14 @@ def main():
     
     logger.info("Saving merged sheet to %s", output_path)
     merged.to_csv(output_path, index=False, encoding='utf-8')
+    print(f"Metadata sheet saved to {output_path}")
 
     # Log unmatched rows from metadata sheet
     if not unmatched.empty:
         log_csv = os.path.join(log_dir, f"{file_prefix}_unmatched.csv")
         logger.warning("Unmatched rows found, writing to %s", log_csv)
         unmatched.to_csv(log_csv, index=False, encoding='utf-8')
+        print(f"Unmatched rows found. Log saved to {log_csv}")
 
     logger.info("Process complete.")
 
