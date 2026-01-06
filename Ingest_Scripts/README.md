@@ -9,6 +9,7 @@
     - [`setup_taxonomy_project.py`](#setup_taxonomy_projectpy)
     - [`setup_taxonomy_ingest.py`](#setup_taxonomy_ingestpy)
     - [`batch_manager.py`](#batch_managerpy)
+    - [`progress_tracker.py`](#progress_trackerpy)
     - [`utilities.py`](#utilitiespy)
     - [`definitions.py`](#definitionspy)
 - [Dependencies](#dependencies)
@@ -69,6 +70,12 @@ This script automates the creation of the local workspace required for a success
 Key Components:
 - **Standardized Batch Hierarchy**: Automatically generates a uniform set of subdirectories (including /configs, /import, /logs, and /media). 
 - **Dynamic YAML Configuration**: Customizes configuration file templates by injecting batch-specific metadata, such as unique batch prefixes, user IDs, and local file paths.
+
+### `progress_tracker.py`
+This script manages real-time status updates during data processing.
+
+Key component:
+- **`ProgressTracker` class**: Tracks metrics such as total_records_processed across an entire session, providing a final summary of work completed once all files have been validated or transformed.
 
 ### `utilities.py`
 Provides cross-script helper functions for file handling and data standardization.
