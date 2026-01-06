@@ -1,16 +1,33 @@
-""" Modules """
+#!/bin/python3 
+
+"""
+Provides progress tracking and CLI feedback for multi-file processing tasks.
+
+This module contains the ProgressTracker class, which manages state for record-level
+and file-level progress, supporting real-time updates and user cancellation in 
+threaded environments.
+"""
+
+# --- Modules ---
 
 # Import standard modules
 import os
 import threading
 
 
-""" Class """
+# --- Class ---
 
 class ProgressTracker:
+    """
+    Track and display processing progress for files and records in a CLI environment.
+
+    The tracker manages internal counters for files and records and uses terminal 
+    escape characters to provide dynamic, in-place updates to the user.
+    """
+
     def __init__(self):
         """
-        Initialize the CLI-based ProgressTracker.
+        Initialize the ProgressTracker with default tracking variables.
         """
         # Tracking variables
         self.current_file = "No file is being processed."
@@ -22,8 +39,10 @@ class ProgressTracker:
         self.cancel_requested = threading.Event()
 
     def update_progress_texts(self):
-        """ 
-        Update and print progress for files and records.
+        """Update and render current progress metrics to the terminal.
+        
+        This method prints the ratio of processed files and records to the standard
+        output without moving to a new line.
         """
         print(
             f"Files Processed: {self.processed_files}/{self.total_files} | " + 
@@ -34,7 +53,7 @@ class ProgressTracker:
 
     def set_total_files(self, total_files):
         """
-        Set the total number of files to process.
+        Set the total number of files expected for the current batch.
 
         Args:
             total_files (int): The total number of files to be processed.
@@ -45,7 +64,8 @@ class ProgressTracker:
 
     def set_current_file(self, current_file, total_records):
         """
-        Set the current file and total records.
+        Update the tracker to reflect the file currently under process.
+        
 
         Args:
             current_file (str): The name of the file being processed.
@@ -61,10 +81,12 @@ class ProgressTracker:
 
     def update_processed_records(self, is_last=False):
         """
-        Update the number of processed records.
+        Increment the record count and refresh the CLI progress line.
 
         Args:
             is_last (bool): Whether this is the last record in the current file.
+            If True, clears the line and moves to a new line to prepare for the 
+            next file or process completion.
         """
         self.processed_records += 1
         self.total_records_processed += 1 
@@ -79,10 +101,12 @@ class ProgressTracker:
         if is_last:
             print()
 
-
     def update_processed_files(self):
         """
-        Update the number of processed files and print final message if done.
+        Increment the completed file count and display a summary of work done.
+        
+        Finalizes the output with a completion message if the processed file 
+        count matches the total files.
         """
         self.processed_files += 1
         print(
@@ -97,9 +121,11 @@ class ProgressTracker:
 
     def cancel_process(self):
         """
-        Signal to cancel the process and forcefully exit if needed.
+        Signal a cancellation event and terminate the process immediately.
+        
+        Sets the internal threading event and uses os._exit to forcefully 
+        shut down the script and all associated threads.
         """
         self.cancel_requested.set()
         print("\nProcessing canceled by the user.")
         os._exit(0)
-        
