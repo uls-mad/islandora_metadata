@@ -41,27 +41,13 @@ except ImportError:
 import pandas as pd
 
 # Import local modules
-from definitions import COPYRIGHT_STATUS_MAPPING, TYPE_MAPPING, LANGUAGE_MAPPING
+from definitions import COPYRIGHT_STATUS_MAPPING, TYPE_MAPPING, LANGUAGE_MAPPING, ALLOWED_CONTENT_TYPES
 from utilities import *
 
 
 # ---------------------------------------------------------------------------
-# Constants
+# Constant
 # ---------------------------------------------------------------------------
-
-ALLOWED_CONTENT_TYPES: Set[str] = {
-    "av",
-    "interview",
-    "musical_recording",
-    "image",
-    "japanese_prints"
-    "photograph",
-    "map",
-    "book",
-    "manuscript",
-    "notated_music",
-    "serial",
-}
 
 OBLIGATION_LEVELS: List[str] = [
     "",

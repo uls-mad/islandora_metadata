@@ -146,6 +146,20 @@ PARENT_MODELS = [
     'Publication Issue',
 ]
 
+ALLOWED_CONTENT_TYPES = [
+    "av",
+    "interview",
+    "musical_recording",
+    "image",
+    "japanese_prints"
+    "photograph",
+    "map",
+    "book",
+    "manuscript",
+    "notated_music",
+    "serial",
+]
+
 
 # --- Mappings ---
 
