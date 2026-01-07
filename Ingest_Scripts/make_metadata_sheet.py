@@ -2,15 +2,17 @@
 
 """Merge manifest and metadata Google Sheets using flexible identifier rules.
 
-This script automates the merging of a manifest Google Sheet with a metadata 
-Google Sheet. It supports two primary workflows:
+This script automates the merging of a manifest Google Sheet with one or more 
+metadata Google Sheets. It supports two primary workflows:
 1. ID-Based Merge: If metadata identifiers exist, it performs a left join 
-   between manifest 'id' and metadata 'identifier'.
-2. Direct Append: If no identifiers are present in the metadata, columns 
-   are appended directly to the manifest rows.
-
-Unmatched records (metadata identifiers not found in the manifest) are 
-logged to a separate CSV for review.
+   between manifest 'id' and metadata 'identifier'. Unmatched records are logged 
+   to a separate CSV for review.
+2. Direct Append: If no identifiers are present in the metadata (e.g., in the 
+    case of a metadata template), columns are appended directly to the manifest 
+    rows. If a content types is provided, the script will fetch the metadata 
+    template for that content type. If more than one content type is provided, 
+    the script will aggregate metadata from all corresponding templates before 
+    performing the join. 
 """
 
 # --- Modules ---
@@ -40,7 +42,6 @@ METADATA_TEMPLATE_MAPPING = {
     "image":                "1DamM4LiGOG0fjMUx_RrODgORX6EiNHbG_SIoKabkn9o",
     "book":                 "1zdgJkH5QCoIWFKHrdC-v2lnTKlQVi_vNg3x59tm5FsM",
     "musical_recording":    "1I8qkiNQN_bcQfS2R_31QbjAIGb9xEuIbrSBBeUIw5vo",
-    "photograph":           "1QRVYJ4441rM0yRSH35UpZWYRLkFpMKNc_212G1dwzUU",
     "japanese_prints":      "17NPFIBTDrtZ7Fk_rkE1EYIk9xBoShoejOfxoTU16c-Y",
 }
 
@@ -52,19 +53,19 @@ def parse_arguments() -> argparse.Namespace:
 
     Required arguments:
         --manifest_id (str): Google Sheet ID for the manifest file.
-        --metadata_id (str): Google Sheet ID for the metadata file.
         --credentials_file (str): Path to the Google service account credentials 
             JSON file.
 
     Optional arguments:
+        --metadata_id (str): Google Sheet ID for a specific metadata file.
+        --content_type (list): One or more content types to use template IDs.
         --manifest_sheet (str): Tab name in the manifest sheet.
         --metadata_sheet (str): Tab name in the metadata sheet.
 
     Returns:
-        argparse.Namespace: Parsed arguments with all required fields
+        argparse.Namespace: Parsed arguments with all required fields 
         guaranteed to be set (via CLI or interactive prompts).
     """
-
     parser = argparse.ArgumentParser(
         description="Merge manifest and metadata Google Sheets."
     )
@@ -85,7 +86,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--metadata_id",
         type=str,
-        help="Google Sheet ID for the metadata file."
+        help="Google Sheet ID for a specific metadata file (overrides templates)."
     )
     parser.add_argument(
         "--metadata_sheet",
@@ -94,7 +95,7 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         "-t", "--content_type",
-        type=str,
+        nargs="+",  # Allows multiple space-separated content types
         help=(
             f"Allowed: {', '.join(sorted(ALLOWED_CONTENT_TYPES))}"
         ),
@@ -108,9 +109,19 @@ def parse_arguments() -> argparse.Namespace:
 
     args = parser.parse_args()
 
-    # Get ID for metadata template, if content_type provided
+    # Determine which Metadata IDs to fetch
+    args.metadata_ids = []
+    
+    # Explicit metadata_id
+    if args.metadata_id:
+        args.metadata_ids.append(args.metadata_id)
+    
+    # Content type templates
     if args.content_type:
-        args.metadata_id = METADATA_TEMPLATE_MAPPING.get(args.content_type)
+        for ct in args.content_type:
+            tid = METADATA_TEMPLATE_MAPPING.get(ct)
+            if tid and tid not in args.metadata_ids:
+                args.metadata_ids.append(tid)
 
     # Prompt for required arguments if missing
     if not args.batch_path:
@@ -121,12 +132,48 @@ def parse_arguments() -> argparse.Namespace:
         args.manifest_id = prompt_for_input(
             "Enter the Google Sheet ID for the manifest: "
         )
-    if not args.metadata_id:
-        args.metadata_id = prompt_for_input(
+    if not args.metadata_ids:
+        val = prompt_for_input(
             "Enter the Google Sheet ID for the metadata: "
         )
+        args.metadata_ids.append(val)
 
     return args
+
+
+def get_merged_column_order(dfs: list[pd.DataFrame]) -> list[str]:
+    """Build a master column list that preserves the relative order of columns.
+
+    Iterate through a sequence of DataFrames and construct a deduplicated list
+    of all column names. For new columns, the function attempts to maintain 
+    their original relative positioning by inserting them immediately after 
+    their predecessor from the source DataFrame.
+
+    Args:
+        dfs (list[pd.DataFrame]): A list of pandas DataFrames whose headers 
+            need to be merged.
+
+    Returns:
+        list[str]: A master list of unique column names ordered according 
+            to their relative positions across all input DataFrames.
+    """
+    master_order = []
+    for df in dfs:
+        for col in df.columns:
+            if col not in master_order:
+                # Basic relative insertion: find the predecessor in current df
+                col_list = list(df.columns)
+                idx = col_list.index(col)
+                if idx == 0:
+                    master_order.insert(0, col)
+                else:
+                    prev_col = col_list[idx-1]
+                    if prev_col in master_order:
+                        prev_idx = master_order.index(prev_col)
+                        master_order.insert(prev_idx + 1, col)
+                    else:
+                        master_order.append(col)
+    return master_order
 
 
 def _normalize_for_join(series: pd.Series) -> pd.Series:
@@ -140,7 +187,6 @@ def _normalize_for_join(series: pd.Series) -> pd.Series:
             - Values are stripped of whitespace.
             - Empty strings and placeholders ('nan', 'none', 'null', 'n/a', 'na')
               are converted to <NA>.
-            - All other values are preserved as strings.
     """
     s = series.astype(str).str.strip()
     lower = s.str.lower()
@@ -176,7 +222,6 @@ def merge_sheets(
     """
     try:
         # Identify available columns
-        # 'id' is mandatory; 'node_id' is optional
         if "id" not in manifest_df.columns:
             msg = "Manifest is missing the required column: 'id'"
             logger.error(msg)
@@ -197,12 +242,11 @@ def merge_sheets(
 
         if "identifier" not in metadata_df.columns:
             logger.warning(
-                "Metadata sheet is missing the 'identifier' column; " \
-                "adding empty column."
+                "Metadata sheet missing 'identifier' column; adding empty column."
             )
             metadata_df.insert(0, "identifier", pd.NA)
 
-        # Normalize keys for joining
+        # Build join keys
         manifest_df["__id_join__"] = _normalize_for_join(
             manifest_df["id"]
         )
@@ -220,10 +264,11 @@ def merge_sheets(
                  metadata_df.reset_index(drop=True)],
                 axis=1
             )
+
             # Remove helper columns if they were included in the metadata_df copy
             merged.drop(
-                columns=["__id_join__", "__identifier_join__"], 
-                errors="ignore", 
+                columns=["__id_join__", "__identifier_join__"],
+                errors="ignore",
                 inplace=True
             )
             return merged, pd.DataFrame()
@@ -240,14 +285,16 @@ def merge_sheets(
         logger.info("Merge completed successfully.")
 
         # Identify unmatched records (rows with an identifier not in manifest)
-        in_manifest = metadata_df["__identifier_join__"].isin(manifest_df["__id_join__"])
+        in_manifest = metadata_df["__identifier_join__"].isin(
+            manifest_df["__id_join__"]
+        )
         nonempty = metadata_df["__identifier_join__"].notna()
         unmatched = metadata_df[nonempty & ~in_manifest].copy()
         
         if not unmatched.empty:
             logger.warning("%d unmatched metadata rows found.", len(unmatched))
 
-        # Drop helper join columns from merged output
+        # Drop helper columns
         merged.drop(
             columns=["__id_join__", "__identifier_join__"],
             errors="ignore",
@@ -299,23 +346,40 @@ def main():
     logger = setup_logger('make_metadata_sheet', log_path)
 
     # Import Google sheeets
-    logger.info("Reading manifest Google Sheet")
+    # Read Manifest
+    logger.info("Reading manifest Google Sheet: %s", args.manifest_id)
     manifest_df = read_google_sheet(
         args.manifest_id,
         sheet_name=args.manifest_sheet,
         credentials_file=args.credentials_file
     )
 
-    logger.info("Reading metadata Google Sheet")
-    metadata_df = read_google_sheet(
-        args.metadata_id,
-        sheet_name=args.metadata_sheet,
-        credentials_file=args.credentials_file
-    )
+    # Get relevant metadata sheet(s)
+    all_metadata_dfs = []
+    for sheet_id in args.metadata_ids:
+        logger.info("Fetching metadata from: %s", sheet_id)
+        df = read_google_sheet(sheet_id, args.metadata_sheet, args.credentials_file)
 
-    # Merge Google sheets
-    logger.info("Merging sheets")
-    merged, unmatched = merge_sheets(manifest_df, metadata_df, logger)
+        # Check for presence of columns
+        if not df.columns.empty:
+            all_metadata_dfs.append(df)
+        else:
+            logger.warning("Sheet %s has no columns; skipping.", sheet_id)
+
+    if not all_metadata_dfs:
+        logger.error("No metadata structure found in any provided sheets.")
+        return
+
+    # Determine master column order across all templates
+    master_cols = get_merged_column_order(all_metadata_dfs)
+    
+    # Combine data and reorder columns to the master sequence
+    full_metadata_df = pd.concat(all_metadata_dfs, ignore_index=True)
+    full_metadata_df = full_metadata_df[master_cols]
+
+    # Merge manifest and metadata sheets
+    logger.info("Merging sheets...")
+    merged, unmatched = merge_sheets(manifest_df, full_metadata_df, logger)
 
     # Export merged results
     output_dir = os.path.join(args.batch_path, "metadata")
