@@ -24,7 +24,6 @@ Usage:
 
 # Import standard modules
 from __future__ import annotations
-
 import argparse
 import re
 import sys
@@ -37,7 +36,7 @@ try:
 except ImportError:
     TK_AVAILABLE = False
 
-# Import third-party modules
+# Import third-party module
 import pandas as pd
 
 # Import local modules

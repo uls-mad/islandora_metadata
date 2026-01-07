@@ -28,7 +28,7 @@ from pathlib import Path
 import pandas as pd
 from dotenv import load_dotenv
 
-# Import local modules
+# Import local module
 from utilities import prompt_for_input, create_df
 
 

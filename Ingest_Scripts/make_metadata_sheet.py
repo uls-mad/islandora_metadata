@@ -22,9 +22,11 @@ import argparse
 from datetime import datetime
 import logging
 import os
+
+# Import third-party module
 import pandas as pd
 
-# Import local module
+# Import local modules
 from definitions import ALLOWED_CONTENT_TYPES
 from utilities import *
 

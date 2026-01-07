@@ -26,7 +26,7 @@ Usage:
 import os
 import argparse
 
-# Import local modules
+# Import local module
 from utilities import prompt_for_input, create_df
 
 
