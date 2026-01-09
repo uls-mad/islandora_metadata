@@ -35,11 +35,13 @@ import traceback
 import threading
 from queue import Queue
 from datetime import datetime
+from functools import lru_cache
 from typing import Dict, List, Tuple, Union, Optional
 
 # Import third-party modules
 import pandas as pd
 from edtf import parse_edtf
+import requests
 
 # Import local modules
 from utilities import *
@@ -801,57 +803,70 @@ def process_title(record, title_parts):
     return title
 
 
+@lru_cache(maxsize=500)
+def _check_network_status(value: str) -> tuple:
+    """Internal helper to perform the cached HTTP request.
+    
+    Args:
+        value (str): The Node ID to check.
+
+    Returns:
+        tuple: (bool, str) representing (is_valid, error_description).
+            The description is empty if is_valid is True.
+    """
+    url = f"https://i2.digital.library.pitt.edu/node/{value}"
+    try:
+        response = requests.head(url, allow_redirects=True, timeout=10)
+        
+        if response.status_code == 404: # Page Not Found - node doesn't exist
+            return False, f"URL returned 404: {url}"
+            
+        if response.status_code in [
+            200, # OK - published
+            301, # Moved Permanently - redirect to published collection page
+            403, # Forbidden - unpublised collection page
+        ]:
+            print(response.status_code)
+            return True, ""
+        
+        return False, f"Unexpected Status Code {response.status_code}: {url}"
+
+    except requests.exceptions.RequestException as e:
+        return False, f"HTTP Request Failed: {str(e)}"
+
+
 def validate_collection_id(
     pid: str, 
     value: str
-) -> str:
-    """Map a collection identifier to its corresponding system Node ID.
+) -> bool:
+    """Verify if a collection node ID is valid.
 
-    This function attempts to resolve collection identifiers using the 
-    `COLLECTION_NODE_MAPPING` DataFrame. If the value is already a valid 
-    `node_id` or can be mapped from a legacy `id`, the resolved Node ID 
-    is returned. 
-
-    If no mapping is found, an exception is logged, but the function returns 
-    the original `value`. This preserves the data in the output CSV for 
-    manual remediation.
+    This function builds a URL for a collection in I2 using the given value, 
+    checks if the URL resolves, returns a Boolean for the validation check, and 
+    logs an exception for the specific record PID if the validation fails. It 
+    uses an internal LRU cache to avoid redundant network requests for the same 
+    collection ID.
 
     Args:
-        pid: The unique identifier for the current record (used for error logging).
-        value: The collection ID or PID string to be validated and mapped.
+        pid (str): The unique identifier for the current record (used for logging).
+        value (str): The collection node ID to be validated.
 
     Returns:
-        str: The resolved Node ID if found; otherwise, the original input value.
-
-    Side Effects:
-        Logs a 'node ID not found' exception via `add_exception` if the 
-        identifier cannot be resolved.
+        bool: True if the status code is 200, 301, or 403; False if 404 
+            or if the request fails.
     """
-    # Step 1: Check if the value is already a valid node_id
-    match_exists = not COLLECTION_NODE_MAPPING.loc[
-        COLLECTION_NODE_MAPPING["node_id"] == value
-    ].empty
-
-    if match_exists:
-        return value
-
-    # Step 2: Attempt to map from legacy 'id' to 'node_id'
-    mapping = COLLECTION_NODE_MAPPING.loc[
-        COLLECTION_NODE_MAPPING["id"] == value, "node_id"
-    ]
-
-    if not mapping.empty:
-        return mapping.iloc[0]
-
-    # Step 3: No match found—log the error but return the original value
-    add_exception(
-        pid,
-        "field_member_of",
-        value,
-        "node ID not found for collection PID"
-    )
+    # Call the cached network function
+    is_valid, error_message = _check_network_status(value)
     
-    return value
+    if not is_valid:
+        add_exception(
+            pid, 
+            "field_member_of", 
+            value, 
+            error_message
+        )
+    
+    return is_valid
 
 
 def validate_domain(pid: str, value: str) -> bool:
