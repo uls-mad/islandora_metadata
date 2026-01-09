@@ -48,6 +48,7 @@ def setup_batch_directory(
 
 def prepare_config(
     batch_prefix: str,
+    batch_file: str,
     batch_path: str, 
     batch_dir: str, 
     user_id: str,
@@ -57,7 +58,8 @@ def prepare_config(
     Read and customize the import config file for a specific batch.
 
     Args:
-        batch_prefix (str): 
+        batch_prefix (str): Pattern used for naming output batch files.
+        batch_file (str): CSV filename for output batch file. 
         batch_path (str): Full path to the root of the batch folder.
         batch_dir (str): Name of the batch directory (used in config substitutions).
         batch_count (int): The current batch number. 
@@ -89,6 +91,7 @@ def prepare_config(
     content = content.replace("[IMPORT_PASSWORD]", import_password)
     content = content.replace("[BATCH_DIRECTORY]", batch_dir)
     content = content.replace("[BATCH_PREFIX]", batch_prefix)
+    content = content.replace("[BATCH_FILE]", batch_file)
     content = content.replace("[USER_ID]", user_id)
 
     # Uncomment additional media file types in batch

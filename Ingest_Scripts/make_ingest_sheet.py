@@ -413,21 +413,22 @@ def flush_batch(
     Returns:
         pd.DataFrame: DataFrame written from records buffer.
     """
-    # --- Step 1: Write Batch CSV ---
+    # Write batch CSV
     sub_batch_prefix = f"{config.file_prefix}_{batch_count}_ingest_" + \
         config.metadata_level
     sub_batch_file = f"{sub_batch_prefix}.csv"
     sub_batch_path = os.path.join(config.output_path, sub_batch_file)
     records_df = records_to_csv(buffer, sub_batch_path)
 
-    # --- Step 2: Check for Additional Media Files  ---
+    # Check for additional media files
     media_files = []
     if "transcript" in records_df.columns: # Can extend to add more media files
         media_files.append("transcript")
 
-    # --- Step 3: Prepare Config File ---
+    # Prepare config file
     prepare_config(
         sub_batch_prefix,
+        sub_batch_file,
         config.batch_path,
         config.batch_dir,
         config.user_id,
