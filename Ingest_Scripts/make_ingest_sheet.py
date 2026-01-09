@@ -826,7 +826,6 @@ def _check_network_status(value: str) -> tuple:
             301, # Moved Permanently - redirect to published collection page
             403, # Forbidden - unpublised collection page
         ]:
-            print(response.status_code)
             return True, ""
         
         return False, f"Unexpected Status Code {response.status_code}: {url}"

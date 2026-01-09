@@ -310,12 +310,6 @@ taxonomies_csv = os.path.join(
 )
 TAXONOMIES = create_df(taxonomies_csv)
 
-# Read in collection node mapping
-collection_node_mapping_csv = os.path.join(
-    "Utility_Files", "collection_node_mapping.csv"
-)
-COLLECTION_NODE_MAPPING = create_df(collection_node_mapping_csv)
-
 # Read in language mapping as Dict
 language_mapping_csv = os.path.join(
     "Utility_Files", "language_mapping.csv"
