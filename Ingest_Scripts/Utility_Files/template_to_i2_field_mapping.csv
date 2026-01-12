@@ -14,22 +14,22 @@ publication_place,field_place_publication,"Text (plain, long)",,
 frequency,field_frequency,"Text (plain, long)",,
 language,field_language,Entity reference,Language,
 description,field_description_long,"Text (formatted, long)",,
-creator_person,field_linked_agent,Typed relation,Person,relator:cre:person:
-creator_corporate,field_linked_agent,Typed relation,Corporate Body,relator:cre:corporate_body:
-creator_conference,field_linked_agent,Typed relation,Conference,relator:cre:conference:
-creator_family,field_linked_agent,Typed relation,Family,relator:cre:family:
-interviewee,field_linked_agent,Typed relation,Person,relator:ive:person:
-interviewer,field_linked_agent,Typed relation,Person,relator:ivr:person:
-conductor,field_linked_agent,Typed relation,Person,relator:cnd:person:
-instrumentalist,field_linked_agent,Typed relation,Person,relator:itr:person:
-singer,field_linked_agent,Typed relation,Person,relator:sng:person:
-photographer_person,field_linked_agent,Typed relation,Person,relator:pht:person:
-photographer_corporate,field_linked_agent,Typed relation,Corporate Body,relator:pht:corporate_body:
-composer,field_linked_agent,Typed relation,Person,relator:cmp:person:
-lyricist,field_linked_agent,Typed relation,Person,relator:lyr:person:
-arranger,field_linked_agent,Typed relation,Person,relator:arr:person:
-contributor_person,field_linked_agent,Typed relation,Person,relator:ctb:person:
-contributor_corporate,field_linked_agent,Typed relation,Corporate Body,relator:ctb:corporate_body:
+creator_person,field_linked_agent,Typed relation,Person,relators:cre:person:
+creator_corporate,field_linked_agent,Typed relation,Corporate Body,relators:cre:corporate_body:
+creator_conference,field_linked_agent,Typed relation,Conference,relators:cre:conference:
+creator_family,field_linked_agent,Typed relation,Family,relators:cre:family:
+interviewee,field_linked_agent,Typed relation,Person,relators:ive:person:
+interviewer,field_linked_agent,Typed relation,Person,relators:ivr:person:
+conductor,field_linked_agent,Typed relation,Person,relators:cnd:person:
+instrumentalist,field_linked_agent,Typed relation,Person,relators:itr:person:
+singer,field_linked_agent,Typed relation,Person,relators:sng:person:
+photographer_person,field_linked_agent,Typed relation,Person,relators:pht:person:
+photographer_corporate,field_linked_agent,Typed relation,Corporate Body,relators:pht:corporate_body:
+composer,field_linked_agent,Typed relation,Person,relators:cmp:person:
+lyricist,field_linked_agent,Typed relation,Person,relators:lyr:person:
+arranger,field_linked_agent,Typed relation,Person,relators:arr:person:
+contributor_person,field_linked_agent,Typed relation,Person,relators:ctb:person:
+contributor_corporate,field_linked_agent,Typed relation,Corporate Body,relators:ctb:corporate_body:
 subject_name_person,field_subjects_name,Entity reference,Person,person:
 subject_name_corporate,field_subjects_name,Entity reference,Corporate Body,corporate_body:
 subject_name_conference,field_subjects_name,Entity reference,Conference,conference:
