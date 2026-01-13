@@ -37,6 +37,7 @@ from queue import Queue
 from datetime import datetime
 from functools import lru_cache
 from typing import Dict, List, Tuple, Union, Optional
+from pathlib import Path
 
 # Import third-party modules
 import pandas as pd
@@ -130,47 +131,57 @@ def parse_arguments() -> AppConfig:
         "-t", "--ingest_task", 
         type=str, 
         choices=["create", "update"], 
-        help="Workbench task: 'create' or 'update'.")
+        help="Workbench task: 'create' or 'update'."
+    )
     parser.add_argument(
         "-b", "--batch_path", 
         type=str, 
-        help="Path to a batch directory for Workbench ingests.")
+        help="Path to a batch directory for Workbench ingests."
+    )
     parser.add_argument(
         "-z", "--batch_size", 
         type=int, 
         default=DEFAULT_BATCH_SIZE, 
-        help=f"Number of records per batch (default: {DEFAULT_BATCH_SIZE})")
+        help=f"Number of records per batch (default: {DEFAULT_BATCH_SIZE})"
+    )
     parser.add_argument(
         "-m", "--manifest_id", 
         type=str, 
-        help="Google Sheet ID for the manifest file.")
+        help="Google Sheet ID for the manifest file."
+    )
     parser.add_argument(
         "--manifest_sheet", 
         type=str, 
-        help="Path to manifest on local device (optional).")
+        help="Path to manifest on local device (optional)."
+    )
     parser.add_argument(
         "-d", "--metadata_id", 
         type=str, 
-        help="Google Sheet ID for the metadata file.")
+        help="Google Sheet ID for the metadata file."
+    )
     parser.add_argument(
         "--metadata_sheet", 
         type=str, 
-        help="Path to metadata sheet on local device (optional).")
+        help="Path to metadata sheet on local device (optional)."
+    )
     parser.add_argument(
         "-c", "--credentials_file", 
         type=str, 
         default="/workbench/etc/google_ulswfown_service_account.json",
-        help="Path to the Google service account credentials JSON.")
+        help="Path to the Google service account credentials JSON."
+    )
     parser.add_argument(
         "-l", "--metadata_level", 
         type=str, 
-        choices=["minimal", "complete"], 
-        help="Metadata detail level: 'minimal' or 'complete'.")
+        choices=["minimal", "complete", "publish"], 
+        help="Metadata detail level: 'minimal', 'complete', or 'publish'."
+    )
     parser.add_argument(
         "-p", "--publish", 
         type=str, 
         choices=["y", "n"], 
-        help="Specify whether or not the ingest batch should be published ('y' or 'n').")
+        help="Specify whether or not the ingest batch should be published ('y' or 'n')."
+    )
 
     # Parse initial arguments
     args = parser.parse_args()
@@ -205,8 +216,8 @@ def parse_arguments() -> AppConfig:
         )
     if not args.metadata_level:
         args.metadata_level = prompt_for_input(
-            "Enter the metadata level (minimal/complete): ", 
-            valid_choices=['minimal', 'complete']
+            "Enter the metadata level (minimal, complete, or publish): ", 
+            valid_choices=['minimal', 'complete', 'publish']
         )
     if not args.publish:
         args.publish = prompt_for_input(
@@ -1176,7 +1187,11 @@ def validate_record(record: dict, ingest_sheet: pd.DataFrame) -> dict:
                     )
             elif field == 'field_member_of':
                 continue
-        if len(record[field]) < 1:
+        
+        missing_value = len(record[field]) < 1
+        if missing_value:
+            if field == "id" and "node_id" in record.keys():
+                continue
             add_exception(
                 pid,
                 field,
@@ -1204,6 +1219,16 @@ def remove_vetted_fields(record: Dict) -> Dict:
         for key, value in record.items() 
         if key not in VETTED_FIELDS
     }
+    return filtered_record
+
+
+def keep_publish_fields(record: dict) -> dict:
+    # Define target keys in a set or tuple for faster lookups
+    keep = ("node_id", "published")
+
+    # Create a new dictionary with only the specified keys if they exist
+    filtered_record = {key: record[key] for key in keep if key in record}
+
     return filtered_record
 
 
@@ -1277,8 +1302,8 @@ def records_to_csv(records: list, destination: str):
     df.to_csv(destination, index=False, header=True, encoding='utf-8')
 
     # Report creation of processed CSV path
-    formatted_path = destination.replace("\\", "/")
-    print(f"\nCSV file saved to: {formatted_path}")
+    formatted_path = Path(destination).as_posix()
+    print(f"\nIngest file saved to: {formatted_path}")
 
     return df
 
@@ -1317,13 +1342,18 @@ def process_record(row: dict) -> dict:
     record = initialize_record()
 
     # Add ID to record manually to ensure presence for logging
-    pid = row['identifier']
-    add_value(record, "identifier", "id", pid)
+    pid = row.get('identifier', row.get('field_pid'))
+    #add_value(record, "identifier", "id", pid)
 
     # Initialize title dict to store title components
     title_parts = {}
 
     try:
+        # Validate that a PID exists before proceeding
+        if not pid:
+            pid = "UNKNOWN"
+            raise ValueError("Row missing required 'identifier' or 'field_pid'")
+        
         # Process values in each field
         for csv_field, data in row.items():
             # Confirm that input field is mapped and data exists in field
@@ -1356,7 +1386,6 @@ def process_record(row: dict) -> dict:
                     validate_term(pid, csv_field, value, taxonomy)
                 elif i2_field in DATE_FIELDS:
                     validate_edtf_date(pid, value)
-                
                 # Add CSV data to I2 field
                 if value:
                     add_value(record, csv_field, i2_field, value)
@@ -1413,7 +1442,7 @@ def process_files(
         # --- Stage 1: Initial Data Merge and Preparation ---
         
         # Merge sheets
-        if config.ingest_task == "create":
+        if not manifest_df.empty and not metadata_df.empty:
             ingest_sheet, unmatched_records = merge_sheets(
                 manifest_df, metadata_df, logger
             )
@@ -1422,7 +1451,7 @@ def process_files(
             unmatched_records = pd.DataFrame()
 
         # Handle publication status for batch
-        publish_value = 1 if config.publish else 0
+        publish_value = "1" if config.publish else "0"
         ingest_sheet['published'] = publish_value
 
         # Log unmatched rows from metadata sheet
@@ -1458,11 +1487,16 @@ def process_files(
             record_count += 1
             
             # Process record
-            record = process_record(row)
+            if config.metadata_level == "publish":
+                record = keep_publish_fields(row)
+            else:
+                record = process_record(row)
+            
             if record:
-                record = validate_record(record, ingest_sheet)
-                if config.metadata_level == "minimal": # Use config
-                    record = remove_vetted_fields(record) 
+                if config.metadata_level != "publish":
+                    record = validate_record(record, ingest_sheet)
+                if config.metadata_level == "minimal":
+                    record = remove_vetted_fields(record)
                 record = format_record(record)
                 buffer.append(record)
             else:
