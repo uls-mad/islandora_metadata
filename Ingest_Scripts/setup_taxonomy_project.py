@@ -103,7 +103,7 @@ def process_taxonomy_metadata(df):
     # Merge counts back into the unique dataframe
     df = df.merge(counts, on=["field", "value", "exception"], how="left")
 
-    # Initialize standard empty columns
+    # Initialize empty standard columns
     df["term_name"] = ""
     df["uri"] = ""
 

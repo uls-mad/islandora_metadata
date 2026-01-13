@@ -42,6 +42,7 @@ VOCAB_MAPPING = {
     "source_collection": "source_collection",
     "source_collection_id": "source_collection_identifier",
     "source_repository": "source_repository",
+    "subject_genre": "subject_genre",
     "subject_geographic": "geo_location",
     "subject_name_conference": "person",
     "subject_name_corporate": "corporate_body",
@@ -68,6 +69,11 @@ VOCAB_MAPPING = {
     "singer": "person",
 }
 
+DESC_FIELDS = [
+    "genre", 
+    "genre_japanese_prints", 
+    "source_collection"
+]
 
 # --- Functions ---
 
@@ -158,50 +164,55 @@ def main():
         print(f"Error: Missing columns {missing}")
         sys.exit(1)
 
+    # Map vocab_id by field
+    df["vocab_id"] = df["field"].map(VOCAB_MAPPING)
+    if df["vocab_id"].isnull().any():
+        print(
+            f"Error: Unmapped fields found: {
+                df[df['vocab_id'].isnull()]['field'].unique()
+            }"
+            )
+        sys.exit(1)
+
     commands = []
 
-    # Process each field group
-    for field, group in df.groupby("field"):
-        vocab_id = VOCAB_MAPPING.get(field)
-        if not vocab_id:
-            print(f"Error: No vocabulary mapping for field {field}")
-            sys.exit(1)
-
-        # Build ingest sheet
-        ingest_data = {"term_name": group["term_name"].tolist()}
+   # Process each vocab_id group
+    for vocab_id, group in df.groupby("vocab_id"):
         
-        # Add authority link fields based on field type
-        is_source = "source_" in field
-        if field != "format" and not is_source:
-            # Determine correct authority column name
-            if field in ["creator_conference", "subject_name_conference"]:
-                auth_col = "field_authority_sources_conf"
-            elif field == "subject_genre":
-                auth_col = "field_authority_sources_subj_gen"
-            elif field == "subject_title":
-                auth_col = "field_authority_sources_subj_ti"
-            else:
-                auth_col = "field_authority_link"
-
-            # Build authority values from URI logic
-            auth_values = []
-            for uri in group["uri"]:
+        # Build ingest sheet
+        rows_to_ingest = []
+        for _, row in group.iterrows():
+            field = row["field"]
+            uri = row["uri"]
+            term_entry = {"term_name": row["term_name"]}
+            
+            # Add authority link fields
+            is_source = "source_" in field
+            if not is_source and field != "format":
+                # Determine correct authority column name
+                if vocab_id == "conference":
+                    auth_col = "field_authority_sources_conf"
+                elif vocab_id == "subject_genre":
+                    auth_col = "field_authority_sources_subj_gen"
+                elif vocab_id == "subject_title":
+                    auth_col = "field_authority_sources_subj_ti"
+                else:
+                    auth_col = "field_authority_link"
+                
+                # Build authority values
                 src = get_authority_source(uri)
                 clean_uri = uri.replace("%3A", ":").replace("%2F", "/")
-                auth_values.append(f"{src}%%{clean_uri}")
-            ingest_data[auth_col] = auth_values
+                term_entry[auth_col] = f"{src}%%{clean_uri}"
 
-        # Add description column, if applicable
-        desc_fields = [
-            "genre", 
-            "genre_japanese_prints", 
-            "source_collection"
-        ]
-        if field in desc_fields and "description" in group.columns:
-            ingest_data["description"] = group["description"].tolist()
+            # Add description column, if applicable
+            if field in DESC_FIELDS and "description" in row \
+                and pd.notna(row["description"]):
+                term_entry["description"] = row["description"]
+            
+            rows_to_ingest.append(term_entry)
 
         # Save ingest CSV
-        ingest_df = pd.DataFrame(ingest_data)
+        ingest_df = pd.DataFrame(rows_to_ingest)
         ingest_name = f"taxonomy_{vocab_id}_batch.csv"
         ingest_path = os.path.join(project_dir, ingest_name)
         ingest_df.to_csv(ingest_path, index=False, encoding="utf-8")
