@@ -1,5 +1,5 @@
 field,machine_name,field_type,taxonomy,prefix
-identifier,field_pid,Text (plain),,
+identifier,field_pid,Text (plain),,pitt:
 title,field_full_title,"Text (formatted, long)",,
 edition,field_edition,"Text (formatted, long)",,
 volume,field_full_title,"Text (formatted, long)",,
