@@ -1,4 +1,4 @@
-task: create
+task: [INGEST_TASK]
 host: "https://i2.digital.library.pitt.edu/"
 username: ingester
 password: [IMPORT_PASSWORD]

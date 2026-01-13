@@ -53,6 +53,7 @@ def prepare_config(
     batch_path: str, 
     batch_dir: str, 
     user_id: str,
+    ingest_task: str,
     media_files: list[str]
 ):
     """
@@ -66,6 +67,7 @@ def prepare_config(
         batch_count (int): The current batch number. 
         timestamp (str): Timestamp string used in filenames.
         user_id (str): User ID to insert into the config.
+        ingest_task (str): Ingest task to insert into the config.
         media_files (list): I2 fields for additional media files.
 
     Returns:
@@ -94,6 +96,7 @@ def prepare_config(
     content = content.replace("[BATCH_PREFIX]", batch_prefix)
     #content = content.replace("[BATCH_FILE]", batch_file)
     content = content.replace("[USER_ID]", user_id)
+    content = content.replace("[INGEST_TASK]", ingest_task)
 
     # Uncomment additional media file types in batch
     if media_files:

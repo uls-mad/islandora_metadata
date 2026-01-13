@@ -445,6 +445,7 @@ def flush_batch(
         config.batch_path,
         config.batch_dir,
         config.user_id,
+        config.ingest_task,
         media_files,
     )
 
