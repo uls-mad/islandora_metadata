@@ -4,6 +4,7 @@
 
 # Import standard modules
 import os
+from pathlib import Path
 
 # Import third-party module
 import pandas as pd
@@ -91,7 +92,7 @@ def prepare_config(
     content = content.replace("[IMPORT_PASSWORD]", import_password)
     content = content.replace("[BATCH_DIRECTORY]", batch_dir)
     content = content.replace("[BATCH_PREFIX]", batch_prefix)
-    content = content.replace("[BATCH_FILE]", batch_file)
+    #content = content.replace("[BATCH_FILE]", batch_file)
     content = content.replace("[USER_ID]", user_id)
 
     # Uncomment additional media file types in batch
@@ -108,5 +109,5 @@ def prepare_config(
     with open(config_dest, "w", encoding="utf-8") as f:
         f.write(content)
 
-    print(f"\nConfig prepared: {config_dest}")
+    print(f"\nConfig file saved to: {Path(config_dest).as_posix()}")
     return config_dest
