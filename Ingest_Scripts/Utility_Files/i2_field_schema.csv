@@ -29,7 +29,6 @@ field_description_long,Description,"Text (formatted, long)",FALSE
 field_table_of_contents,Table Of Contents,"Text (formatted, long)",FALSE
 field_classification,Classification (Text),Text (plain),TRUE
 field_lcc_classification,Library of Congress Classification,Text (plain),TRUE
-field_classification,Classification (Text),Text (plain),TRUE
 field_subject,Subject (Topic),Entity reference,TRUE
 field_subject_genre,Subject (Genre),Entity reference,TRUE
 field_subjects_name,Subject (Name),Entity reference,TRUE
@@ -96,3 +95,4 @@ thumbnail,,Text (plain),FALSE
 thumbnail_large,,Text (plain),FALSE
 field_collection_text,Collection Text,"Text (formatted, long, with summary)",FALSE
 field_main_banner,Main Banner,Image,FALSE
+published,,Boolean,FALSE
