@@ -304,6 +304,12 @@ manifest_field_mapping_csv =  os.path.join(
 )
 MANIFEST_FIELD_MAPPING = create_df(manifest_field_mapping_csv)
 
+# Read in I7-to-I2 CSV field mapping
+i7_to_i2_mapping_csv = os.path.join(
+    "Utility_Files/i7_to_i2_metadata_template_mapping.csv"
+)
+I7_to_I2_MAPPING = create_df(i7_to_i2_mapping_csv)
+
 # Read in taxonomies
 taxonomies_csv = os.path.join(
     "Utility_Files", "taxonomies.csv"

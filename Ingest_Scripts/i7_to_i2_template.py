@@ -40,7 +40,7 @@ except ImportError:
 import pandas as pd
 
 # Import local modules
-from definitions import COPYRIGHT_STATUS_MAPPING, TYPE_MAPPING, LANGUAGE_MAPPING, ALLOWED_CONTENT_TYPES
+from definitions import COPYRIGHT_STATUS_MAPPING, TYPE_MAPPING, LANGUAGE_MAPPING, ALLOWED_CONTENT_TYPES, I7_to_I2_MAPPING
 from utilities import *
 
 
@@ -708,8 +708,7 @@ def main() -> None:
 
     try:
         # Load and prepare the crosswalk mapping
-        mapping_csv = "Utility_Files/i7_to_i2_metadata_template_mapping.csv"
-        mapping_ct = prepare_mapping(mapping_csv, args.content_type)
+        mapping_ct = prepare_mapping(I7_to_I2_MAPPING, args.content_type)
 
         # Ingest source data
         df_in = load_metadata(args)
