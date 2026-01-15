@@ -1,4 +1,4 @@
-# Archival Ingestion & Taxonomy Management Tools
+# Islandora 2 Ingest Workflow Scripts
 
 ## Contents
 - [Overview](#overview)
@@ -12,7 +12,10 @@
     - [`progress_tracker.py`](#progress_trackerpy)
     - [`utilities.py`](#utilitiespy)
     - [`definitions.py`](#definitionspy)
-- [Dependencies](#dependencies)
+- [Requirements](#requirements)
+    - [Software](#software)
+    - [Configuration Templates](#configuration-templates)
+    - [Metadata Schemas, Mappings, and Vocabularies](#metadata-schemas-mappings-and-vocabularies)
 - [License](#license)
 
 ---
@@ -95,12 +98,31 @@ This script serves as the central configuration hub for the entire toolkit, cont
 - **Mappings**: Provides lookups that translate legacy terminology into modern standards.
 - **External Reference Loading**: Dynamically imports and processes external CSV files. This allows schema and taxonomies to be updated outside of Python code.
 
-## Dependencies
+## Requirements
+### Software
 - Python 3.10+
 - pandas: For data transformation and analysis.
 - pathlib: For OS-agnostic path management.
 - python-dotenv: For managing sensitive import credentials.
 - edtf: For extended date-time format validation.
+
+### Configuration Templates
+These files provide the structure for dynamically generated Workbench configurations.
+- **[Utility_Files/create_taxonomy_template.yml](./Utility_Files/create_taxonomy_template.yml)**: Configuration file template for taxonomy term ingests via Workbench; used by `setup_taxonomy_ingest.main()` 
+- **[Utility_Files/default_create_config.yml](./Utility_Files/default_create_config.yml)**: Configuration file template for batch ingests via Workbench; used by `batch_manager.py`.
+
+### Metadata Schemas, Mappings, and Vocabularies
+These files, found in the [Utility Files](./Utility_Files) directory, define how data is transformed from source to target. They are imported in `definitions.py`, converted into `pandas.DataFrame` objects, and stored as constants to be used by other scripts, as detailed below.
+
+| File | Constant | Used By | Primary Use Case |
+| :--- | :--- | :--- | :--- |
+| [i2_field_schema.csv](./Utility_Files/i2_field_schema.csv) | `FIELDS` | `make_ingest_sheet.initialize_record()`,  `make_ingest_sheet.validate_record()`| Core field definitions and technical constraints for I2. |
+| [manifest_to_i2_field_mapping.csv](./Utility_Files/manifest_to_i2_field_mapping.csv) | `MANIFEST_FIELD_MAPPING`  | `make_ingest_sheet.get_mapped_field()` | Maps batch manifest fields to I2 machine names. |
+| [template_to_i2_field_mapping.csv](./Utility_Files/template_to_i2_field_mapping.csv) | `TEMPLATE_FIELD_MAPPING` | `make_ingest_sheet.get_mapped_field()`, `make_ingest_sheet.add_value()` |  Maps I2 Metadata Template fields to I2 machine names. |
+| [i7_to_i2_metadata_template_mapping.csv](./Utility_Files/i7_to_i2_metadata_template_mapping.csv) | `I7_TO_I2_MAPPING` | `i7_to_i2_template.main()` |  Maps legacy Islandora 7 template fields to Islandora 2 template fields. |
+| [language_mapping.csv](./Utility_Files/language_mapping.csv) | `LANGUAGE_MAPPING` | `i7_to_i2_template.process_language()` | MARC Code List for Languages, used to convert 3-letter codes into terms. |
+| [taxonomies.csv](./Utility_Files/taxonomies.csv) | `TAXONOMIES` | `make_ingest_sheet.validate_record()` |  Snapshot of existing taxonomy terms in the repository, used to validate vocabulary terms. |
+
 
 ## License
 This project is available under the MIT License.
