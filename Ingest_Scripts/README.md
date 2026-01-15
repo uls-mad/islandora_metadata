@@ -10,8 +10,8 @@
     - [`setup_taxonomy_ingest.py`](#setup_taxonomy_ingestpy)
     - [`batch_manager.py`](#batch_managerpy)
     - [`progress_tracker.py`](#progress_trackerpy)
-    - [`utilities.py`](#utilitiespy)
     - [`definitions.py`](#definitionspy)
+    - [`utilities.py`](#utilitiespy)
 - [Requirements](#requirements)
     - [Software](#software)
     - [Configuration Templates](#configuration-templates)
@@ -80,6 +80,14 @@ This script manages real-time status updates during data processing.
 Key component:
 - **`ProgressTracker` class**: Tracks metrics such as total_records_processed across an entire session, providing a final summary of work completed once all files have been validated or transformed.
 
+### `definitions.py`
+This script serves as the central configuration hub for the entire toolkit, containing global constants, field lists, and processor mappings.
+
+#### Key Components:
+- **Field Lists**: Defines categories of metadata fields (e.g., `REQUIRED_FIELDS`, `TITLE_FIELDS`) that require specialized handling during data processing.
+- **Mappings**: Provides lookups that translate legacy terminology into modern standards.
+- **External Reference Loading**: Dynamically imports and processes external CSV files. This allows schema and taxonomies to be updated outside of Python code.
+
 ### `utilities.py`
 Provides cross-script helper functions for file handling and data standardization.
 
@@ -89,14 +97,6 @@ Provides cross-script helper functions for file handling and data standardizatio
 - **Adaptive User Interface**: Logic to detect the execution environment (via tkinter) and provide either a graphical folder-selection dialog or a standard CLI prompt, ensuring the scripts work both on local workstations and remote servers.
 - **Standardized Reporting & Logging**: Tools that manage background activity logs and generate standardized reports (e.g., transformation and exception logs), ensuring metadata modifications and flags are documented and easy to review.
 - **Interactive Input Handling**: Robust prompting logic with built-in validation to ensure required script arguments are collected correctly during manual execution.
-
-### `definitions.py`
-This script serves as the central configuration hub for the entire toolkit, containing global constants, field lists, and processor mappings.
-
-#### Key Components:
-- **Field Lists**: Defines categories of metadata fields (e.g., `REQUIRED_FIELDS`, `TITLE_FIELDS`) that require specialized handling during data processing.
-- **Mappings**: Provides lookups that translate legacy terminology into modern standards.
-- **External Reference Loading**: Dynamically imports and processes external CSV files. This allows schema and taxonomies to be updated outside of Python code.
 
 ## Requirements
 ### Software
