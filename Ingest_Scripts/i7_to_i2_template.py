@@ -14,8 +14,8 @@ Main Features:
 - Detailed logging of qualified dates, added columns, and dropped fields.
 
 Usage:
-    python3 i7_to_i2_metadata_template_mapping.py --content_type av
-    python3 i7_to_i2_metadata_template_mapping.py --content_type images books
+    python3 i7_to_i2_template.py --content_type av
+    python3 i7_to_i2_template.py --content_type image book
 """
 
 # ---------------------------------------------------------------------------
@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+import traceback
 from pathlib import Path
 from typing import Callable, Dict, List, Set
 try:
@@ -239,7 +240,7 @@ def ask_for_path(
     return path
 
 
-def load_mapping(mapping_csv: str) -> pd.DataFrame:
+def load_mapping(mapping_df: pd.DataFrame) -> pd.DataFrame:
     """Read, normalize headers, and validate a crosswalk mapping CSV.
 
     This function performs a "fuzzy" header match (case and space insensitive) 
@@ -248,7 +249,7 @@ def load_mapping(mapping_csv: str) -> pd.DataFrame:
     'obligation' values match the project's controlled vocabulary.
 
     Args:
-        mapping_csv: Path to the CSV file containing field mappings.
+        mapping_df: pandas DataFrame containing field mappings.
 
     Returns:
         pd.DataFrame: A cleaned DataFrame with standardized headers: 
@@ -258,42 +259,44 @@ def load_mapping(mapping_csv: str) -> pd.DataFrame:
         ValueError: If required columns are missing or if 'obligation' contains 
             unrecognized values not found in OBLIGATION_LEVELS.
     """
-    # Read the mapping CSV as strings (so nothing is auto-converted to NaN)
-    df = pd.read_csv(mapping_csv, dtype=str, keep_default_na=False)
-
     # Define expected columns in the mapping file
     expected = {"content_type", "i7_field", "i2_field", "obligation"}
 
     # Try to match and normalize column names (case-insensitive)
     rename_cols: Dict[str, str] = {}
     for e in expected:
-        matches = [c for c in df.columns if c.strip().lower() == e]
+        matches = [c for c in mapping_df.columns if c.strip().lower() == e]
         if matches:
             rename_cols[matches[0]] = e
 
     # Apply renaming if any matches were found
     if rename_cols:
-        df = df.rename(columns=rename_cols)
+        mapping_df = mapping_df.rename(columns=rename_cols)
 
     # Verify that all required columns are present
-    missing = expected - set(c.strip().lower() for c in df.columns)
+    missing = expected - set(c.strip().lower() for c in mapping_df.columns)
     if missing:
         raise ValueError(
             "Mapping CSV is missing required columns: {}\nFound columns: {}"
             .format(
                 ", ".join(sorted(missing)),
-                ", ".join(df.columns),
+                ", ".join(mapping_df.columns),
             )
         )
 
     # Strip whitespace from columns to ensure consistent matching
     for col in ["content_type", "i7_field", "i2_field", "obligation"]:
-        df[col] = df[col].astype(str).str.strip()
+        mapping_df[col] = mapping_df[col].astype(str).str.strip()
 
     # Check for and report unknown obligation values, if any
     valid_ob = set(OBLIGATION_LEVELS)
     unknown = sorted(
-        set(df.loc[~df["obligation"].isin(valid_ob), "obligation"])
+        set(
+            mapping_df.loc[
+                ~mapping_df["obligation"].isin(valid_ob), 
+                "obligation"
+            ]
+        )
     )
     if unknown:
         raise ValueError(
@@ -303,10 +306,10 @@ def load_mapping(mapping_csv: str) -> pd.DataFrame:
                 ", ".join(OBLIGATION_LEVELS),
             )
         )
-    return df
+    return mapping_df
 
 
-def prepare_mapping(csv_path: str, content_types: List[str]) -> pd.DataFrame:
+def prepare_mapping(mapping_df: pd.DataFrame, content_types: List[str]) -> pd.DataFrame:
     """Load and filter the crosswalk mapping by requested content types.
 
     Args:
@@ -316,7 +319,7 @@ def prepare_mapping(csv_path: str, content_types: List[str]) -> pd.DataFrame:
     Returns:
         A cleaned and filtered DataFrame of mapping rules.
     """
-    df = load_mapping(csv_path)
+    df = load_mapping(mapping_df)
     # requested = expand_requested_cts(content_types)
     
     mask = df["content_type"].apply(
