@@ -4,6 +4,8 @@ field_pid,field_pid,"Text (plain)",
 node_id,node_id,"Text (plain)",
 title,field_full_title,"Text (plain)",
 file,file,"Text (plain)",
+transcript,,Text (plain),FALSE
+thumbnail,,Text (plain),FALSE
 field_model,field_model,"Entity reference","Islandora Models"
 field_resource_type,field_resource_type,"Entity reference","Resource Types"
 field_member_of,field_member_of,"Entity reference",
