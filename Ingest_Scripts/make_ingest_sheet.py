@@ -792,6 +792,18 @@ def process_model(
         bool: ``True`` if model is found in taxonomy; ``False`` otherwise.
     """
     model = MODEL_MAPPING.get(value)
+
+    # Handle case where model term ID is used instead of label
+    if not model:
+        mask = (
+            (TAXONOMIES["Term ID"] == value) &
+            (TAXONOMIES["Vocabulary"] == "Islandora Models")
+        )
+
+        matching_rows = TAXONOMIES.loc[mask]
+        if not matching_rows.empty:
+            model = matching_rows.iloc[0]
+
     skip = model is None
 
     if skip:
