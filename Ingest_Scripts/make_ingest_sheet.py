@@ -28,6 +28,7 @@ Usage:
 
 # Import standard modules
 import os
+import sys
 import re
 import time
 import argparse
@@ -69,6 +70,7 @@ current_batch = None
 
 DEFAULT_BATCH_SIZE = 10000
 
+LOGGER_NAME = "make_ingest_sheet"
 
 # ---------------------------------------------------------------------------
 # Class
@@ -300,7 +302,7 @@ def _normalize_for_join(series: pd.Series) -> pd.Series:
     return s
 
 
-def merge_sheets(manifest_df, metadata_df, logger):
+def merge_sheets(manifest_df, metadata_df):
     """Merge manifest and metadata DataFrames and validate data integrity.
 
     This function aligns file-level manifest data with descriptive metadata. It
@@ -310,13 +312,14 @@ def merge_sheets(manifest_df, metadata_df, logger):
     Args:
         manifest_df (pd.DataFrame): The primary manifest sheet containing file info.
         metadata_df (pd.DataFrame): The supplemental descriptive metadata sheet.
-        logger (logging.Logger): Logger instance for status and mismatch reporting.
 
     Returns:
         tuple[pd.DataFrame, pd.DataFrame]: A tuple containing:
             - ingest_sheet: The merged and resolved master DataFrame.
             - unmatched: Rows from the merge that failed to find metadata.
     """
+    logger = logging.getLogger(LOGGER_NAME)
+    
     # Define the required and applicable optional columns
     required_columns = [
         "id",
@@ -499,11 +502,14 @@ def get_mapped_field(
             ['machine_name', 'taxonomy']
         ]
         if match.empty:
+            log_msg = f'could not find matching I2 field for CSV field'\
+                f' "{csv_field}" with data "{data}"'
             add_exception(
                 pid,
                 csv_field,
                 data,
-                "could not find matching I2 field"
+                "could not find matching I2 field",
+                log_msg
             )
             return None, None
 
@@ -523,7 +529,8 @@ def add_exception(
     pid: str, 
     field: str, 
     value: Union[str, List[str]], 
-    exception: str
+    exception: str,
+    log_msg: str = None,
 ) -> None:
     """Add an exception record to the exceptions list.
 
@@ -532,7 +539,9 @@ def add_exception(
         field (str): The field where the exception occurred.
         value (Union[str, list]): The value associated with the exception.
         exception (str): A description of the exception.
+        log_msg (str): Message to send to logger.
     """
+    # Add exception to CSV log
     exceptions.append({
         # "file": current_file,
         "batch": current_batch,
@@ -541,6 +550,12 @@ def add_exception(
         "value": value,
         "exception": exception
     })
+    if not log_msg:
+        # Build log message
+        log_msg = f'{exception} in field "{field}" with value "{value}"'
+
+        # Send message to logger
+        logging.getLogger(LOGGER_NAME).error(f"Record {pid}:" + log_msg)
 
 
 def add_transformation(
@@ -560,13 +575,13 @@ def add_transformation(
         transformation (str): A description of the transformation.
     """
     transformations.append({
-        "File": current_file,
+        # "file": current_file,
         "batch": current_batch,
-        "PID": pid,
-        "Field": field,
-        "Old_Value": old_value,
-        "New_Value": new_value,
-        "Transformation": transformation
+        "pid": pid,
+        "field": field,
+        "old_value": old_value,
+        "new_value": new_value,
+        "transformation": transformation
     })
 
 
@@ -603,8 +618,8 @@ def remove_whitespaces(text: str, allow_newlines: bool = False) -> str:
     newlines; otherwise, collapse all whitespace into a single line.
 
     Args:
-        text: The raw input string to be cleaned.
-        allow_newlines: Whether to preserve up to two consecutive newlines. 
+        text (str): The raw input string to be cleaned.
+        allow_newlines (bool): Whether to preserve up to two consecutive newlines. 
             Defaults to False (single-line output).
 
     Returns:
@@ -664,8 +679,10 @@ def get_parent_domain(df: pd.DataFrame, pid: str, parent_id: str) -> list[str]:
             # ]
             
     except Exception as e:
-        message = f"error retrieving parent domain: {e}"
-        add_exception(pid, "field_domain_access", None, message)
+        logging.getLogger(LOGGER_NAME).error(
+            f"Record {pid}: an error occurred retrieving parent domain:", 
+            exc_info=True
+        )
 
     return parent_domains
    
@@ -701,11 +718,13 @@ def add_value(
         - Logs an error via `add_exception` if the target `field` is not provided.
     """
     if not field:
+        log_msg = f'missing I2 field for value {value} from CSV field {csv_field}.'
         add_exception(
             record['id'][0],
             None,
             value, 
-            f"missing I2 field for value from CSV field {csv_field}"
+            f"missing I2 field for value from CSV field {csv_field}",
+            log_msg
         )
         return None
 
@@ -764,10 +783,10 @@ def process_model(
     returns ``False``.
 
     Args:
-        record: The record being processed. Must contain an ``"id"`` key whose
+        record (dict): The record being processed. Must contain an ``"id"`` key whose
             first element is used for logging.
-        field: The CSV field name associated with the value.
-        value: The object model identifier to validate and map.
+        field (str): The CSV field name associated with the value.
+        value (str): The object model identifier to validate and map.
 
     Returns:
         bool: ``True`` if model is found in taxonomy; ``False`` otherwise.
@@ -874,7 +893,7 @@ def validate_collection_id(
             pid, 
             "field_member_of", 
             value, 
-            error_message
+            f"invalid collection node ID: {error_message}"
         )
     
     return is_valid
@@ -999,7 +1018,11 @@ def validate_coordinates(pid: str, value: str) -> bool:
     def fail(message: str) -> bool:
         """Log invalid coordinate and return False."""
         try:
-            add_exception(pid, "field_coordinates", value, message)
+            add_exception(
+                pid, 
+                "field_coordinates", 
+                value, 
+                f"invalid coordinates: {message}")
         except NameError:
             pass
         return False
@@ -1159,7 +1182,7 @@ def validate_record(record: dict, ingest_sheet: pd.DataFrame) -> dict:
                         pid,
                         field,
                         value,
-                        f"Expected an integer, but got " +
+                        f"expected an integer, but got " +
                         f"{type(value).__name__}: {value}",
                     )
 
@@ -1186,6 +1209,7 @@ def validate_record(record: dict, ingest_sheet: pd.DataFrame) -> dict:
                         'field_domain_access', 
                         domain
                     )
+            # Skipping since children do not get collection associations
             elif field == 'field_member_of':
                 continue
         
@@ -1197,7 +1221,7 @@ def validate_record(record: dict, ingest_sheet: pd.DataFrame) -> dict:
                 pid,
                 field,
                 None,
-                f"record missing required {field}",
+                f"record missing required field",
             )
 
     return record
@@ -1206,14 +1230,14 @@ def validate_record(record: dict, ingest_sheet: pd.DataFrame) -> dict:
 def remove_vetted_fields(record: Dict) -> Dict:
     """
     Removes keys from a record dictionary that are present in the 
-    CONTROLLED_FIELDS list.
+    VETTED_FIELDS list.
 
     Args:
         record (Dict): The input dictionary (a single record) to be processed.
 
     Returns:
         Dict: A new dictionary containing only the fields that are NOT in
-              CONTROLLED_FIELDS.
+              VETTED_FIELDS.
     """
     filtered_record = {
         key: value 
@@ -1304,7 +1328,7 @@ def records_to_csv(records: list, destination: str):
 
     # Report creation of processed CSV path
     formatted_path = Path(destination).as_posix()
-    print(f"\nIngest file saved to: {formatted_path}")
+    print(f"\nIngest file saved: {formatted_path}")
 
     return df
 
@@ -1344,7 +1368,6 @@ def process_record(row: dict) -> dict:
 
     # Add ID to record manually to ensure presence for logging
     pid = row.get('identifier', row.get('field_pid'))
-    #add_value(record, "identifier", "id", pid)
 
     # Initialize title dict to store title components
     title_parts = {}
@@ -1370,6 +1393,7 @@ def process_record(row: dict) -> dict:
             else:
                 values = [remove_whitespaces(data)]
 
+            # Process data
             for value in values:
                 # Transform values that require remediation
                 if i2_field == "field_full_title":
@@ -1378,7 +1402,7 @@ def process_record(row: dict) -> dict:
                 elif i2_field == "field_model":
                     process_model(record, csv_field, value)
                 elif i2_field == "field_member_of":
-                    value = validate_collection_id(pid, value)
+                    validate_collection_id(pid, value)
                 elif i2_field == "field_domain_access":
                     validate_domain(pid, value)
                 elif i2_field == "field_coordinates":
@@ -1395,16 +1419,18 @@ def process_record(row: dict) -> dict:
         process_title(record, title_parts)
 
     except Exception as e:
-        print(f"Error processing row {pid}: {e}")
-        print(traceback.format_exc())
-        add_exception(pid, "row_error", "", str(e))
+        logging.getLogger(LOGGER_NAME).error(
+            f"An error occurred processing record {pid}: {e}", 
+            exc_info=True
+        )
+
+        return None
 
     return record
 
 
 def process_files(
     progress_queue: Queue,
-    logger: logging.Logger,
     tracker: ProgressTracker, 
     manifest_df: pd.DataFrame, 
     metadata_df: pd.DataFrame, 
@@ -1424,7 +1450,6 @@ def process_files(
 
     Args:
         progress_queue: Thread-safe queue for UI/console progress updates.
-        logger: Logger instance for recording process milestones and errors.
         tracker: ProgressTracker instance for monitoring the current file state.
         manifest_df: DataFrame containing the manifest data.
         metadata_df: DataFrame containing the metadata records.
@@ -1438,14 +1463,16 @@ def process_files(
         - Communicates with the main thread via `progress_queue`.
     """
     global current_batch
-    
+    unexpected_failure_count = 0
+    logger = logging.getLogger(LOGGER_NAME)
+
     try:
         # --- Stage 1: Initial Data Merge and Preparation ---
         
         # Merge sheets
         if not manifest_df.empty and not metadata_df.empty:
             ingest_sheet, unmatched_records = merge_sheets(
-                manifest_df, metadata_df, logger
+                manifest_df, metadata_df
             )
         else:
             ingest_sheet = metadata_df
@@ -1501,6 +1528,8 @@ def process_files(
                 record = format_record(record)
                 buffer.append(record)
             else:
+                # Increment the counter if process_record returned None
+                unexpected_failure_count += 1
                 continue
 
             # Update progress for processed record
@@ -1524,6 +1553,9 @@ def process_files(
         # Update progress after loop finishes
         progress_queue.put((tracker.update_processed_files, ()))
 
+        # Send the final count to the main thread via the queue
+        progress_queue.put(("FAILURE_COUNT", unexpected_failure_count))
+
         # --- Stage 3: Flush Remaining Buffer ---
         if buffer:
             records_df = flush_batch(
@@ -1531,11 +1563,6 @@ def process_files(
                 current_batch,
                 config,
             )
-
-        # Flush last record progress update before printing file saved message
-        while not progress_queue.empty():
-            func, args = progress_queue.get()
-            func(*args)
 
         # --- Stage 4: Write Reports ---
         write_reports(
@@ -1546,11 +1573,17 @@ def process_files(
             exceptions
         )
 
-    except Exception as e:
-        logger.error("Error during file processing.", exc_info=True)
-        print(f"Error during processing: {e}")
-        print(traceback.format_exc())
+        # Signal that end was reached successfully to main thread
+        progress_queue.put(("PROCESSING_COMPLETE", True))
 
+    except Exception as e:
+        logger.error("An error occurred during processing:", exc_info=True)
+        # Communicate failure back to the main thread
+        progress_queue.put((
+            print, 
+            (f"\n{error_symbol} Data processor stopped unexpectedly: {e}.",
+             f"See logs: {config.log_path}")
+        ))
 
 # ---------------------------------------------------------------------------
 # Main
@@ -1602,12 +1635,15 @@ def main():
     config.log_dir = os.path.join(config.batch_path, "logs")
     config.log_path = os.path.join(config.log_dir, f"{config.file_prefix}.log")
 
+    # Set up logger
+    logger = setup_logger(LOGGER_NAME, config.log_path)
+
+    critical_failures = 0
+    success = False
+
     try:
         # Set up batch directory
         setup_batch_directory(config.batch_path)
-
-        # Set up logger
-        logger = setup_logger('make_ingest_sheet', config.log_path)
 
         # Initialize progress queue and tracker
         update_queue = Queue()
@@ -1621,7 +1657,6 @@ def main():
             target=process_files,
             args=(
                 update_queue, 
-                logger,
                 tracker, 
                 manifest_df,
                 metadata_df,
@@ -1631,28 +1666,66 @@ def main():
         processing_thread.start()
 
         # Process the update queue in a loop (Monitor thread)
-        while processing_thread.is_alive():
+        while processing_thread.is_alive() or not update_queue.empty():
+            # After processing thread ends, flush any remaining updates
             while not update_queue.empty():
-                func, args = update_queue.get()
-                func(*args)
-            time.sleep(0.05)
-
-        # After processing thread ends, flush any remaining updates
-        while not update_queue.empty():
-            func, args = update_queue.get()
-            func(*args)
+                update = update_queue.get()
+                
+                # Check if this is a status message (String-based tuple)
+                if isinstance(update, tuple) and len(update) > 0 \
+                    and isinstance(update[0], str):
+                    if update[0] == "FAILURE_COUNT":
+                        critical_failures = update[1]
+                        continue
+                    elif update[0] == "PROCESSING_COMPLETE":
+                        success = update[1]
+                        continue
+                
+                # Otherwise, treat it as a UI function call
+                elif isinstance(update, tuple) and len(update) == 2 \
+                    and callable(update[0]):
+                    try:
+                        func, args = update
+                        # Guard against non-iterable args (like a single int)
+                        if isinstance(args, (list, tuple)):
+                            func(*args)
+                        else:
+                            func(args)
+                    except Exception as e:
+                        logger.error(f"UI update failed: {update}. Error: {e}")
+                
+                else:
+                    logger.warning(f"Unknown queue item type: {update}")
 
     except Exception as e:
-        print("An error occurred during execution:")
-        # Use the logger if it was successfully set up
-        if 'logger' in locals():
-            logger.error("An error occurred during execution:", exc_info=True)
-        print(traceback.format_exc())
+        # Log full technical detail to file
+        logger.error(
+            "A critical system error occurred during execution:", 
+            exc_info=True
+        )
+        
+        # Show the user error message
+        print(
+            f"\n{error_symbol} A critical system error occurred during execution.", 
+            f"See logs: {config.log_path}"
+        )
+        sys.exit(1)
     
     finally:
         # If the thread is still running for some reason, ensure it stops
         if 'tracker' in locals():
             tracker.cancel_requested.set()
+
+    if critical_failures > 0:
+        # Error occured while processing records
+        unit = "record" if critical_failures == 1 else "records"
+        print(
+            f"\n{warning_symbol} {critical_failures} {unit} failed to process.",
+            f"See logs: {config.log_path}"
+        )
+    elif success:
+        # No critical errors occured
+        print(f"\n{success_symbol} All records were processed successfully.")
 
 
 if __name__ == "__main__":

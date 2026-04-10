@@ -112,5 +112,5 @@ def prepare_config(
     with open(config_dest, "w", encoding="utf-8") as f:
         f.write(content)
 
-    print(f"\nConfig file saved to: {Path(config_dest).as_posix()}")
+    print(f"\nConfig file saved: {Path(config_dest).as_posix()}")
     return config_dest

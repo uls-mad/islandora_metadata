@@ -19,7 +19,6 @@ try:
 except ImportError:
     TK_AVAILABLE = False
 
-
 # --- Constants ---
 
 # Setup the log file format
@@ -28,6 +27,17 @@ LOG_FORMATTER = logging.Formatter(
     datefmt="%Y%m%d %H:%M:%S"
 )
 
+
+# Status Symbols
+GREEN = "\033[92m"
+YELLOW = "\033[33m"
+RED = "\033[91m"
+CYAN = "\033[96m"
+RESET = "\033[0m"
+success_symbol = "✅" if TK_AVAILABLE else f"{GREEN}[✓]{RESET}"
+warning_symbol = "⚠️ " if TK_AVAILABLE else f"{YELLOW}[!]{RESET}"
+error_symbol = "❌ " if TK_AVAILABLE else f"{RED}[X]{RESET}"
+transformation_symbol = "↩️ " if TK_AVAILABLE else f"{CYAN}[*]{RESET}"
 
 # --- Functions ---
 
@@ -166,11 +176,10 @@ def write_reports(
             index=False,
             encoding='utf-8'
         )
-        notification_symbol = "↩️ " if TK_AVAILABLE else "[*]"
         print(
-            f"\n{notification_symbol} {len(transformations)} transformation"
+            f"\n{transformation_symbol} {len(transformations)} transformation"
             f"{' was' if len(transformations) == 1 else 's were'} made. "
-            "See logs for details."
+            f"See logs: {transformations_filepath}"
         )
 
     # Save exceptions to DataFrame
@@ -187,14 +196,13 @@ def write_reports(
             index=False,
             encoding='utf-8'
         )
-        warning_symbol = "⚠️ " if TK_AVAILABLE else "[!]"
         print(
-            f"\n{warning_symbol} {len(exceptions)} exceptions were encountered. "
-            "See logs for details."
+            f"\n{warning_symbol} {len(exceptions)} exception"
+            f"{' was' if len(exceptions) == 1 else 's were'} encountered. "
+            f"See logs: {exceptions_filepath}"
         )
         
     else:
-        success_symbol = "✅" if TK_AVAILABLE else "✓"
         print(f"\n{success_symbol} No exceptions were encountered.")
 
 
