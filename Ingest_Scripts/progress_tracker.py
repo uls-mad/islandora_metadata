@@ -116,8 +116,6 @@ class ProgressTracker:
             flush=True
         )
 
-        if self.processed_files == self.total_files:
-            print("\nAll files have been processed.")
 
     def cancel_process(self):
         """
