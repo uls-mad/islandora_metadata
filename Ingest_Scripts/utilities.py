@@ -5,10 +5,11 @@
 # Import standard modules
 import os
 import logging
-import pandas as pd
+from pathlib import Path
 from typing import Optional
 
 # Import third-party modules
+import pandas as pd
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -100,6 +101,50 @@ def get_directory(io_type: str, title: str, tk_available: bool) -> str:
         print(f"No {io_type} directory selected.")
         exit(0)
     return dir
+
+
+def create_directory(directory_path: str | Path) -> Path:
+    """
+    Creates a directory and any necessary parent directories if they do not exist.
+
+    This function utilizes pathlib.Path.mkdir with 'parents=True' to allow 
+    recursive directory creation and 'exist_ok=True' to prevent errors if 
+    the target path is already present.
+
+    Args:
+        directory_path (str | Path): The filesystem path to create. Can be 
+            passed as a string or a Path object.
+
+    Returns:
+        Path: A pathlib.Path object pointing to the created directory.
+
+    Raises:
+        PermissionError: If the current user lacks the necessary permissions 
+            to create the directory at the specified location.
+        OSError: For other system-level errors (e.g., disk full, read-only 
+            filesystem).
+    """
+    path = Path(directory_path)
+    
+    try:
+        # parents=True: Create missing parents (like mkdir -p)
+        # exist_ok=True: Don't raise an error if directory already exists
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+        
+    except PermissionError as e:
+        logging.error(
+            f"Permission denied: Cannot create directory at {path}"
+        )
+        raise PermissionError(
+            f"Insufficient permissions to create: {path}"
+        ) from e
+        
+    except OSError as e:
+        logging.error(
+            f"OS error occurred while creating directory {path}: {e}"
+        )
+        raise
 
 
 def create_df(filepath: str) -> pd.DataFrame:

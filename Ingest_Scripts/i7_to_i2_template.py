@@ -25,9 +25,9 @@ Usage:
 # Import standard modules
 from __future__ import annotations
 import argparse
+from datetime import datetime
 import re
 import sys
-import traceback
 from pathlib import Path
 from typing import Callable, Dict, List, Set
 try:
@@ -46,8 +46,10 @@ from utilities import *
 
 
 # ---------------------------------------------------------------------------
-# Constant
+# Constants
 # ---------------------------------------------------------------------------
+
+LOGGER_NAME = "i7_to_i2_template"
 
 OBLIGATION_LEVELS: List[str] = [
     "",
@@ -56,7 +58,6 @@ OBLIGATION_LEVELS: List[str] = [
     "required, if applicable",
     "required",
 ]
-
 
 # ---------------------------------------------------------------------------
 # CLI / I/O
@@ -241,10 +242,10 @@ def ask_for_path(
 
 
 def load_mapping(mapping_df: pd.DataFrame) -> pd.DataFrame:
-    """Read, normalize headers, and validate a crosswalk mapping CSV.
+    """Normalize headers and validate a crosswalk mapping.
 
     This function performs a "fuzzy" header match (case and space insensitive) 
-    to ensure compatibility with different versions of the mapping file. It also 
+    to ensure compatibility with different versions of the mapping. It also 
     verifies that all required columns are present and validates that 
     'obligation' values match the project's controlled vocabulary.
 
@@ -309,35 +310,46 @@ def load_mapping(mapping_df: pd.DataFrame) -> pd.DataFrame:
     return mapping_df
 
 
-def prepare_mapping(mapping_df: pd.DataFrame, content_types: List[str]) -> pd.DataFrame:
+def prepare_mapping(
+    mapping_df: pd.DataFrame, 
+    content_types: List[str]
+) -> pd.DataFrame:
     """Load and filter the crosswalk mapping by requested content types.
 
     Args:
-        csv_path: Path to the mapping CSV.
+        mapping_df: pandas DataFrame containing field mappings.
         content_types: List of normalized content types to filter by.
 
     Returns:
         A cleaned and filtered DataFrame of mapping rules.
     """
-    df = load_mapping(mapping_df)
-    # requested = expand_requested_cts(content_types)
-    
-    mask = df["content_type"].apply(
-        lambda cell: bool(tokenize_ct_value(cell).intersection(content_types))
-    )
-    mapping_ct = df[mask].copy()
-
-    if mapping_ct.empty:
-        raise SystemExit(
-            f"No mapping rows found for content_type(s)='{content_types}'"
+    try:
+        df = load_mapping(mapping_df)
+        # Ensure 'content_types' exists in the mapping file
+        if 'content_type' not in df.columns:
+            raise KeyError("Mapping file is missing 'content_types' column.")
+        
+        mask = df["content_type"].apply(
+            lambda cell: bool(
+                tokenize_ct_value(cell).intersection(content_types)
+            )
         )
+        mapping_ct = df[mask].copy()
 
-    mapping_ct["i7_field_clean"] = mapping_ct["i7_field"].\
-        fillna("").astype(str).str.strip()
-    mapping_ct["i2_field_clean"] = mapping_ct["i2_field"].\
-        fillna("").astype(str).str.strip()
-    
-    return mapping_ct[mapping_ct["i2_field_clean"] != ""]
+        if mapping_ct.empty:
+            raise SystemExit(
+                f"No mapping rows found for content_type(s)='{content_types}'"
+            )
+
+        mapping_ct["i7_field_clean"] = mapping_ct["i7_field"].\
+            fillna("").astype(str).str.strip()
+        mapping_ct["i2_field_clean"] = mapping_ct["i2_field"].\
+            fillna("").astype(str).str.strip()
+        
+        return mapping_ct[mapping_ct["i2_field_clean"] != ""]
+    except Exception as e:
+            logging.getLogger(LOGGER_NAME).error(f"Error preparing mapping: {e}")
+            raise
 
 
 def load_metadata(args) -> pd.DataFrame:
@@ -352,19 +364,33 @@ def load_metadata(args) -> pd.DataFrame:
     Returns:
         pd.DataFrame: The ingested metadata ready for processing.
     """
-    if args.metadata_id:
-        return read_google_sheet(
-            args.metadata_id, 
-            sheet_name=None, 
-            credentials_file=args.credentials_file
-        )
-    return create_df(args.metadata_sheet)
+    try:
+        if args.metadata_id:
+            df = read_google_sheet(
+                args.metadata_id, 
+                sheet_name=None, 
+                credentials_file=args.credentials_file
+            )
+        else:
+            if not Path(args.metadata_sheet).exists():
+                raise FileNotFoundError(
+                    f"Metadata file not found: {args.metadata_path}"
+                )
+            df = create_df(args.metadata_sheet)
+        if df.empty:
+            raise ValueError("The provided metadata file is empty.")
+
+        return df
+    except Exception as e:
+        logging.getLogger(LOGGER_NAME).error(f"Failed to load metadata: {e}")
+        raise # Re-raise to let main() handle the sys.exit
 
 
 def save_outputs(
-    df_final: pd.DataFrame, 
-    audit_data: dict, 
-    mapping_ct: pd.DataFrame, 
+    df_final: pd.DataFrame,
+    audit_data: dict,
+    mapping_ct: pd.DataFrame,
+    log_dir: Path,
     args
 ) -> None:
     """Generate the final metadata CSV and the accompanying audit log.
@@ -373,6 +399,7 @@ def save_outputs(
         df_final: The transformed and cleaned metadata DataFrame.
         audit_data: A dictionary containing date logs, added columns, and dropped columns.
         mapping_ct: The mapping rules used for this batch.
+        log_dir: Path to log directory.
         args: The command-line arguments containing paths and identifiers.
     """
     # Determine base filename
@@ -386,9 +413,9 @@ def save_outputs(
     ct_label = "_".join(args.content_type)
     
     # --- Save Metadata CSV ---
-    output_dir = os.path.join(args.batch_path, "metadata")
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f"{filename}_{ct_label}_metadata.csv")
+    output_dir = Path(args.batch_path) / "metadata"
+    create_directory(output_dir)
+    output_path = output_dir / f"{filename}_{ct_label}_metadata.csv"
     df_final.to_csv(output_path, index=False, encoding="utf-8")
 
     # --- Build and Save Log CSV ---
@@ -426,9 +453,7 @@ def save_outputs(
                 })
 
     log_df = pd.DataFrame(log_rows).fillna("")
-    log_dir = os.path.join(args.batch_path, "logs")
-    os.makedirs(log_dir, exist_ok=True)
-    log_path = os.path.join(log_dir, f"{filename}_{ct_label}_log.csv")
+    log_path = log_dir / f"{filename}_{ct_label}_log.csv"
     log_df.to_csv(log_path, index=False, encoding="utf-8")
 
     # Notify User
@@ -564,10 +589,10 @@ def apply_processors(
         if col in df.columns:
             try:
                 df[col] = func(df[col])
-            except Exception as exc:  # non-fatal
-                print(
-                    f"WARNING: Processor for '{col}' failed: {exc}", 
-                    file=sys.stderr
+            except Exception as e:
+                logging.getLogger(LOGGER_NAME).error(
+                    f"Processor for '{col}' failed:", 
+                    exc_info=True
                 )
     return df
 
@@ -629,37 +654,64 @@ def apply_date_qualification(
 
 
 def transform_metadata(
-    df_in: pd.DataFrame, 
+    df_in: pd.DataFrame,
     mapping_ct: pd.DataFrame
 ) -> tuple[pd.DataFrame, dict]:
     """Execute schema remapping, date qualification, and final metadata cleanup.
 
     Args:
         df_in: The raw input DataFrame containing the original metadata.
-        mapping_ct: A DataFrame containing mapping rules with 'i7_field_clean' 
+        mapping_ct: A DataFrame containing mapping rules with 'i7_field_clean'
             as source and 'i2_field_clean' as target field names.
 
     Returns:
         A tuple (df_final, audit_data) where:
-            - df_final (pd.DataFrame): The transformed metadata with finalized 
+            - df_final (pd.DataFrame): The transformed metadata with finalized
               schema and applied processors.
-            - audit_data (dict): A dictionary containing 'date_logs' (list), 
+            - audit_data (dict): A dictionary containing 'date_logs' (list),
               'added_cols' (list), and 'dropped_cols' (list).
+
+    Raises:
+        KeyError: If required mapping columns are missing.
+        ValueError: If date qualification or processor application fails.
+        RuntimeError: If schema remapping or final column selection fails.
     """
+    # Check for missing required columns
+    required_mapping_cols = {"i7_field_clean", "i2_field_clean"}
+    missing_mapping_cols = required_mapping_cols - set(mapping_ct.columns)
+    if missing_mapping_cols:
+        raise KeyError(
+            "mapping_ct is missing required columns: {}".format(
+                ", ".join(sorted(missing_mapping_cols))
+            )
+        )
+
     df_work = df_in.copy()
     audit_data = {"date_logs": [], "added_cols": [], "dropped_cols": []}
 
     # Map source fields to target schema and initialize missing target columns
-    for _, row in mapping_ct.iterrows():
-        src, tgt = row["i7_field_clean"], row["i2_field_clean"]
-        if src and src in df_work.columns:
-            df_work[tgt] = df_work[src]
-        elif tgt != "file" and tgt not in df_work.columns:
-            df_work[tgt] = ""
+    try:
+        for _, row in mapping_ct.iterrows():
+            src = row["i7_field_clean"]
+            tgt = row["i2_field_clean"]
+
+            if src and src in df_work.columns:
+                df_work[tgt] = df_work[src]
+            elif tgt != "file" and tgt not in df_work.columns:
+                df_work[tgt] = ""
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed while mapping I7 fields to I2 fields: {e}"
+        ) from e
 
     # Apply EDTF date qualifiers and record changes in the audit log
-    df_work, date_logs = apply_date_qualification(df_work)
-    audit_data["date_logs"] = date_logs
+    try:
+        df_work, date_logs = apply_date_qualification(df_work)
+        audit_data["date_logs"] = date_logs
+    except Exception as e:
+        raise ValueError(
+            f"Failed while applying date qualification: {e}"
+        ) from e
 
     # Order columns based on the mapping template
     i2_ordered = []
@@ -677,13 +729,25 @@ def transform_metadata(
             df_work[col] = ""
             audit_data["added_cols"].append(col)
 
-    # Identify excluded columns, prune schema, and run final processors
+    # Identify excluded columns for audit purposes
     audit_data["dropped_cols"] = [c for c in df_work.columns if c not in seen]
-    df_final = df_work[i2_ordered].copy()
-    df_final = apply_processors(df_final, PROCESSORS)
+
+    # Prune schema and run final processors
+    try:
+        df_final = df_work[i2_ordered].copy()
+    except KeyError as e:
+        raise RuntimeError(
+            f"Failed while selecting final output columns: {e}"
+        ) from e
+
+    try:
+        df_final = apply_processors(df_final, PROCESSORS)
+    except Exception as e:
+        raise ValueError(
+            f"Failed while applying field processors: {e}"
+        ) from e
 
     return df_final, audit_data
-
 
 # ---------------------------------------------------------------------------
 # Main
@@ -703,6 +767,18 @@ def main() -> None:
         - Terminates the script with sys.exit(1) upon encountering a fatal error.
     """
     args = parse_arguments()
+
+    # Get a unique timestamp
+    timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+    
+    # Set up logger
+    batch_path = Path(args.batch_path)
+    batch_dir = batch_path.name
+    file_prefix = f"{batch_dir}_{timestamp}"
+    log_dir = create_directory(batch_path / "logs")
+    log_path = log_dir / f"{file_prefix}.log"
+    logger = setup_logger(LOGGER_NAME, log_path)
+
     root = None
     
     if TK_AVAILABLE:
@@ -720,12 +796,23 @@ def main() -> None:
         df_final, audit_data = transform_metadata(df_in, mapping_ct)
 
         # Generate outputs
-        save_outputs(df_final, audit_data, mapping_ct, args)
+        save_outputs(df_final, audit_data, mapping_ct, log_dir, args)
 
-    except Exception as exc:
+    except Exception as e:
+        logger.error(
+            f"A critical system error occurred:", 
+            exc_info=True
+        )
+
+        message = f"A critical system error occurred. See logs: {log_path}"
         if TK_AVAILABLE:
-            show_message("error", "Error", str(exc))
-        print(f"ERROR: {exc}", file=sys.stderr)
+            show_message(
+                "error", 
+                "Error", 
+                message
+            )
+        else:
+            print(message)
         sys.exit(1)
     finally:
         if root:
