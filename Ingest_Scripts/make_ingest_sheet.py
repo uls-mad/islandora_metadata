@@ -317,6 +317,9 @@ def merge_sheets(manifest_df, metadata_df):
         tuple[pd.DataFrame, pd.DataFrame]: A tuple containing:
             - ingest_sheet: The merged and resolved master DataFrame.
             - unmatched: Rows from the merge that failed to find metadata.
+    
+    Raises:
+        ValueError: If a required merge column is missing in metadata_df.
     """
     logger = logging.getLogger(LOGGER_NAME)
     
@@ -1368,6 +1371,10 @@ def process_record(row: dict) -> dict:
     Returns:
         dict: The transformed record dictionary containing mapped, cleaned, 
             and validated data.
+
+    Raises:
+        ValueError: If required identifier field (identifier or field_pid) is 
+            missing in record.
 
     Side Effects:
         - Logs validation failures and processing errors to the global 
