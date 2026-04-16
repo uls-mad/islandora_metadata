@@ -27,13 +27,12 @@ Usage:
 # ---------------------------------------------------------------------------
 
 # Import standard modules
-import os
 import sys
 import re
-import time
 import argparse
-import traceback
+import logging
 import threading
+import traceback
 from queue import Queue
 from datetime import datetime
 from functools import lru_cache
@@ -46,10 +45,36 @@ from edtf import parse_edtf
 import requests
 
 # Import local modules
-from utilities import *
-from definitions import *
-from batch_manager import *
-from progress_tracker import *
+from utilities import (
+    prompt_for_input,
+    read_google_sheet,
+    write_reports,
+    create_directory,
+    create_df,
+    setup_logger,
+    error_symbol,
+    warning_symbol,
+    success_symbol
+)
+from definitions import (
+    FIELDS,
+    TEMPLATE_FIELD_MAPPING,
+    MANIFEST_FIELD_MAPPING,
+    MODEL_MAPPING,
+    TAXONOMIES,
+    DOMAIN_MAPPING,
+    REQUIRED_FIELDS,
+    VETTED_FIELDS,
+    DELIMITED_FIELDS,
+    FORMATTED_FIELDS,
+    CONTROLLED_FIELDS,
+    DATE_FIELDS
+)
+from batch_manager import (
+    prepare_config,
+    setup_batch_directory
+)
+from progress_tracker import ProgressTracker
 
 
 # ---------------------------------------------------------------------------
@@ -202,9 +227,10 @@ def parse_arguments() -> AppConfig:
         args.batch_path = prompt_for_input(
             "Enter the path to the Workbench batch directory: "
         )
-    if not args.manifest_id \
-        and args.ingest_task == "create" \
-        and not args.metadata_sheet:
+    if (
+        args.ingest_task == "create"
+        and not (args.manifest_id or args.manifest_sheet)
+    ):
         args.manifest_id = prompt_for_input(
             "Enter the Google Sheet ID for the manifest sheet: "
         )
@@ -212,10 +238,11 @@ def parse_arguments() -> AppConfig:
         args.metadata_id = prompt_for_input(
             "Enter the Google Sheet ID for the metadata sheet: "
         )
-    if not args.credentials_file and (args.manifest_id or args.metadata_id):
-        args.credentials_file = prompt_for_input(
-            "Enter the path to the Google credentials JSON file: "
-        )
+    # Include if removing default to credentials file on /workbench
+    # if not args.credentials_file and (args.manifest_id or args.metadata_id):
+    #     args.credentials_file = prompt_for_input(
+    #         "Enter the path to the Google credentials JSON file: "
+    #     )
     if not args.metadata_level:
         args.metadata_level = prompt_for_input(
             "Enter the metadata level (minimal, complete, or publish): ", 
@@ -225,6 +252,18 @@ def parse_arguments() -> AppConfig:
         args.publish = prompt_for_input(
             "Should the ingest batch be published (y/n)?: ", 
             valid_choices=['y', 'n']
+        )
+
+    # Check for invalid input
+    if args.batch_size < 1:
+        raise ValueError("--batch_size must be a positive integer.")
+    if args.manifest_id and args.manifest_sheet:
+        raise ValueError(
+            "Provide either --manifest_id or --manifest_sheet, not both."
+        )
+    if args.metadata_id and args.metadata_sheet:
+        raise ValueError(
+            "Provide either --metadata_id or --metadata_sheet, not both."
         )
 
     # Convert 'y'/'n' string to boolean True/False for the AppConfig class
@@ -302,27 +341,37 @@ def _normalize_for_join(series: pd.Series) -> pd.Series:
     return s
 
 
-def merge_sheets(manifest_df, metadata_df):
+def merge_sheets(
+    manifest_df: pd.DataFrame,
+    metadata_df: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Merge manifest and metadata DataFrames and validate data integrity.
 
     This function aligns file-level manifest data with descriptive metadata. It
-    standardizes the manifest schema, merges datasets on unique identifiers,
-    and identifies any metadata records that lack a corresponding file match.
+    standardizes the manifest schema, merges datasets on normalized identifiers,
+    and identifies metadata rows that lack a corresponding manifest match.
 
     Args:
-        manifest_df (pd.DataFrame): The primary manifest sheet containing file info.
-        metadata_df (pd.DataFrame): The supplemental descriptive metadata sheet.
+        manifest_df (pd.DataFrame): The primary manifest sheet containing file
+            information.
+        metadata_df (pd.DataFrame): The supplemental descriptive metadata
+            sheet.
 
     Returns:
-        tuple[pd.DataFrame, pd.DataFrame]: A tuple containing:
+        tuple[pd.DataFrame, pd.DataFrame]:
             - ingest_sheet: The merged and resolved master DataFrame.
-            - unmatched: Rows from the merge that failed to find metadata.
-    
+            - unmatched: Metadata rows whose identifiers did not match any
+              manifest record.
+
     Raises:
-        ValueError: If a required merge column is missing in metadata_df.
+        KeyError: If the manifest DataFrame is missing the required 'id'
+            column.
+        ValueError: If the metadata DataFrame is missing both 'identifier' and
+            'id', or if duplicate normalized identifiers are detected in either
+            DataFrame.
     """
     logger = logging.getLogger(LOGGER_NAME)
-    
+
     # Define the required and applicable optional columns
     required_columns = [
         "id",
@@ -341,63 +390,155 @@ def merge_sheets(manifest_df, metadata_df):
         "transcript",
         "thumbnail",
     ]
-    
+
     # Drop manifest columns not in required or optional lists
     allowed_cols = required_columns + optional_columns
-    
     manifest_df = manifest_df[
         [c for c in manifest_df.columns if c in allowed_cols]
     ].copy()
+    metadata_df = metadata_df.copy()
 
-    # Ensure all required columns exist in manifest
+    # Ensure manifest contains required merge key
+    if "id" not in manifest_df.columns:
+        msg = "Manifest is missing the required column: 'id'"
+        logger.error(msg)
+        raise KeyError(msg)
+
+    # Ensure all other required columns exist in manifest
     for col in required_columns:
         if col not in manifest_df.columns:
             manifest_df.loc[:, col] = None
-            logger.info(f"Added missing required column: {col}")
+            logger.info("Added missing required column: %s", col)
 
-    # Validate or rename metadata merge key
-    if "identifier" not in metadata_df.columns:
+    # Identify the ID field in metadata sheet
+    id_field = "identifier"
+    if id_field not in metadata_df.columns:
         if "id" in metadata_df.columns:
-            metadata_df = metadata_df.rename(columns={"id": "identifier"})
+            id_field = "id"
+            logger.warning(
+                "Preferred metadata join field 'identifier' was not found; "
+                "using fallback field 'id'."
+            )
         else:
-            logger.error("Merge failed: metadata missing 'id' or 'identifier'")
-            raise ValueError("Missing required merge column in metadata_df")
+            msg = (
+                "Metadata is missing the required join column "
+                "'identifier' (or fallback 'id')."
+            )
+            logger.error(msg)
+            raise ValueError(msg)
+
+    logger.info("Using '%s' as metadata join field.", id_field)
+
+    # Create normalized join keys
+    manifest_df["__manifest_id_join__"] = _normalize_for_join(manifest_df["id"])
+    metadata_df["__metadata_id_join__"] = _normalize_for_join(
+        metadata_df[id_field]
+    )
+
+    # Check for duplicate normalized IDs in manifest
+    manifest_dupes = (
+        manifest_df["__manifest_id_join__"]
+        .dropna()
+        .value_counts()
+    )
+    manifest_dupes = manifest_dupes[manifest_dupes > 1]
+
+    if not manifest_dupes.empty:
+        sample_dupes = ", ".join(manifest_dupes.index[:10])
+        msg = (
+            "Manifest contains duplicate normalized IDs. "
+            f"Examples: {sample_dupes}"
+        )
+        logger.error(msg)
+        raise ValueError(msg)
+
+    # Check for duplicate normalized identifiers in metadata
+    metadata_dupes = (
+        metadata_df["__metadata_id_join__"]
+        .dropna()
+        .value_counts()
+    )
+    metadata_dupes = metadata_dupes[metadata_dupes > 1]
+
+    if not metadata_dupes.empty:
+        sample_dupes = ", ".join(metadata_dupes.index[:10])
+        msg = (
+            "Metadata contains duplicate normalized identifiers. "
+            f"Examples: {sample_dupes}"
+        )
+        logger.error(msg)
+        raise ValueError(msg)
+
+    # Standardize metadata identifier column name for output
+    if id_field == "id":
+        metadata_df.rename(columns={"id": "identifier"}, inplace=True)
 
     # Identify overlapping columns for post-merge validation
     common_cols = set(manifest_df.columns).intersection(set(metadata_df.columns))
     common_cols.discard("id")
     common_cols.discard("identifier")
+    common_cols.discard("__manifest_id_join__")
+    common_cols.discard("__metadata_id_join__")
 
-    # Perform left merge on id and identifier
+    # Perform left merge on normalized keys
     ingest_sheet = pd.merge(
         manifest_df,
         metadata_df,
-        left_on="id",
-        right_on="identifier",
         how="left",
-        suffixes=("_manifest", "_metadata")
+        left_on="__manifest_id_join__",
+        right_on="__metadata_id_join__",
+        suffixes=("_manifest", "_metadata"),
+        validate="one_to_one"
     )
+    logger.info("Merge completed successfully.")
 
-    # Filter rows that have no matching metadata
-    unmatched = ingest_sheet[ingest_sheet["identifier"].isna()].copy()
+    # Filter metadata rows that did not match a manifest record
+    in_manifest = metadata_df["__metadata_id_join__"].isin(
+        manifest_df["__manifest_id_join__"]
+    )
+    nonempty = metadata_df["__metadata_id_join__"].notna()
+    unmatched = metadata_df[nonempty & ~in_manifest].copy()
+
+    if not unmatched.empty:
+        logger.warning("%d unmatched metadata rows found.", len(unmatched))
 
     # Compare values in duplicate columns and resolve
     for col in common_cols:
         manifest_col = f"{col}_manifest"
         metadata_col = f"{col}_metadata"
-        
-        # Check for discrepancies between the two sheets
-        mismatch_count = (
-            ingest_sheet[manifest_col] != ingest_sheet[metadata_col]
-        ).sum()
-        if mismatch_count > 0:
-            logger.warning(
-                f"Column '{col}' has {mismatch_count} mismatching values"
+
+        if manifest_col in ingest_sheet.columns and metadata_col in ingest_sheet.columns:
+            mismatch_count = (
+                ingest_sheet[manifest_col] != ingest_sheet[metadata_col]
+            ).sum()
+            if mismatch_count > 0:
+                logger.warning(
+                    "Column '%s' has %d mismatching values.",
+                    col,
+                    mismatch_count
+                )
+
+            # Keep metadata values and remove manifest duplicates
+            ingest_sheet[col] = ingest_sheet[metadata_col]
+            ingest_sheet.drop(
+                columns=[manifest_col, metadata_col],
+                inplace=True
             )
 
-        # Keep metadata values and remove manifest duplicates
-        ingest_sheet[col] = ingest_sheet[metadata_col]
-        ingest_sheet = ingest_sheet.drop(columns=[manifest_col, metadata_col])
+    # Standardize identifier output
+    ingest_sheet.drop(columns=["id"], errors="ignore", inplace=True)
+
+    # Clean up helper columns
+    ingest_sheet.drop(
+        columns=["__manifest_id_join__", "__metadata_id_join__"],
+        errors="ignore",
+        inplace=True
+    )
+    unmatched.drop(
+        columns=["__metadata_id_join__"],
+        errors="ignore",
+        inplace=True
+    )
 
     return ingest_sheet, unmatched
 
@@ -408,7 +549,6 @@ def should_flush_batch(buffer: list, batch_size: int) -> bool:
     Args:
         buffer (list): List of processed records.
         batch_size (int): Maximum number of records in a batch.
-        pending_children (list): List of child PIDs that must stay with the parent.
 
     Returns:
         bool: True if batch should be flushed, False otherwise.
@@ -433,10 +573,11 @@ def flush_batch(
         pd.DataFrame: DataFrame written from records buffer.
     """
     # Write batch CSV
-    sub_batch_prefix = f"{config.file_prefix}_{batch_count}_ingest_" + \
-        config.metadata_level
+    sub_batch_prefix = (
+        f"{config.file_prefix}_{batch_count}_ingest_{config.metadata_level}"
+    )
     sub_batch_file = f"{sub_batch_prefix}.csv"
-    sub_batch_path = os.path.join(config.output_path, sub_batch_file)
+    sub_batch_path = config.output_dir / sub_batch_file
     records_df = records_to_csv(buffer, sub_batch_path)
 
     # Check for additional media files
@@ -505,8 +646,10 @@ def get_mapped_field(
             ['machine_name', 'taxonomy']
         ]
         if match.empty:
-            log_msg = f'could not find matching I2 field for CSV field'\
-                f' "{csv_field}" with data "{data}"'
+            log_msg = (
+                f'could not find matching I2 field for CSV field '
+                f'"{csv_field}" with data "{data}"'
+            )
             add_exception(
                 pid,
                 csv_field,
@@ -555,10 +698,10 @@ def add_exception(
     })
     if not log_msg:
         # Build log message
-        log_msg = f'{exception} in field "{field}" with value "{value}"'
+        log_msg = f'{exception} in field "{field}" with value "{value}".'
 
         # Send message to logger
-        logging.getLogger(LOGGER_NAME).error(f"Record {pid}:" + log_msg)
+        logging.getLogger(LOGGER_NAME).error("Record %s: %s", pid, log_msg)
 
 
 def add_transformation(
@@ -681,10 +824,9 @@ def get_parent_domain(df: pd.DataFrame, pid: str, parent_id: str) -> list[str]:
             #     if (mapped := DOMAIN_MAPPING.get(val))
             # ]
             
-    except Exception as e:
-        logging.getLogger(LOGGER_NAME).error(
-            f"Record {pid}: an error occurred retrieving parent domain:", 
-            exc_info=True
+    except Exception:
+        logging.getLogger(LOGGER_NAME).exception(
+            "Record %s: Failed to retrieve parent domain.", pid
         )
 
     return parent_domains
@@ -761,7 +903,6 @@ def add_title(
 
     Args:
         record (dict): The record to update.
-        field (str): The record field name.
         value (str): The value to add.
 
     Returns:
@@ -840,11 +981,23 @@ def process_model(
     return True
 
 
-def process_title(record, title_parts):
-    title = title_parts.get('title')
+def process_title(record: dict, title_parts: dict) -> str | None:
+    """Build and add a formatted title from title component parts.
+
+    Args:
+        record (dict): The record being updated.
+        title_parts (dict): A dictionary containing title components such as
+            'title', 'volume', and 'number'.
+
+    Returns:
+        str | None: The formatted title if one was created, otherwise None.
+    """
+    title = title_parts.get("title")
     if title:
-        title += f", vol. {title_parts.get('volume')}" if title_parts.get('volume') else ""
-        title += f", no. {title_parts.get('number')}" if title_parts.get('number') else ""
+        if title_parts.get("volume"):
+            title += f", vol. {title_parts.get('volume')}"
+        if title_parts.get("number"):
+            title += f", no. {title_parts.get('number')}"
         add_title(record, title)
     return title
 
@@ -877,7 +1030,9 @@ def _check_network_status(value: str) -> tuple:
         return False, f"Unexpected Status Code {response.status_code}: {url}"
 
     except requests.exceptions.RequestException as e:
-        return False, f"HTTP Request Failed: {str(e)}"
+        msg = "HTTP Request Failed"
+        logging.getLogger(LOGGER_NAME).exception(msg)
+        return False, f"{msg}: {str(e)}"
 
 
 def validate_collection_id(
@@ -901,14 +1056,14 @@ def validate_collection_id(
             or if the request fails.
     """
     # Call the cached network function
-    is_valid, error_message = _check_network_status(value)
+    is_valid, error_msg = _check_network_status(value)
     
     if not is_valid:
         add_exception(
             pid, 
             "field_member_of", 
             value, 
-            f"invalid collection node ID: {error_message}"
+            f"invalid collection node ID: {error_msg}"
         )
     
     return is_valid
@@ -1335,9 +1490,6 @@ def records_to_csv(records: list, destination: str):
             inplace=True
         )
 
-    # Ensure the destination directory exists
-    os.makedirs(os.path.dirname(destination), exist_ok=True)
-
     # Write the resulting DataFrame to a CSV file
     df.to_csv(destination, index=False, header=True, encoding='utf-8')
 
@@ -1437,10 +1589,9 @@ def process_record(row: dict) -> dict:
         # Process title
         process_title(record, title_parts)
 
-    except Exception as e:
-        logging.getLogger(LOGGER_NAME).error(
-            f"An error occurred processing record {pid}: {e}", 
-            exc_info=True
+    except Exception:
+        logging.getLogger(LOGGER_NAME).exception(
+            "An error occurred while rocessing record %s.", pid
         )
 
         return None
@@ -1503,12 +1654,9 @@ def process_files(
 
         # Log unmatched rows from metadata sheet
         if not unmatched_records.empty:
-            unmatched_log_csv = os.path.join(
-                config.log_dir,
-                f"{config.file_prefix}_unmatched.csv"
-            )
+            unmatched_log_csv = config.log_dir / f"{config.file_prefix}_unmatched.csv"
             logger.warning(
-                f"Unmatched rows found, writing to {unmatched_log_csv}"
+                "Unmatched rows found, writing to %s.", unmatched_log_csv
             )
             unmatched_records.to_csv(
                 unmatched_log_csv, index=False, encoding='utf-8'
@@ -1596,12 +1744,12 @@ def process_files(
         progress_queue.put(("PROCESSING_COMPLETE", True))
 
     except Exception as e:
-        logger.error("An error occurred during processing:", exc_info=True)
+        logger.exception("An error occurred during processing.")
         # Communicate failure back to the main thread
         progress_queue.put((
             print, 
             (f"\n{error_symbol} Data processor stopped unexpectedly: {e}.",
-             f"See logs: {config.log_path}")
+            f"See logs: {config.log_path}")
         ))
 
 # ---------------------------------------------------------------------------
@@ -1637,30 +1785,33 @@ def main():
         - Modifies the state of the provided `ProgressTracker` and 
           `AppConfig` objects.
     """
-    # Parse arguments and get the AppConfig object
-    config = parse_arguments()
-    
-    # Get batch directory name
-    config.batch_dir = os.path.basename(config.batch_path.rstrip(os.sep))
-    
-    # Get a unique timestamp
-    config.timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-    
-    # Create the base file prefix for logs and outputs
-    config.file_prefix = f"{config.batch_dir}_{config.timestamp}"
-
-    # Set up directory paths based on batch path
-    config.output_path = os.path.join(config.batch_path, "metadata")
-    config.log_dir = os.path.join(config.batch_path, "logs")
-    config.log_path = os.path.join(config.log_dir, f"{config.file_prefix}.log")
-
-    # Set up logger
-    logger = setup_logger(LOGGER_NAME, config.log_path)
-
-    critical_failures = 0
-    success = False
-
+    logger = None
+    config = None
     try:
+        # Parse arguments and get the AppConfig object
+        config = parse_arguments()
+        
+        # Get batch directory name
+        config.batch_path = Path(config.batch_path)
+        config.batch_dir = config.batch_path.name
+        
+        # Get a unique timestamp
+        config.timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+        
+        # Create the base file prefix for logs and outputs
+        config.file_prefix = f"{config.batch_dir}_{config.timestamp}"
+
+        # Set up directory paths based on batch path
+        config.output_dir = create_directory(config.batch_path / "metadata")
+        config.log_dir = create_directory(config.batch_path / "logs")
+        config.log_path = config.log_dir / f"{config.file_prefix}.log"
+
+        # Set up logger
+        logger = setup_logger(LOGGER_NAME, config.log_path)
+
+        critical_failures = 0
+        success = False
+        
         # Set up batch directory
         setup_batch_directory(config.batch_path)
 
@@ -1691,8 +1842,10 @@ def main():
                 update = update_queue.get()
                 
                 # Check if this is a status message (String-based tuple)
-                if isinstance(update, tuple) and len(update) > 0 \
-                    and isinstance(update[0], str):
+                if (
+                    isinstance(update, tuple) and len(update) > 0 
+                    and isinstance(update[0], str)
+                ):
                     if update[0] == "FAILURE_COUNT":
                         critical_failures = update[1]
                         continue
@@ -1701,8 +1854,10 @@ def main():
                         continue
                 
                 # Otherwise, treat it as a UI function call
-                elif isinstance(update, tuple) and len(update) == 2 \
-                    and callable(update[0]):
+                elif (
+                    isinstance(update, tuple) and len(update) == 2
+                    and callable(update[0])
+                ):
                     try:
                         func, args = update
                         # Guard against non-iterable args (like a single int)
@@ -1710,24 +1865,29 @@ def main():
                             func(*args)
                         else:
                             func(args)
-                    except Exception as e:
-                        logger.error(f"UI update failed: {update}. Error: {e}")
+                    except Exception:
+                        logger.exception("UI update failed: %s", update)
                 
                 else:
-                    logger.warning(f"Unknown queue item type: {update}")
+                    logger.warning("Unknown queue item type: %s", update)
 
-    except Exception as e:
+    except Exception:
+        msg = "A critical system error occurred during execution."
         # Log full technical detail to file
-        logger.error(
-            "A critical system error occurred during execution:", 
-            exc_info=True
-        )
-        
+        if logger:
+            logger.exception(
+                msg
+            )
         # Show the user error message
-        print(
-            f"\n{error_symbol} A critical system error occurred during execution.", 
-            f"See logs: {config.log_path}"
-        )
+        log_path = getattr(config, "log_path", None)
+
+        print(f"\n{error_symbol} {msg}")
+
+        if log_path:
+            print(f"See logs: {log_path}")
+        else:
+            traceback.print_exc()
+
         sys.exit(1)
     
     finally:
@@ -1739,8 +1899,8 @@ def main():
         # Error occured while processing records
         unit = "record" if critical_failures == 1 else "records"
         print(
-            f"\n{warning_symbol} {critical_failures} {unit} failed to process.",
-            f"See logs: {config.log_path}"
+            f"\n{warning_symbol} {critical_failures} {unit} failed to process."
+            + (f" See logs: {config.log_path}" if config.log_path else f" {e}")
         )
     elif success:
         # No critical errors occured

@@ -57,8 +57,11 @@ def prompt_for_input(
         print("Input cannot be empty. Please try again.")
 
 
-def setup_logger(name: str, log_file: str,
-                 level: int = logging.DEBUG) -> logging.Logger:
+def setup_logger(
+    name: str, 
+    log_file: str,
+    level: int = logging.DEBUG
+) -> logging.Logger:
     """
     Configure a logger that writes to a log file.
 
@@ -70,11 +73,16 @@ def setup_logger(name: str, log_file: str,
     Returns:
         logging.Logger: Configured logger instance.
     """
-    handler = logging.FileHandler(log_file)
-    handler.setFormatter(LOG_FORMATTER)
     logger = logging.getLogger(name)
     logger.setLevel(level)
+
+    if logger.handlers:
+        logger.handlers.clear()
+
+    handler = logging.FileHandler(log_file, encoding="utf-8")
+    handler.setFormatter(LOG_FORMATTER)
     logger.addHandler(handler)
+
     return logger
 
 
@@ -133,16 +141,16 @@ def create_directory(directory_path: str | Path) -> Path:
         return path
         
     except PermissionError as e:
-        logging.error(
-            f"Permission denied: Cannot create directory at {path}"
+        logging.exception(
+            "Permission denied: Cannot create directory at %s.", path
         )
         raise PermissionError(
             f"Insufficient permissions to create: {path}"
         ) from e
         
     except OSError as e:
-        logging.error(
-            f"OS error occurred while creating directory {path}: {e}"
+        logging.exception(
+            "OS error occurred while creating directory %s.", path
         )
         raise
 
@@ -159,7 +167,7 @@ def create_df(filepath: str) -> pd.DataFrame:
                       with empty values retained as empty strings (no NaN).
     """
     # Determine the file extension
-    ext = os.path.splitext(filepath)[1].lower()
+    ext = Path(filepath).suffix.lower()
 
     # Load CSV data
     if ext == '.csv':
@@ -186,7 +194,7 @@ def create_df(filepath: str) -> pd.DataFrame:
 
 
 def write_reports(
-    output_dir: str,
+    output_dir: Path,
     timestamp: str,
     label: str | None,
     transformations: list,
@@ -196,7 +204,7 @@ def write_reports(
     Writes two CSV reports: one for transformations and one for exceptions.
 
     Args:
-        output_dir (str): Path to the folder where reports will be saved.
+        output_dir (Path): Path to the folder where reports will be saved.
         timestamp (str): Timestamp to include in the filenames of the reports.
         label (str | None): An additional label to describe file.
         transformations (list): List of transformations made during processing.
@@ -212,9 +220,8 @@ def write_reports(
         transformations_df = pd.DataFrame.from_dict(transformations)
     
         # Write DataFrame to CSV
-        transformations_filepath = os.path.join(
-            output_dir,
-            f'{timestamp}{label}_transformations.csv'
+        transformations_filepath = (
+            output_dir / f"{timestamp}{label}_transformations.csv"
         )
         transformations_df.to_csv(
             transformations_filepath,
@@ -232,44 +239,42 @@ def write_reports(
         exceptions_df = pd.DataFrame.from_dict(exceptions)
 
         # Write DataFrame to CSV
-        exceptions_filepath = os.path.join(
-            output_dir,
-            f'{timestamp}{label}_exceptions.csv'
-        )
+        exceptions_filepath = \
+            output_dir / f"{timestamp}{label}_exceptions.csv"
         exceptions_df.to_csv(
             exceptions_filepath,
             index=False,
             encoding='utf-8'
         )
         print(
-            f"\n{warning_symbol} {len(exceptions)} exception"
+            f"\n{warning_symbol} {len(exceptions)} metadata exception"
             f"{' was' if len(exceptions) == 1 else 's were'} encountered. "
             f"See logs: {exceptions_filepath}"
         )
         
     else:
-        print(f"\n{success_symbol} No exceptions were encountered.")
+        print(f"\n{success_symbol} No metadata exceptions were encountered.")
 
 
-def connect_to_google_sheet(credentials_file: str,
-                            logger: logging.Logger | None = None):
-    """
-    Connect to the Google Sheets API using a service account.
+def connect_to_google_sheet(
+    credentials_file: str,
+    logger: logging.Logger | None = None
+):
+    """Connect to the Google Sheets API using a service account.
 
     Args:
         credentials_file (str): Path to the service account JSON credentials file.
-        logger (logging.Logger, optional): Logger for writing error messages.
-            If None, no logging is performed.
+        logger (logging.Logger | None): Logger for writing error messages.
 
     Returns:
         googleapiclient.discovery.Resource: A Google Sheets API service object.
 
     Raises:
         FileNotFoundError: If the credentials file does not exist.
-        Exception: If the service cannot be created for any other reason.
+        RuntimeError: If the Google Sheets service cannot be created.
     """
-    if not os.path.exists(credentials_file):
-        msg = f"Configuration file not found: {credentials_file}"
+    if not Path(credentials_file).exists():
+        msg = f"Configuration file not found: {Path(credentials_file).resolve()}"
         if logger:
             logger.error(msg)
         raise FileNotFoundError(msg)
@@ -283,66 +288,74 @@ def connect_to_google_sheet(credentials_file: str,
         )
         return build('sheets', 'v4', credentials=creds)
     except Exception as e:
-        msg = f"Failed to create Google Sheets service: {str(e)}"
+        msg = f"Failed to create Google Sheets service."
         if logger:
             logger.exception(msg)
-        raise Exception(msg) from e
+        raise RuntimeError(msg) from e
     
-
-def get_google_sheet_filename(sheet_id: str,
-                              credentials_file: str = "credentials.json",
-                              logger: logging.Logger | None = None) -> str:
-    """
-    Retrieves the title (filename) of a Google Sheet given its ID.
+def get_google_sheet_filename(
+    sheet_id: str,
+    credentials_file: str = "credentials.json",
+    logger: logging.Logger | None = None
+) -> str:
+    """Retrieve the title of a Google Sheet given its ID.
 
     Args:
         sheet_id (str): ID of the Google Sheet.
         credentials_file (str): Path to service account JSON credentials.
-        logger (logging.Logger, optional): Logger for error/info messages.
+        logger (logging.Logger | None): Logger for error and info messages.
 
     Returns:
-        str: The title (filename) of the Google Sheet.
+        str: The title of the Google Sheet.
 
     Raises:
-        ValueError: If the sheet ID is invalid or the file cannot be accessed.
-        Exception: For unexpected errors during the fetch.
+        ValueError: If the sheet ID is invalid or cannot be accessed.
+        AttributeError: If the metadata response does not contain a title.
+        RuntimeError: If an unexpected error occurs while fetching the title.
     """
-    # 1. Connect to the Google Sheets API service using the existing function.
+    # Connect to the Google Sheets API service using the existing function
     service = connect_to_google_sheet(credentials_file, logger=logger)
 
     try:
-        # 2. Call the spreadsheets().get() method to retrieve the sheet's metadata.
-        # This is the same method used to auto-detect the sheet_name in read_google_sheet.
+        # Call the spreadsheets().get() method to retrieve the sheet's metadata
         meta = service.spreadsheets().get(
             spreadsheetId=sheet_id,
             # Request only the 'properties' field to keep the API response small
             fields='properties.title' 
         ).execute()
 
-        # 3. Extract and return the title (filename) from the metadata.
+        # Extract and return the title (filename) from the metadata
         if 'properties' in meta and 'title' in meta['properties']:
             filename = meta['properties']['title']
             if logger:
-                logger.info(f"Successfully retrieved filename for Sheet ID {sheet_id}: '{filename}'")
+                logger.info(
+                    "Successfully retrieved filename for Sheet ID %s: '%s'", 
+                    sheet_id, filename
+                )
             return filename
         else:
             # Should not happen if the request succeeds, but good for safety.
             msg = f"Missing title in metadata for Google Sheet ID: {sheet_id}"
             if logger:
                 logger.error(msg)
-            raise Exception(msg)
+            raise AttributeError(msg)
 
     except HttpError as e:
-        msg = f"Failed to retrieve metadata for Google Sheet ID {sheet_id}. Check ID and service account permissions."
-        if logger:
-            logger.error(msg)
-            logger.exception(e)
-        raise ValueError(msg) from e
-    except Exception as e:
-        msg = f"Unexpected error while fetching filename for Google Sheet ID {sheet_id}"
+        msg = (
+            f"Failed to retrieve metadata for Google Sheet ID {sheet_id}. "
+            "Check ID and service account permissions."
+        )
         if logger:
             logger.exception(msg)
-        raise Exception(msg) from e
+        raise ValueError(msg) from e
+    except Exception as e:
+        msg = (
+            f"Unexpected error while fetching filename for Google Sheet ID "
+            f"{sheet_id}."
+        )
+        if logger:
+            logger.exception(msg)
+        raise RuntimeError(msg) from e
 
 
 def read_google_sheet(sheet_id: str,
@@ -373,10 +386,12 @@ def read_google_sheet(sheet_id: str,
             meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
             sheet_name = meta['sheets'][0]['properties']['title']
         except HttpError as e:
-            msg = f"Access Denied or Invalid ID: Could not reach Google Sheet {sheet_id}. Check permissions for your service account."
+            msg = (
+                "Access Denied or Invalid ID: Could not reach Google Sheet "
+                f"{sheet_id}. Check permissions for your service account."
+            )
             if logger:
-                logger.error(msg)
-                logger.exception(e)
+                logger.exception(msg)
             raise ValueError(msg) from e
 
     # Fetch data from specified tab
@@ -386,10 +401,12 @@ def read_google_sheet(sheet_id: str,
             range=sheet_name
         ).execute()
     except HttpError as e:
-        msg = f"Tab Not Found: Failed to fetch '{sheet_name}' from Google Sheet {sheet_id}. Check the tab name."
+        msg = (
+            f"Tab Not Found: Failed to fetch '{sheet_name}' "
+            f"from Google Sheet {sheet_id}. Check the tab name."
+        )
         if logger:
-            logger.error(msg)
-            logger.exception(e)
+            logger.exception(msg)
         raise ValueError(msg) from e
     except Exception as e:
         msg = f"Unexpected error while reading Google Sheet {sheet_id}"
@@ -479,23 +496,21 @@ def read_google_sheets_in_folder(
                 )
                 df.attrs["sheet_name"] = file["name"]  # preserve filename if helpful
                 dataframes.append(df)
-            except Exception as e:
+            except Exception:
                 msg = f"Failed to read Google Sheet {file['name']} ({file['id']})"
                 if logger:
-                    logger.error(msg)
-                    logger.exception(e)
+                    logger.exception(msg)
                 raise
 
         return dataframes
 
-    except HttpError as e:
+    except HttpError:
         msg = f"Drive API error while accessing folder {folder_id}"
         if logger:
-            logger.error(msg)
-            logger.exception(e)
+            logger.exception(msg)
         raise
-    except Exception as e:
-        msg = f"Unexpected error while listing sheets in folder {folder_id}"
+    except Exception:
+        msg = "Unexpected error while listing sheets in folder %s", folder_id
         if logger:
             logger.exception(msg)
         raise
@@ -533,7 +548,8 @@ def get_first_tab_info(sheet_id: str,
         sheets = meta.get('sheets', [])
         if not sheets:
             msg = f"Google Sheet {sheet_id} contains no tabs."
-            if logger: logger.error(msg)
+            if logger: 
+                logger.error(msg)
             raise ValueError(msg)
 
         # The first tab is at index 0
@@ -545,7 +561,8 @@ def get_first_tab_info(sheet_id: str,
 
         if sheet_gid is None or sheet_name is None:
              msg = f"Could not retrieve GID or name for the first tab of Sheet {sheet_id}."
-             if logger: logger.error(msg)
+             if logger: 
+                logger.error(msg)
              raise ValueError(msg)
 
         return {
@@ -555,9 +572,11 @@ def get_first_tab_info(sheet_id: str,
 
     except HttpError as e:
         msg = f"Failed to fetch metadata for Google Sheet {sheet_id}"
-        if logger: logger.error(msg); logger.exception(e)
+        if logger: 
+            logger.exception(msg)
         raise ValueError(msg) from e
-    except Exception as e:
+    except Exception:
         msg = f"Unexpected error while getting first tab info for Google Sheet {sheet_id}"
-        if logger: logger.exception(msg)
+        if logger: 
+            logger.exception(msg)
         raise

@@ -19,19 +19,29 @@ metadata Google Sheets. It supports two primary workflows:
 
 # Import standard modules
 import argparse
-from datetime import datetime
 import logging
-import os
+import traceback
+from pathlib import Path
+from datetime import datetime
 
 # Import third-party module
 import pandas as pd
 
 # Import local modules
 from definitions import ALLOWED_CONTENT_TYPES
-from utilities import *
+from utilities import (
+    prompt_for_input,
+    create_directory,
+    setup_logger,
+    create_df,
+    read_google_sheet,
+    error_symbol
+)
 
 
-# --- CONSTANT ---
+# --- CONSTANTS ---
+
+LOGGER_NAME = "make_metadata_sheet"
 
 METADATA_TEMPLATE_MAPPING = {
     "av":                   "1QZJTlxuexgZcEEH2ykvyXMjPhGVPvFgNSGL4ouVS8Do",
@@ -65,7 +75,7 @@ def parse_arguments() -> argparse.Namespace:
         type=str, 
         help="Path to a batch directory for Workbench ingests.")
     parser.add_argument(
-        "--manifest_id",
+        "-m", "--manifest_id",
         type=str,
         help="Google Sheet ID for the manifest file."
     )
@@ -75,7 +85,7 @@ def parse_arguments() -> argparse.Namespace:
         help="Path to manifest on local device."
     )
     parser.add_argument(
-        "--metadata_id",
+        "-d", "--metadata_id",
         type=str,
         help="Google Sheet ID for a specific metadata file."
     )
@@ -100,7 +110,7 @@ def parse_arguments() -> argparse.Namespace:
 
     args = parser.parse_args()
 
-    # Determine which Metadata IDs to fetch
+    # Determine which metadata IDs to fetch
     args.metadata_ids = []
     
     # Explicit metadata_id
@@ -128,6 +138,26 @@ def parse_arguments() -> argparse.Namespace:
             "Enter the Google Sheet ID for the metadata: "
         )
         args.metadata_ids.append(val)
+
+    # Check for invalid input
+    if args.manifest_id and args.manifest_sheet:
+        raise ValueError(
+            "Provide either --manifest_id or --manifest_sheet, not both."
+        )
+    if args.metadata_id and args.metadata_sheet:
+        raise ValueError(
+            "Provide either --metadata_id or --metadata_sheet, not both."
+        )
+    if args.content_type and (args.metadata_id or args.metadata_sheet):
+        raise ValueError(
+            "Provide either --content_type or --metadata_id or --metadata_sheet."
+        )
+    if args.content_type:
+        invalid = [
+            ct for ct in args.content_type if ct not in ALLOWED_CONTENT_TYPES
+        ]
+        if invalid:
+            raise ValueError(f"Invalid content type(s): {', '.join(invalid)}")
 
     return args
 
@@ -191,7 +221,51 @@ def merge_sheets(
     metadata_df: pd.DataFrame,
     logger: logging.Logger
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Merge manifest and metadata DataFrames per workflow rules."""
+    """Merge manifest and metadata DataFrames according to workflow rules.
+
+    This function merges a manifest DataFrame with a metadata DataFrame using
+    normalized identifier fields. It supports two workflows:
+
+    1. ID-Based Merge:
+        If metadata identifiers are present, perform a left join between the
+        manifest 'id' field and the metadata identifier field ('identifier'
+        or fallback 'id').
+
+    2. Direct Append:
+        If the metadata identifier column exists but contains no data, append
+        metadata columns to manifest rows by position.
+
+    The metadata DataFrame must contain an 'identifier' column. If 'identifier'
+    is not present but 'id' is available, the function uses 'id' as a fallback
+    and logs a warning. If neither column exists, the function raises an error.
+
+    The output DataFrame always uses 'identifier' as the identifier column
+    name, regardless of whether the source identifier came from metadata
+    'identifier', metadata 'id', or manifest 'id'.
+
+    Duplicate normalized identifiers in either dataset will raise an error to
+    prevent unintended row duplication during merge.
+
+    Args:
+        manifest_df (pd.DataFrame): DataFrame containing manifest data. Must
+            include an 'id' column and may include 'node_id'.
+        metadata_df (pd.DataFrame): DataFrame containing metadata to merge.
+            Must include 'identifier' or fallback 'id' as a join field.
+        logger (logging.Logger): Logger for recording process steps, warnings,
+            and errors.
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]:
+            - merged: The resulting DataFrame after merging or appending.
+            - unmatched: A DataFrame of metadata rows with identifiers not
+              found in the manifest (empty if not applicable).
+
+    Raises:
+        KeyError: If the manifest DataFrame is missing the required 'id' column.
+        ValueError: If the metadata DataFrame is missing both 'identifier' and
+            'id', or if duplicate normalized identifiers are detected in either
+            the manifest or metadata DataFrame.
+    """
     try:
         # Confirm manifest contains required ID column
         if "id" not in manifest_df.columns:
@@ -218,11 +292,19 @@ def merge_sheets(
         if id_field not in metadata_df.columns:
             if "id" in metadata_df.columns:
                 id_field = "id"
-            else:
                 logger.warning(
-                    "Metadata missing identifier; adding empty 'identifier' column."
+                    "Preferred metadata join field 'identifier' was not found; "
+                    "using fallback field 'id'."
                 )
-                metadata_df.insert(0, "identifier", pd.NA)
+            else:
+                msg = (
+                    "Metadata is missing the required join column "
+                    "'identifier' (or fallback 'id')."
+                )
+                logger.error(msg)
+                raise ValueError(msg)
+
+        logger.info("Using '%s' as metadata join field.", id_field)
 
         # Create normalized join keys
         manifest_df["__metadata_id_join__"] = _normalize_for_join(
@@ -237,30 +319,88 @@ def merge_sheets(
             logger.info(
                 "Metadata identifiers are empty; appending columns by position."
             )
+
+            # Drop metadata identifier columns before append so that the
+            # manifest identifier becomes the output identifier.
+            append_metadata_df = metadata_df.drop(
+                columns=["identifier", "id", "__manifest_id_join__"],
+                errors="ignore"
+            ).reset_index(drop=True)
+
             merged = pd.concat(
-                [manifest_df[manifest_cols].reset_index(drop=True),
-                 metadata_df.reset_index(drop=True)],
+                [
+                    manifest_df[manifest_cols].reset_index(drop=True),
+                    append_metadata_df
+                ],
                 axis=1
             )
-            # Remove helper and duplicate columns, if concatenated
-            cols_to_drop = ["__metadata_id_join__", "__manifest_id_join__", "id"]
-            merged = merged.loc[:, ~merged.columns.duplicated()]
-            merged.drop(columns=cols_to_drop, errors="ignore", inplace=True)
+
+            # Standardize output identifier column name
+            merged.rename(columns={"id": "identifier"}, inplace=True)
+
+            # Remove helper columns from manifest, if present
+            merged.drop(
+                columns=["__metadata_id_join__"],
+                errors="ignore",
+                inplace=True
+            )
+
             return merged, pd.DataFrame()
 
-        # Drop 'id' from metadata copy for merge to prevent duplication
-        merge_metadata_df = metadata_df.drop(columns=["id"], errors="ignore")
+        # Check for duplicate normalized IDs in manifest
+        manifest_dupes = (
+            manifest_df["__metadata_id_join__"]
+            .dropna()
+            .value_counts()
+        )
+        manifest_dupes = manifest_dupes[manifest_dupes > 1]
 
-        # Left merge on the normalized keys
+        if not manifest_dupes.empty:
+            sample_dupes = ", ".join(manifest_dupes.index[:10])
+            msg = (
+                "Manifest contains duplicate normalized IDs. "
+                f"Examples: {sample_dupes}"
+            )
+            logger.error(msg)
+            raise ValueError(msg)
+
+        # Check for duplicate normalized identifiers in metadata
+        metadata_dupes = (
+            metadata_df["__manifest_id_join__"]
+            .dropna()
+            .value_counts()
+        )
+        metadata_dupes = metadata_dupes[metadata_dupes > 1]
+
+        if not metadata_dupes.empty:
+            sample_dupes = ", ".join(metadata_dupes.index[:10])
+            msg = (
+                "Metadata contains duplicate normalized identifiers. "
+                f"Examples: {sample_dupes}"
+            )
+            logger.error(msg)
+            raise ValueError(msg)
+
+        # Standardize metadata identifier column name for output
+        if id_field == "id":
+            metadata_df.rename(columns={"id": "identifier"}, inplace=True)
+
+        # Left merge on the normalized keys while preserving the metadata
+        # identifier column for output.
         merged = pd.merge(
             manifest_df,
-            merge_metadata_df,
+            metadata_df,
             how="left",
             left_on="__metadata_id_join__",
             right_on="__manifest_id_join__",
-            suffixes=("", "_metadata")
+            suffixes=("", "_metadata"),
+            validate="one_to_one"
         )
         logger.info("Merge completed successfully.")
+
+        # In the ID-based merge workflow, keep output 'identifier' and
+        # drop manifest 'id' from the final output.
+        merged.drop(columns=["id"], errors="ignore", inplace=True)
 
         # Identify unmatched records using the original metadata_df
         in_manifest = metadata_df["__manifest_id_join__"].isin(
@@ -268,9 +408,13 @@ def merge_sheets(
         )
         nonempty = metadata_df["__manifest_id_join__"].notna()
         unmatched = metadata_df[nonempty & ~in_manifest].copy()
-        
+
         if not unmatched.empty:
             logger.warning("%d unmatched rows found.", len(unmatched))
+
+        # Standardize unmatched identifier column name
+        if "id" in unmatched.columns and "identifier" not in unmatched.columns:
+            unmatched.rename(columns={"id": "identifier"}, inplace=True)
 
         # Clean up helper columns
         merged.drop(
@@ -279,13 +423,18 @@ def merge_sheets(
             inplace=True
         )
 
+        unmatched.drop(
+            columns=["__manifest_id_join__"],
+            errors="ignore",
+            inplace=True
+        )
+
         return merged, unmatched
 
-    except KeyError:
-        # Already logged above, just re-raise
-        raise
     except Exception:
-        logger.exception("Unexpected error during merge_sheets.")
+        logger.exception(
+            "An unexpected error occurred while merging sheets."
+        )
         raise
 
 
@@ -310,82 +459,114 @@ def main():
         - Writes a merged metadata CSV to the `metadata` subdirectory.
         - Writes an `unmatched.csv` log if metadata rows do not match files.
     """
-    # --- Initialization & Logging Setup ---
-    args = parse_arguments()
+    logger = None
+    log_path = None
+    try:
+        # --- Initialization & Logging Setup ---
+        args = parse_arguments()
+        # Get batch directory and timestamp for output files
+        batch_path = Path(args.batch_path)
+        batch_dir = batch_path.name
+        timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+        file_prefix = f"{batch_dir}_{timestamp}"
 
-    # Get batch directory and timestamp for output files
-    batch_dir = os.path.basename(args.batch_path.rstrip(os.sep))
-    timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-    file_prefix = f"{batch_dir}_{timestamp}"
+        # Set up logger
+        log_dir = create_directory(batch_path / "logs")
+        log_path = log_dir / f"{file_prefix}.log"
+        logger = setup_logger(LOGGER_NAME, log_path)
 
-    # Set up logger
-    log_dir = os.path.join(args.batch_path, "logs")
-    log_path = os.path.join(log_dir, f"{file_prefix}.log")
-    logger = setup_logger('make_metadata_sheet', log_path)
+        # --- Sheet Importing Process ---
+        # Read Manifest
+        if args.manifest_id:   
+            logger.info("Reading manifest Google Sheet: %s", args.manifest_id)
+            try:
+                manifest_df = read_google_sheet(
+                    args.manifest_id,
+                    credentials_file=args.credentials_file,
+                    logger=logger
+                )
+            except Exception:
+                logger.exception(
+                    f"Failed while reading manifest sheet: {args.manifest_id}"
+                )
+                raise
+        else:
+            logger.info("Reading manifest CSV: %s", args.manifest_sheet)
+            manifest_df = create_df(args.manifest_sheet)
 
-    # Read Manifest
-    if args.manifest_id:   
-        logger.info("Reading manifest Google Sheet: %s", args.manifest_id)
-        manifest_df = read_google_sheet(
-            args.manifest_id,
-            credentials_file=args.credentials_file
-        )
-    else:
-        logger.info("Reading manifest CSV: %s", args.manifest_sheet)
-        manifest_df = create_df(args.manifest_sheet)
+        # Read Metadata
+        if args.metadata_ids:
+            # Get relevant metadata sheet(s)
+            all_metadata_dfs = []
+            for sheet_id in args.metadata_ids:
+                logger.info("Fetching metadata from: %s", sheet_id)
+                df = read_google_sheet(
+                    sheet_id,  
+                    credentials_file=args.credentials_file,
+                    logger=logger
+                )
 
-    # Read Metadata
-    if args.metadata_ids:
-        # Get relevant metadata sheet(s)
-        all_metadata_dfs = []
-        for sheet_id in args.metadata_ids:
-            logger.info("Fetching metadata from: %s", sheet_id)
-            df = read_google_sheet(
-                sheet_id, 
-                args.metadata_sheet, 
-                args.credentials_file
+                # Check for presence of columns
+                if not df.columns.empty:
+                    all_metadata_dfs.append(df)
+                else:
+                    logger.warning(
+                        "Sheet %s has no columns; skipping.",
+                        sheet_id
+                    )
+
+            if not all_metadata_dfs:
+                raise ValueError(
+                    "No metadata structure found in any provided sheets."
+                )
+            
+            # Determine master column order across all templates
+            master_cols = get_merged_column_order(all_metadata_dfs)
+            
+            # Combine data and reorder columns to the master sequence
+            full_metadata_df = pd.concat(all_metadata_dfs, ignore_index=True)
+            metadata_df = full_metadata_df[master_cols]
+        else:
+            logger.info("Reading metadata CSV: %s", args.metadata_sheet)
+            metadata_df = create_df(args.metadata_sheet)
+
+        # --- Sheet Merging Process ---
+        # Merge manifest and metadata sheets
+        logger.info("Merging sheets...")
+        merged, unmatched = merge_sheets(manifest_df, metadata_df, logger)
+
+        # Export merged results
+        output_dir = create_directory(batch_path / "metadata")
+        output_path = output_dir / f"{file_prefix}_metadata.csv"
+        
+        logger.info("Saving merged sheet to %s", output_path)
+        merged.to_csv(output_path, index=False, encoding='utf-8')
+        print(f"Metadata sheet saved to {output_path}")
+
+        # Log unmatched rows from metadata sheet
+        if not unmatched.empty:
+            log_csv = log_dir / f"{file_prefix}_unmatched.csv"
+            logger.warning("Unmatched rows found, writing to %s", log_csv)
+            unmatched.to_csv(log_csv, index=False, encoding='utf-8')
+            print(f"Unmatched rows found. Log saved to {log_csv}")
+
+        logger.info("Process complete.")
+
+    except Exception:
+        msg = "A critical system error occurred during execution."
+        if logger:
+            # Log full technical detail to file
+            logger.exception(
+                msg
             )
 
-            # Check for presence of columns
-            if not df.columns.empty:
-                all_metadata_dfs.append(df)
-            else:
-                logger.warning("Sheet %s has no columns; skipping.", sheet_id)
+        # Show the user error message
+        print(f"\n{error_symbol} {msg}")
 
-        if not all_metadata_dfs:
-            logger.error("No metadata structure found in any provided sheets.")
-            return
-        
-        # Determine master column order across all templates
-        master_cols = get_merged_column_order(all_metadata_dfs)
-        
-        # Combine data and reorder columns to the master sequence
-        full_metadata_df = pd.concat(all_metadata_dfs, ignore_index=True)
-        metadata_df = full_metadata_df[master_cols]
-    else:
-        logger.info("Reading metadata CSV: %s", args.metadata_sheet)
-        metadata_df = create_df(args.metadata_sheet)
-
-    # Merge manifest and metadata sheets
-    logger.info("Merging sheets...")
-    merged, unmatched = merge_sheets(manifest_df, metadata_df, logger)
-
-    # Export merged results
-    output_dir = os.path.join(args.batch_path, "metadata")
-    output_path = os.path.join(output_dir, f"{file_prefix}_metadata.csv")
-    
-    logger.info("Saving merged sheet to %s", output_path)
-    merged.to_csv(output_path, index=False, encoding='utf-8')
-    print(f"Metadata sheet saved to {output_path}")
-
-    # Log unmatched rows from metadata sheet
-    if not unmatched.empty:
-        log_csv = os.path.join(log_dir, f"{file_prefix}_unmatched.csv")
-        logger.warning("Unmatched rows found, writing to %s", log_csv)
-        unmatched.to_csv(log_csv, index=False, encoding='utf-8')
-        print(f"Unmatched rows found. Log saved to {log_csv}")
-
-    logger.info("Process complete.")
+        if log_path:
+            print(f"See logs: {log_path}")
+        else:
+            traceback.print_exc()
 
 
 if __name__ == "__main__":

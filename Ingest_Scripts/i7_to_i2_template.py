@@ -25,11 +25,13 @@ Usage:
 # Import standard modules
 from __future__ import annotations
 import argparse
-from datetime import datetime
 import re
 import sys
+import logging
+import traceback
+from datetime import datetime
 from pathlib import Path
-from typing import Callable, Dict, List, Set
+from typing import Callable, Dict, List, Set, Optional
 try:
     from tkinter import Tk, filedialog, messagebox
     import tkinter as tk
@@ -41,8 +43,22 @@ except ImportError:
 import pandas as pd
 
 # Import local modules
-from definitions import COPYRIGHT_STATUS_MAPPING, TYPE_MAPPING, LANGUAGE_MAPPING, ALLOWED_CONTENT_TYPES, I7_to_I2_MAPPING
-from utilities import *
+from definitions import (
+    COPYRIGHT_STATUS_MAPPING, 
+    TYPE_MAPPING, 
+    LANGUAGE_MAPPING, 
+    ALLOWED_CONTENT_TYPES, 
+    I7_to_I2_MAPPING
+)
+from utilities import (
+    prompt_for_input,
+    read_google_sheet,
+    create_df,
+    create_directory,
+    get_google_sheet_filename,
+    setup_logger,
+    error_symbol
+)
 
 
 # ---------------------------------------------------------------------------
@@ -154,10 +170,11 @@ def parse_arguments() -> argparse.Namespace:
                 args.metadata_id = prompt_for_input(
                     "Enter the Google Sheet ID for the metadata: "
                 )
-    if args.metadata_id and not args.credentials_file:
-        args.credentials_file = prompt_for_input(
-            "Enter the path to the Google credentials JSON file: "
-        )
+    # Include if removing default to credentials file on /workbench
+    # if args.metadata_id and not args.credentials_file:
+    #     args.credentials_file = prompt_for_input(
+    #         "Enter the path to the Google credentials JSON file: "
+    #     )
     if not args.content_type:
         args.content_type = prompt_for_input(
             "Enter the content type(s) for the batch (space- or comma-separated): "
@@ -179,11 +196,11 @@ def parse_arguments() -> argparse.Namespace:
     invalid_cts = [ct for ct in cts if ct not in ALLOWED_CONTENT_TYPES]
 
     if invalid_cts:
+        invalid_str = ", ".join(sorted(set(invalid_cts)))
+        allowed_str = ", ".join(sorted(ALLOWED_CONTENT_TYPES))
         raise SystemExit(
-            f"Invalid --content_type values: {
-                ', '.join(sorted(set(invalid_cts)))
-            }. "
-            f"Allowed: {', '.join(sorted(ALLOWED_CONTENT_TYPES))}"
+            f"Invalid --content_type values: {invalid_str}. "
+            f"Allowed: {allowed_str}"
         )
 
     # Process content type(s) and remove duplicates
@@ -347,19 +364,21 @@ def prepare_mapping(
             fillna("").astype(str).str.strip()
         
         return mapping_ct[mapping_ct["i2_field_clean"] != ""]
-    except Exception as e:
-            logging.getLogger(LOGGER_NAME).error(f"Error preparing mapping: {e}")
+    except Exception:
+            logging.getLogger(LOGGER_NAME).exception(
+                "Failed to prepare mapping."
+            )
             raise
 
 
-def load_metadata(args) -> pd.DataFrame:
+def load_metadata(args: argparse.Namespace) -> pd.DataFrame:
     """Load metadata from either a Google Sheet or a local file system.
 
     Args:
-        args: A namespace object containing the following attributes:
-            metadata_id (str): The Google Sheet ID (if applicable).
-            credentials_file (str): Path to the Google Service Account JSON.
-            metadata_sheet (str): Path to a local CSV/Excel file.
+        args (argparse.Namespace): Must include:
+        - metadata_id (str | None): The Google Sheet ID (if applicable).
+        - metadata_sheet (str | None): Path to a local CSV/Excel file (if applicable).
+        - credentials_file (str): Path to the Google Service Account JSON.
 
     Returns:
         pd.DataFrame: The ingested metadata ready for processing.
@@ -374,16 +393,16 @@ def load_metadata(args) -> pd.DataFrame:
         else:
             if not Path(args.metadata_sheet).exists():
                 raise FileNotFoundError(
-                    f"Metadata file not found: {args.metadata_path}"
+                    f"Metadata file not found: {args.metadata_sheet}"
                 )
             df = create_df(args.metadata_sheet)
         if df.empty:
             raise ValueError("The provided metadata file is empty.")
 
         return df
-    except Exception as e:
-        logging.getLogger(LOGGER_NAME).error(f"Failed to load metadata: {e}")
-        raise # Re-raise to let main() handle the sys.exit
+    except Exception:
+        logging.getLogger(LOGGER_NAME).exception("Failed to load metadata.")
+        raise
 
 
 def save_outputs(
@@ -391,16 +410,18 @@ def save_outputs(
     audit_data: dict,
     mapping_ct: pd.DataFrame,
     log_dir: Path,
-    args
+    args: argparse.Namespace
 ) -> None:
     """Generate the final metadata CSV and the accompanying audit log.
 
     Args:
-        df_final: The transformed and cleaned metadata DataFrame.
-        audit_data: A dictionary containing date logs, added columns, and dropped columns.
-        mapping_ct: The mapping rules used for this batch.
-        log_dir: Path to log directory.
-        args: The command-line arguments containing paths and identifiers.
+        df_final (pd.DataFrame): The transformed and cleaned metadata DataFrame.
+        audit_data (dict): A dictionary containing date logs, added columns,
+            and dropped columns.
+        mapping_ct (pd.DataFrame): The mapping rules used for this batch.
+        log_dir (Path): Path to the log directory.
+        args (argparse.Namespace): Parsed command-line arguments containing
+            paths, identifiers, and content types.
     """
     # Determine base filename
     if args.metadata_id:
@@ -453,7 +474,7 @@ def save_outputs(
                 })
 
     log_df = pd.DataFrame(log_rows).fillna("")
-    log_path = log_dir / f"{filename}_{ct_label}_log.csv"
+    log_path = log_dir / f"{filename}_{ct_label}_audit_log.csv"
     log_df.to_csv(log_path, index=False, encoding="utf-8")
 
     # Notify User
@@ -468,23 +489,23 @@ def save_outputs(
 # Helpers / Processors
 # ---------------------------------------------------------------------------
 
-def show_message(type, title, message):
+def show_message(msg_type: str, title: str, message: str) -> None:
     """Display a Tkinter message box on top of all other windows.
 
     Args:
-        msg_type: The type of message box to display ('info' or 'error').
-        title: The title text of the message box.
-        message: The message body text.
+        msg_type (str): The type of message box to display ('info' or 'error').
+        title (str): The title text of the message box.
+        message (str): The message body text.
     """
     root = tk.Tk()
     root.withdraw()
     root.attributes("-topmost", True)
-    
-    if type == "info":
+
+    if msg_type == "info":
         messagebox.showinfo(title, message, parent=root)
-    elif type == "error":
+    elif msg_type == "error":
         messagebox.showerror(title, message, parent=root)
-    
+
     root.destroy()
 
 
@@ -496,7 +517,7 @@ def tokenize_ct_value(value: str) -> Set[str]:
     automatically generates a singular version of any token ending in 's'.
 
     Args:
-        cell: The raw string from a mapping cell (e.g., "images|photograph").
+        value: The raw string from a mapping cell (e.g., "images|photograph").
 
     Returns:
         A set of unique, lowercase, stripped tokens including singular variants.
@@ -589,10 +610,9 @@ def apply_processors(
         if col in df.columns:
             try:
                 df[col] = func(df[col])
-            except Exception as e:
-                logging.getLogger(LOGGER_NAME).error(
-                    f"Processor for '{col}' failed:", 
-                    exc_info=True
+            except Exception:
+                logging.getLogger(LOGGER_NAME).exception(
+                    "Processor for '%s' failed.", col
                 )
     return df
 
@@ -766,26 +786,27 @@ def main() -> None:
         - Writes processed metadata and audit logs to the file system.
         - Terminates the script with sys.exit(1) upon encountering a fatal error.
     """
-    args = parse_arguments()
-
-    # Get a unique timestamp
-    timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-    
-    # Set up logger
-    batch_path = Path(args.batch_path)
-    batch_dir = batch_path.name
-    file_prefix = f"{batch_dir}_{timestamp}"
-    log_dir = create_directory(batch_path / "logs")
-    log_path = log_dir / f"{file_prefix}.log"
-    logger = setup_logger(LOGGER_NAME, log_path)
-
+    logger = None
+    log_path = None
     root = None
-    
-    if TK_AVAILABLE:
-        root = tk.Tk()
-        root.withdraw()
-
     try:
+        args = parse_arguments()
+
+        # Get a unique timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+        
+        # Set up logger
+        batch_path = Path(args.batch_path)
+        batch_dir = batch_path.name
+        file_prefix = f"{batch_dir}_{timestamp}"
+        log_dir = create_directory(batch_path / "logs")
+        log_path = log_dir / f"{file_prefix}.log"
+        logger = setup_logger(LOGGER_NAME, log_path)
+        
+        if TK_AVAILABLE:
+            root = tk.Tk()
+            root.withdraw()
+
         # Load and prepare the crosswalk mapping
         mapping_ct = prepare_mapping(I7_to_I2_MAPPING, args.content_type)
 
@@ -798,21 +819,25 @@ def main() -> None:
         # Generate outputs
         save_outputs(df_final, audit_data, mapping_ct, log_dir, args)
 
-    except Exception as e:
-        logger.error(
-            f"A critical system error occurred:", 
-            exc_info=True
-        )
+    except Exception:
+        msg = "A critical system error occurred during execution."
+        if logger:
+            logger.exception(msg)
 
-        message = f"A critical system error occurred. See logs: {log_path}"
         if TK_AVAILABLE:
             show_message(
                 "error", 
                 "Error", 
-                message
+                msg
             )
         else:
-            print(message)
+            # Show the user error message
+            print(f"\n{error_symbol} {msg}")
+
+            if log_path:
+                print(f"See logs: {log_path}")
+            else:
+                traceback.print_exc()
         sys.exit(1)
     finally:
         if root:
