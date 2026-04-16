@@ -349,7 +349,11 @@ def merge_sheets(
 
     This function aligns file-level manifest data with descriptive metadata. It
     standardizes the manifest schema, merges datasets on normalized identifiers,
-    and identifies metadata rows that lack a corresponding manifest match.
+    and identifies metadata rows whose identifiers do not match a manifest
+    record.
+
+    The output ingest DataFrame always uses 'id' as the identifier column name,
+    because it is intended for system ingest rather than metadata entry.
 
     Args:
         manifest_df (pd.DataFrame): The primary manifest sheet containing file
@@ -404,7 +408,7 @@ def merge_sheets(
         logger.error(msg)
         raise KeyError(msg)
 
-    # Ensure all other required columns exist in manifest
+    # Ensure all required columns exist in manifest
     for col in required_columns:
         if col not in manifest_df.columns:
             manifest_df.loc[:, col] = None
@@ -469,9 +473,9 @@ def merge_sheets(
         logger.error(msg)
         raise ValueError(msg)
 
-    # Standardize metadata identifier column name for output
+    # Standardize metadata identifier column name for internal merge logic
     if id_field == "id":
-        metadata_df.rename(columns={"id": "identifier"}, inplace=True)
+        metadata_df = metadata_df.rename(columns={"id": "identifier"})
 
     # Identify overlapping columns for post-merge validation
     common_cols = set(manifest_df.columns).intersection(set(metadata_df.columns))
@@ -525,15 +529,13 @@ def merge_sheets(
                 inplace=True
             )
 
-    # Standardize identifier output
-    ingest_sheet.drop(columns=["id"], errors="ignore", inplace=True)
-
     # Clean up helper columns
     ingest_sheet.drop(
-        columns=["__manifest_id_join__", "__metadata_id_join__"],
+        columns=["identifier", "__manifest_id_join__", "__metadata_id_join__"],
         errors="ignore",
         inplace=True
     )
+
     unmatched.drop(
         columns=["__metadata_id_join__"],
         errors="ignore",
