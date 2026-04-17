@@ -1152,6 +1152,14 @@ def validate_term(
     matching_rows = TAXONOMIES.loc[mask]
 
     if matching_rows.empty:
+        mask = (
+            (TAXONOMIES["Term ID"] == value) &
+            (TAXONOMIES["Vocabulary"] == taxonomy)
+        )
+
+        matching_rows = TAXONOMIES.loc[mask]
+
+    if matching_rows.empty:
         add_exception(
             pid,
             field,
