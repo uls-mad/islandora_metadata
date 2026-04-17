@@ -390,6 +390,7 @@ def merge_sheets(
     ]
 
     optional_columns = [
+        "node_id",
         "parent_id",
         "weight",
         "transcript",
