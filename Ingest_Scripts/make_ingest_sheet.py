@@ -352,8 +352,9 @@ def merge_sheets(
     and identifies metadata rows whose identifiers do not match a manifest
     record.
 
-    The output ingest DataFrame always uses 'id' as the identifier column name,
-    because it is intended for system ingest rather than metadata entry.
+    The merged output uses 'identifier' as the canonical identifier column.
+    Downstream processing is responsible for converting that identifier into
+    the system-facing output fields such as 'id' and 'field_pid'.
 
     Args:
         manifest_df (pd.DataFrame): The primary manifest sheet containing file
@@ -433,10 +434,14 @@ def merge_sheets(
 
     logger.info("Using '%s' as metadata join field.", id_field)
 
+    # Standardize metadata identifier column name for output
+    if id_field == "id":
+        metadata_df.rename(columns={"id": "identifier"}, inplace=True)
+
     # Create normalized join keys
     manifest_df["__manifest_id_join__"] = _normalize_for_join(manifest_df["id"])
     metadata_df["__metadata_id_join__"] = _normalize_for_join(
-        metadata_df[id_field]
+        metadata_df["identifier"]
     )
 
     # Check for duplicate normalized IDs in manifest
@@ -472,10 +477,6 @@ def merge_sheets(
         )
         logger.error(msg)
         raise ValueError(msg)
-
-    # Standardize metadata identifier column name for internal merge logic
-    if id_field == "id":
-        metadata_df = metadata_df.rename(columns={"id": "identifier"})
 
     # Identify overlapping columns for post-merge validation
     common_cols = set(manifest_df.columns).intersection(set(metadata_df.columns))
@@ -529,9 +530,10 @@ def merge_sheets(
                 inplace=True
             )
 
-    # Clean up helper columns
+    # Clean up helper columns; keep manifest 'id' out of the merged table so
+    # downstream processing uses canonical 'identifier'.
     ingest_sheet.drop(
-        columns=["identifier", "__manifest_id_join__", "__metadata_id_join__"],
+        columns=["id", "__manifest_id_join__", "__metadata_id_join__"],
         errors="ignore",
         inplace=True
     )
@@ -1506,56 +1508,66 @@ def records_to_csv(records: list, destination: str):
 # Key Functions
 # ---------------------------------------------------------------------------
 
-def process_record(row: dict) -> dict:
+def process_record(row: dict) -> dict | None:
     """Transform a raw CSV row into a structured metadata record.
 
-    This function handles the transformation pipeline for a single record. 
+    This function handles the transformation pipeline for a single record.
     It performs the following sequence:
     1.  **Initialization:** Creates a fresh record and anchors it with a PID.
     2.  **Field Mapping:** Identifies target system fields for each CSV column.
     3.  **Sanitization:** Handles whitespace removal and multi-value splitting.
-    4.  **Validation & Remediation:** Routes data through specialized handlers 
+    4.  **Validation & Remediation:** Routes data through specialized handlers
         for coordinates, dates, controlled vocabularies, and system models.
     5.  **Assembly:** Merges title components and finalizes the record structure.
 
+    The incoming merged DataFrame is expected to use 'identifier' as the
+    canonical identifier field. This function converts that identifier into
+    the system-facing output field 'id', while the normal field-mapping
+    workflow maps 'identifier' to 'field_pid'.
+
     Args:
-        row: A dictionary representing a single row from the source CSV, 
+        row: A dictionary representing a single row from the source CSV,
             where keys are headers and values are raw cell data.
 
     Returns:
-        dict: The transformed record dictionary containing mapped, cleaned, 
-            and validated data.
+        dict | None: The transformed record dictionary containing mapped,
+        cleaned, and validated data, or None if record-level processing fails.
 
     Raises:
-        ValueError: If required identifier field (identifier or field_pid) is 
-            missing in record.
+        ValueError: If the required identifier field is missing.
 
     Side Effects:
-        - Logs validation failures and processing errors to the global 
+        - Logs validation failures and processing errors to the global
           exception tracker via `add_exception`.
-        - Prints traceback and error details to the console if a row-level 
-          exception occurs.
+        - Logs traceback details if a row-level exception occurs.
     """
     # Initialize record
     record = initialize_record()
 
-    # Add ID to record manually to ensure presence for logging
-    pid = row.get('identifier', row.get('field_pid'))
+    # Get identifier for logging and downstream output
+    pid = row.get("identifier") or row.get("field_pid")
 
     # Initialize title dict to store title components
     title_parts = {}
 
     try:
-        # Validate that a PID exists before proceeding
-        if not pid:
+        # Validate that an identifier exists before proceeding
+        if not pid or pd.isna(pid):
             pid = "UNKNOWN"
             raise ValueError("Row missing required 'identifier' or 'field_pid'")
-        
+
+        # Seed system ingest ID from canonical identifier
+        add_value(record, None, "id", str(pid))
+
         # Process values in each field
         for csv_field, data in row.items():
             # Confirm that input field is mapped and data exists in field
             i2_field, taxonomy = get_mapped_field(pid, csv_field, data)
             if not i2_field or pd.isna(data):
+                continue
+
+            # Avoid overwriting manually seeded system ID
+            if i2_field == "id":
                 continue
 
             # Preprocess values
@@ -1584,6 +1596,7 @@ def process_record(row: dict) -> dict:
                     validate_term(pid, csv_field, value, taxonomy)
                 elif i2_field in DATE_FIELDS:
                     validate_edtf_date(pid, value)
+
                 # Add CSV data to I2 field
                 if value:
                     add_value(record, csv_field, i2_field, value)
@@ -1593,9 +1606,8 @@ def process_record(row: dict) -> dict:
 
     except Exception:
         logging.getLogger(LOGGER_NAME).exception(
-            "An error occurred while rocessing record %s.", pid
+            "An error occurred while processing record %s.", pid
         )
-
         return None
 
     return record
@@ -1902,7 +1914,7 @@ def main():
         unit = "record" if critical_failures == 1 else "records"
         print(
             f"\n{warning_symbol} {critical_failures} {unit} failed to process."
-            + (f" See logs: {config.log_path}" if config.log_path else f" {e}")
+            + (f" See logs: {config.log_path}" if config.log_path else "")
         )
     elif success:
         # No critical errors occured
