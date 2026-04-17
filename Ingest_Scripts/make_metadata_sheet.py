@@ -47,7 +47,7 @@ METADATA_TEMPLATE_MAPPING = {
     "av":                   "1QZJTlxuexgZcEEH2ykvyXMjPhGVPvFgNSGL4ouVS8Do",
     "interview":            "1SAlG6PX5CTG0iqmBm8-T1BYrbOq8de6HQxUcJYMhbOQ",
     "notated_music":        "1Wzsc7GfuXBJfcQ9P_JkuPwcCOeDspG5T7hWvCyAf-Io",
-    "serial":               "1-Dsf42gQ6e6r_ll0cITt6lvi_qozzCEvqaHZDC4VfB0",
+    "serial":               "1Hh6Wkzwead5yyQW7ZJQSBH2zmm6u-IK2at4yzUcs-Ao",
     "map":                  "18AXRba8mlCSwWBzuuV4CL4XU3dqPrs2iPunBYQXnVo4",
     "photograph":           "1QRVYJ4441rM0yRSH35UpZWYRLkFpMKNc_212G1dwzUU",
     "manuscript":           "1BJZYwe0t2Yz7tOhSD8ns2S8R7MjQqDlOe5-v7jtXqsc",
