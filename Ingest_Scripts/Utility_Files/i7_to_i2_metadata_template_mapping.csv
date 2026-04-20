@@ -61,7 +61,7 @@ address,address,optional,"Text (plain, long)",images|maps|photographs
 ,coordinates_text,recommended,Text (plain),maps
 ,projection,recommended,"Text (plain, long)",maps
 ,scale,recommended,Text (plain),maps
-depositor,depositor,required,Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+depositor,field_depositor,required,Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
 source_identifier,source_identifier,recommended,Text (plain),av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
 source_collection,source_collection,"required, if applicable",Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
 source_collection_id,source_collection_id,"required, if applicable",Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
