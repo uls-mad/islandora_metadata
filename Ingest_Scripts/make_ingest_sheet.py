@@ -1880,7 +1880,7 @@ def main():
         config.file_prefix = f"{config.batch_dir}_{config.timestamp}"
 
         # Set up directory paths based on batch path
-        config.output_dir = create_directory(config.batch_path / "metadata")
+        config.output_dir = create_directory(config.batch_path / "import")
         config.log_dir = create_directory(config.batch_path / "logs")
         config.log_path = config.log_dir / f"{config.file_prefix}.log"
 
