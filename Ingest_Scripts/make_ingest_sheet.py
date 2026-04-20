@@ -583,7 +583,7 @@ def flush_batch(
     )
     sub_batch_file = f"{sub_batch_prefix}.csv"
     sub_batch_path = config.output_dir / sub_batch_file
-    records_df = records_to_csv(buffer, sub_batch_path)
+    records_df = save_records(buffer, sub_batch_path, config)
 
     # Check for additional media files
     media_files = []
@@ -1466,18 +1466,69 @@ def format_record(record: dict) -> dict:
     return record
 
 
-def records_to_csv(records: list, destination: str):
-    """
-    Converts a list of dictionaries to a CSV file, dropping empty columns.
-    If records contain parent-child relationships, ensures children inherit 
-    the parent's domain access value where applicable.
+def filter_fields(
+    records: pd.DataFrame,
+    ingest_task: str,
+) -> pd.DataFrame:
+    """Drop fields that are not allowed for the specified ingest task.
+
+    This function removes disallowed columns from an ingest-sheet DataFrame
+    based on the provided ingest task. For a ``create`` task, the ``node_id``
+    field is dropped if present. For an ``update`` task, the ``file`` field is
+    dropped if present.
 
     Args:
-        records (list): List of dictionaries to convert.
-        destination (str): Filepath for the output CSV file.
+        records: A DataFrame containing ingest-sheet records.
+        ingest_task: The ingest task type. Expected values are ``"create"``
+            or ``"update"``.
 
     Returns:
-        pd.DataFrame: The resulting DataFrame written to CSV, or None if no records.
+        A copy of the input DataFrame with any disallowed fields removed for
+        the specified ingest task.
+
+    Raises:
+        ValueError: If ``ingest_task`` is not ``"create"`` or ``"update"``.
+    """
+    disallowed_fields_by_task = {
+        "create": ["node_id"],
+        "update": ["id", "file"],
+    }
+
+    if ingest_task not in disallowed_fields_by_task:
+        raise ValueError(
+            f"Invalid ingest_task: {ingest_task!r}. "
+            "Expected 'create' or 'update'."
+        )
+
+    disallowed_fields = disallowed_fields_by_task[ingest_task]
+    fields_to_drop = [
+        field for field in disallowed_fields if field in records.columns
+    ]
+
+    return records.drop(columns=fields_to_drop).copy()
+
+
+def save_records(
+    records: list,
+    destination: str,
+    config: AppConfig
+) -> pd.DataFrame | None:
+    """Convert records to a DataFrame, filter fields, and write to CSV.
+
+    This function converts a list of record dictionaries into a pandas
+    DataFrame, filters fields based on the ingest task, optionally sorts
+    records to ensure parent objects appear before children, and writes
+    the result to a CSV file.
+
+    Args:
+        records: List of dictionaries representing records to be written.
+        destination: File path for the output CSV file.
+        config: Application configuration object containing ingest settings,
+            including the ingest task used to filter fields.
+
+    Returns:
+        The resulting DataFrame written to CSV, or ``None`` if no records
+        are provided.
     """
     # Confirm there are records to save to CSV
     if not records:
@@ -1486,17 +1537,20 @@ def records_to_csv(records: list, destination: str):
         return
 
     # Convert list of dictionaries to DataFrame
-    df = pd.DataFrame.from_dict(records)
+    records_df = pd.DataFrame.from_dict(records)
+
+    # Filter fields to those allowable by ingest task
+    records_df = filter_fields(records_df, config.ingest_task)
 
     # Sort records so that parent objects are first
-    if "parent_id" in df.columns:
+    if "parent_id" in records_df.columns:
         # Ensure that parent_id is empty for top-level object models
         parent_models = ['Paged Content', 'Compound Object', 'Newspaper']
-        df.loc[
-            df['field_model'].isin(parent_models), 'parent_id'
+        records_df.loc[
+            records_df['field_model'].isin(parent_models), 'parent_id'
         ] = pd.NA
 
-        df.sort_values(
+        records_df.sort_values(
             by="parent_id", 
             ascending=True, 
             na_position="first", 
@@ -1504,13 +1558,13 @@ def records_to_csv(records: list, destination: str):
         )
 
     # Write the resulting DataFrame to a CSV file
-    df.to_csv(destination, index=False, header=True, encoding='utf-8')
+    records_df.to_csv(destination, index=False, header=True, encoding='utf-8')
 
     # Report creation of processed CSV path
     formatted_path = Path(destination).as_posix()
     print(f"\nIngest file saved: {formatted_path}")
 
-    return df
+    return records_df
 
 
 # ---------------------------------------------------------------------------
@@ -1713,6 +1767,7 @@ def process_files(
             if record:
                 if config.metadata_level != "publish":
                     record = validate_record(record, ingest_sheet)
+                # TODO: Move this to filter fields
                 if config.metadata_level == "minimal":
                     record = remove_vetted_fields(record)
                 record = format_record(record)
