@@ -94,7 +94,7 @@ def prepare_config(
     content = content.replace("[IMPORT_PASSWORD]", import_password)
     content = content.replace("[BATCH_DIRECTORY]", batch_dir)
     content = content.replace("[BATCH_PREFIX]", batch_prefix)
-    #content = content.replace("[BATCH_FILE]", batch_file)
+    content = content.replace("[BATCH_FILE]", batch_file)
     content = content.replace("[USER_ID]", user_id)
     content = content.replace("[INGEST_TASK]", ingest_task)
 
