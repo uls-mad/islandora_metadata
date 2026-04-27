@@ -326,7 +326,7 @@ def load_input_sheets(config: AppConfig) -> Tuple[pd.DataFrame, pd.DataFrame]:
         )
     elif config.metadata_sheet:
         logger.info(
-            f"Using manifest sheet from local file: {config.metadata_sheet}"
+            f"Using metadata sheet from local file: {config.metadata_sheet}"
         )
         metadata_df = create_df(config.metadata_sheet)
     
