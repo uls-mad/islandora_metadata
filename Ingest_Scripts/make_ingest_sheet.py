@@ -579,7 +579,7 @@ def flush_batch(
     """
     # Write batch CSV
     sub_batch_prefix = (
-        f"{config.file_prefix}_{batch_count}_ingest_{config.metadata_level}"
+        f"{config.batch_dir}_{batch_count}_ingest_{config.metadata_level}"
     )
     sub_batch_file = f"{sub_batch_prefix}.csv"
     sub_batch_path = config.output_dir / sub_batch_file
@@ -651,6 +651,7 @@ def get_mapped_field(
             ['machine_name', 'taxonomy']
         ]
         if match.empty:
+            # TODO: Enable {relator}_{nam_type} field to be mapped
             log_msg = (
                 f'could not find matching I2 field for CSV field '
                 f'"{csv_field}" with data "{data}"'
@@ -1760,6 +1761,7 @@ def process_files(
             
             # Process record
             if config.metadata_level == "publish":
+                # TODO: Move step to after DF is created and check for required fields
                 record = keep_publish_fields(row)
             else:
                 record = process_record(row)
