@@ -294,9 +294,12 @@ def load_input_sheets(config: AppConfig) -> Tuple[pd.DataFrame, pd.DataFrame]:
         tuple[pd.DataFrame, pd.DataFrame]:
             (manifest_df, metadata_df)
     """
+    logger = logging.getLogger(LOGGER_NAME)
+
     # ---------- Load manifest ----------
     # Access attributes directly from the config object
     if config.manifest_id:
+        logger.info(f"Using manifest from Google ID: {config.manifest_id}")
         manifest_df = read_google_sheet(
             config.manifest_id,
             sheet_name=config.manifest_sheet,
@@ -304,17 +307,27 @@ def load_input_sheets(config: AppConfig) -> Tuple[pd.DataFrame, pd.DataFrame]:
         )
     elif config.manifest_sheet:
         manifest_df = create_df(config.manifest_sheet)
+        logger.info(
+            f"Using manifest sheet from local file: {config.manifest_sheet}"
+        )
     else:
+        logger.info(f"No manifest provided.")
         manifest_df = pd.DataFrame()
 
     # ---------- Load metadata ----------
     if config.metadata_id:
+        logger.info(
+            f"Using metadata sheet from Google ID: {config.metadata_id}"
+        )
         metadata_df = read_google_sheet(
             config.metadata_id,
             sheet_name=config.metadata_sheet,
             credentials_file=config.credentials_file
         )
     elif config.metadata_sheet:
+        logger.info(
+            f"Using manifest sheet from local file: {config.metadata_sheet}"
+        )
         metadata_df = create_df(config.metadata_sheet)
     
 
