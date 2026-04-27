@@ -67,7 +67,7 @@ def prepare_config(
         batch_count (int): The current batch number. 
         timestamp (str): Timestamp string used in filenames.
         user_id (str): User ID to insert into the config.
-        ingest_task (str): Ingest task to insert into the config.
+        ingest_task (str): Ingest task to insert into the config ("create" or "update").
         media_files (list): I2 fields for additional media files.
 
     Returns:

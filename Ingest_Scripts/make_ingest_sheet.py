@@ -356,7 +356,8 @@ def _normalize_for_join(series: pd.Series) -> pd.Series:
 
 def merge_sheets(
     manifest_df: pd.DataFrame,
-    metadata_df: pd.DataFrame
+    metadata_df: pd.DataFrame,
+    ingest_task: str
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Merge manifest and metadata DataFrames and validate data integrity.
 
@@ -374,6 +375,9 @@ def merge_sheets(
             information.
         metadata_df (pd.DataFrame): The supplemental descriptive metadata
             sheet.
+        ingest_task (str): Ingest task to insert into the config ("create" or 
+            "update").
+        
 
     Returns:
         tuple[pd.DataFrame, pd.DataFrame]:
@@ -393,7 +397,6 @@ def merge_sheets(
     # Define the required and applicable optional columns
     required_columns = [
         "id",
-        "file",
         "field_model",
         "field_resource_type",
         "field_domain_access",
@@ -402,8 +405,16 @@ def merge_sheets(
         "published"
     ]
 
+    if ingest_task == "create":
+        required_columns.extend([
+            "file",
+        ])
+    else: 
+        required_columns.extend([
+            "node_id",
+        ])
+
     optional_columns = [
-        "node_id",
         "parent_id",
         "weight",
         "transcript",
@@ -427,7 +438,7 @@ def merge_sheets(
     for col in required_columns:
         if col not in manifest_df.columns:
             manifest_df.loc[:, col] = None
-            logger.info("Added missing required column: %s", col)
+            logger.info("Adding missing required column: %s", col)
 
     # Identify the ID field in metadata sheet
     id_field = "identifier"
@@ -1733,7 +1744,7 @@ def process_files(
         # Merge sheets
         if not manifest_df.empty and not metadata_df.empty:
             ingest_sheet, unmatched_records = merge_sheets(
-                manifest_df, metadata_df
+                manifest_df, metadata_df, config.ingest_task
             )
         else:
             ingest_sheet = metadata_df
