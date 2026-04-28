@@ -1908,7 +1908,7 @@ def main():
         # Set up directory paths based on batch path
         config.output_dir = create_directory(config.batch_path / "import")
         config.log_dir = create_directory(config.batch_path / "logs")
-        config.log_path = config.log_dir / f"{config.file_prefix}.log"
+        config.log_path = config.log_dir / f"{config.file_prefix}_processing.log"
 
         # Set up logger
         logger = setup_logger(LOGGER_NAME, config.log_path)
