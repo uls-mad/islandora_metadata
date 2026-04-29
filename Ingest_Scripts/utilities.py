@@ -28,7 +28,6 @@ LOG_FORMATTER = logging.Formatter(
     datefmt="%Y%m%d %H:%M:%S"
 )
 
-
 # Status Symbols
 GREEN = "\033[92m"
 YELLOW = "\033[33m"
@@ -39,6 +38,11 @@ success_symbol = "✅" if TK_AVAILABLE else f"{GREEN}[✓]{RESET}"
 warning_symbol = "⚠️ " if TK_AVAILABLE else f"{YELLOW}[!]{RESET}"
 error_symbol = "❌ " if TK_AVAILABLE else f"{RED}[X]{RESET}"
 transformation_symbol = "↩️ " if TK_AVAILABLE else f"{CYAN}[*]{RESET}"
+
+
+# --- Variable ---
+logger = logging.getLogger(__name__)
+
 
 # --- Functions ---
 
@@ -141,9 +145,15 @@ def create_directory(directory_path: str | Path) -> Path:
         return path
         
     except PermissionError as e:
-        logging.exception(
-            "Permission denied: Cannot create directory at %s.", path
-        )
+        message = f"Permission denied: Cannot create directory at {path}."
+        
+        if logger.hasHandlers() or logging.getLogger().hasHandlers():
+            logger.exception(message)
+        else:
+            print(f"ERROR: {message}")
+            import traceback
+            traceback.print_exc()
+            
         raise PermissionError(
             f"Insufficient permissions to create: {path}"
         ) from e
@@ -292,6 +302,7 @@ def connect_to_google_sheet(
         if logger:
             logger.exception(msg)
         raise RuntimeError(msg) from e
+    
     
 def get_google_sheet_filename(
     sheet_id: str,
