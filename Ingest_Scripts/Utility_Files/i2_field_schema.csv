@@ -21,6 +21,7 @@ field_place_distribution,Distribution Place,"Text (plain, long)",TRUE
 field_manufacturer,Manufacturer,"Text (plain, long)",TRUE
 field_place_manufacture,Manufacture Place,"Text (plain, long)",TRUE
 field_producer,Producer,"Text (plain, long)",TRUE
+field_projection,Projection,Text (plain),TRUE
 field_place_production,Production Place,"Text (plain, long)",TRUE
 field_mode_of_issuance,Mode of Issuance,Entity reference,TRUE
 field_frequency,Frequency,"Text (plain, long)",TRUE
