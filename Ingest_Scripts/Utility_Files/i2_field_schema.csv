@@ -11,6 +11,7 @@ field_edition,Edition Statement,Text (plain),TRUE
 field_linked_agent,Contributors,Typed Relation,TRUE
 field_edtf_date,Date,EDTF,TRUE
 field_date_str,Date String,Text (plain),TRUE
+field_date_notes,Date Notes,"Text (plain, long)",TRUE
 field_copyright_date,Copyright Date,EDTF,TRUE
 field_publisher_pitt,Publisher,"Text (plain, long)",TRUE
 field_place_publication,Publication Place,"Text (plain, long)",TRUE
@@ -76,6 +77,7 @@ field_depositor,Contributing Institution,Entity reference,TRUE
 field_rights_statement,Rights Statement,Entity reference,TRUE
 field_copyright_holder,Copyright Holder,"Text (plain, long)",FALSE
 field_rights_notes,Copyright Note,"Text (plain, long)",TRUE
+field_access_conditions,Conditions Governing Access,"Text (plain, long)",TRUE
 parent_id,,Text (plain),TRUE
 field_member_of,Member of,Entity reference,TRUE
 field_weight,Weight,Number (integer),FALSE
