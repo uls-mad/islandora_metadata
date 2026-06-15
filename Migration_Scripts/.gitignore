@@ -4,5 +4,6 @@ Inventories
 Output
 Test
 .env
+solr_to_i2_finding_aids.py
 Remediation_Mappings/subject_mapping _backup.csv
 Remediation_Mappings/name_mapping_backup.csv

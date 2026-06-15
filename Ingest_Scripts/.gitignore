@@ -1,4 +1,6 @@
 .env
-/Tests
-/credentials.json
 /__pycache__
+/Reference_Files
+/Tests
+/bulk_make_metadata_sheets.py
+/credentials.json
