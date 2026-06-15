@@ -4,3 +4,4 @@
 /Tests
 /bulk_make_metadata_sheets.py
 /credentials.json
+/merge_google_sheets.py
