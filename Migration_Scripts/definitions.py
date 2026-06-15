@@ -131,6 +131,10 @@ OBJECT_MAPPING = {
         'model': 'Audio', 
         'resource_type': 'Sound'
     },
+    'info:fedora/islandora:findingAidCModel': {
+        'model': 'Paged Content', 
+        'resource_type': 'Finding Aid'
+    },
 }
 
 DISPLAY_HINTS_MAPPING = {
@@ -231,6 +235,12 @@ field_mapping_csv =  os.path.join(
     "Schema_Mappings", "solr_to_i2_field_mapping.csv"
 )
 FIELD_MAPPING = create_df(field_mapping_csv)
+
+# Read in I7-to-I2 CSV field mapping
+csv_field_mapping_csv =  os.path.join(
+    "Schema_Mappings", "i7_to_i2_csv_field_mapping.csv"
+)
+CSV_FIELD_MAPPING = create_df(csv_field_mapping_csv)
 
 # Read in subjects mapping
 name_mapping_csv = os.path.join(
