@@ -37,6 +37,7 @@ from definitions import UTILITY_FILES_DIR
 from utilities import (
     ERROR_SYMBOL,
     SUCCESS_SYMBOL,
+    WARNING_SYMBOL,
     create_df,
     df_to_csv,
     prompt_for_input,
@@ -384,37 +385,72 @@ def process_taxonomy_project(
         sys.exit(1)
 
     commands = []
+    failed_vocabularies = []
 
     for vocab_id, group_df in df.groupby('vocab_id'):
-        rows_to_ingest = process_vocab_group(vocab_id, group_df)
+        try:
+            rows_to_ingest = process_vocab_group(vocab_id, group_df)
 
-        ingest_path = write_taxonomy_ingest(
-            project_dir,
-            vocab_id,
-            rows_to_ingest,
-        )
+            # File Write 1: Ingest Sheet
+            ingest_path = write_taxonomy_ingest(
+                project_dir,
+                vocab_id,
+                rows_to_ingest,
+            )
+            print(
+                f"{SUCCESS_SYMBOL} Ingest sheet for {vocab_id} saved: "
+                f"{ingest_path}"
+            )
+
+            # File Write 2: Workbench Config
+            config_path = write_workbench_config(
+                project_dir,
+                ingest_path,
+                vocab_id,
+                import_password,
+            )
+            print(
+                f"{SUCCESS_SYMBOL} Config file for {vocab_id} saved: "
+                f"{config_path}"
+            )
+
+            # Only queue the command if both file operations succeed
+            commands.append(
+                f'workbench --config remediation/{config_path.name} --check'
+            )
+
+        except (OSError, PermissionError) as io_err:
+            print(
+                f"{ERROR_SYMBOL} File system/permission error processing"
+                f" vocabulary '{vocab_id}': {io_err}"
+            )
+            failed_vocabularies.append((vocab_id, f"I/O Error: {io_err}"))
+        except Exception as exc:
+            print(
+                f"{ERROR_SYMBOL} Unexpected error processing vocabulary"
+                f" '{vocab_id}': {exc}"
+            )
+            failed_vocabularies.append((vocab_id, f"Unexpected Error: {exc}"))
+
+    # Write the commands file if any succeeded
+    if commands:
+        command_file_path = write_command_file(project_dir, commands)
+        print(f"\nCommands saved: {command_file_path}")
+    else:
         print(
-            f"{SUCCESS_SYMBOL} Ingest sheet for {vocab_id} saved: "
-            f"{ingest_path}"
+            f"\n{ERROR_SYMBOL} No configuration commands were generated due to"
+            " errors."
         )
 
-        config_path = write_workbench_config(
-            project_dir,
-            ingest_path,
-            vocab_id,
-            import_password,
-        )
+    # Alert the user to failures at the end of execution
+    if failed_vocabularies:
         print(
-            f"{SUCCESS_SYMBOL} Config file for {vocab_id} saved: "
-            f"{config_path}"
+            f"\n{WARNING_SYMBOL} Warning: The following"
+            f" {len(failed_vocabularies)} vocabularies failed to process"
+            " completely:"
         )
-
-        commands.append(
-            f'workbench --config remediation/{config_path.name} --check'
-        )
-
-    command_file_path = write_command_file(project_dir, commands)
-    print(f"Commands saved: {command_file_path}")
+        for vocab, reason in failed_vocabularies:
+            print(f"  - {vocab}: {reason}")
 
 
 def main() -> None:
