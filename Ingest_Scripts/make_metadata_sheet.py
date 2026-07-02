@@ -221,23 +221,26 @@ def parse_arguments() -> argparse.Namespace:
             "Enter the Google Sheet ID for the manifest: "
         )
 
-    if not args.metadata_ids and not args.metadata_sheet:
-        metadata_id = prompt_for_input(
+    if (
+        not args.metadata_id 
+        and not args.metadata_sheet 
+        and not args.content_type
+    ):
+        args.metadata_id = prompt_for_input(
             "Enter the Google Sheet ID for the metadata: "
         )
-        args.metadata_ids.append(metadata_id)
 
     validate_inputs(
         manifest_id=args.manifest_id,
         manifest_sheet=args.manifest_sheet,
         metadata_id=args.metadata_id,
         metadata_sheet=args.metadata_sheet,
-        content_type=args.content_type
+        content_type=args.content_type,
     )
 
     args.metadata_ids = resolve_metadata_ids(
         metadata_id=args.metadata_id,
-        content_type=args.content_type
+        content_type=args.content_type,
     )
 
     return args
@@ -659,28 +662,33 @@ def make_metadata_sheet(
     unmatched_path = None
 
     try:
-        validate_inputs(
-            manifest_id=manifest_id,
-            manifest_sheet=manifest_sheet,
-            metadata_id=metadata_id,
-            metadata_sheet=metadata_sheet,
-            content_type=content_type
-        )
-
-        metadata_ids = resolve_metadata_ids(
-            metadata_id=metadata_id,
-            content_type=content_type
-        )
+        if not batch_path:
+            raise ValueError(
+                "Provide the path to the Workbench batch directory."
+            )
 
         if not manifest_id and not manifest_sheet:
             raise ValueError(
                 "Provide either manifest_id or manifest_sheet."
             )
-
-        if not metadata_ids and not metadata_sheet:
+        
+        if not metadata_id and not metadata_sheet and not content_type:
             raise ValueError(
                 "Provide either metadata_id, metadata_sheet, or content_type."
             )
+
+        validate_inputs(
+            manifest_id=manifest_id,
+            manifest_sheet=manifest_sheet,
+            metadata_id=metadata_id,
+            metadata_sheet=metadata_sheet,
+            content_type=content_type,
+        )
+
+        metadata_ids = resolve_metadata_ids(
+            metadata_id=metadata_id,
+            content_type=content_type,
+        )
 
         # Set up output files
         batch_path = Path(batch_path)
