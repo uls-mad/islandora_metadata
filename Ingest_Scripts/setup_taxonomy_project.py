@@ -1,67 +1,100 @@
-#!/bin/python3 
+#!/usr/bin/env python3
 
-"""Generate a taxonomy remediation template from a batch exceptions log.
+"""Generate a taxonomy remediation project from metadata exceptions.
 
-This script identifies taxonomy-related errors within an ingest exceptions log 
-and aggregates them into a standardized format. By grouping recurring issues 
-and stripping record-specific PIDs, it creates a unique list of terms that 
-require mapping to controlled vocabulary (term names and URIs).
-
-Main Features:
-- Exception Filtering: Isolates rows containing "taxonomy" errors.
-- Frequency Analysis: Calculates a 'count' for each error to help prioritize 
-  high-impact remediation.
-- Template Generation: Automatically initializes 'term_name' and 'uri' columns 
-  for manual or automated data entry.
-- Organized Output: Saves results into a dedicated 'remediation' subdirectory 
-  within the batch path.
+This script analyzes metadata exception logs to identify unresolved taxonomy
+terms requiring remediation. It groups repeated exceptions, summarizes their
+frequency, removes record-specific information, and produces a standardized
+project spreadsheet for mapping terms to controlled vocabulary values.
 
 Usage:
-    python3 setup_taxonomy_project.py --batch_path /workbench/batches/[BATCH_DIR] --exceptions_log /workbench/batches/[BATCH_DIR]/logs/[METADATA_EXCEPTIONS_LOG].csv
+    # Generate a taxonomy remediation project
+    python3 setup_taxonomy_project.py \
+        --batch_path /workbench/batches/example \
+        --exceptions_log /workbench/batches/example/logs/metadata_exceptions.csv
+
+    # Run interactively
+    python3 setup_taxonomy_project.py
 """
 
-# --- Modules ---
+# ---------------------------------------------------------------------------
+# Modules
+# ---------------------------------------------------------------------------
 
-# Import standard modules
-import os
+# Standard library imports
 import argparse
+from pathlib import Path
 
-# Import local module
-from utilities import prompt_for_input, create_df
+# Third-party imports
+import pandas as pd
+
+# Local imports
+from utilities import (
+    SUCCESS_SYMBOL,
+    create_df,
+    create_directory,
+    df_to_csv,
+    prompt_for_input,
+)
 
 
-# --- Functions ---
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 
-def parse_arguments():
-    """Parse command line arguments or prompt the user for required paths.
+FIELDS_WITH_DESCRIPTIONS = {
+    'genre',
+    'genre_japanese_prints',
+    'source_collection',
+}
 
-    If batch or exception paths are not provided via command line flags, 
-    trigger interactive prompts to collect the necessary directory and 
-    file locations.
+GROUPING_COLUMNS = [
+    'field',
+    'value',
+    'exception',
+]
+
+RECORD_COLUMNS = [
+    'batch',
+    'pid',
+    'record_id',
+]
+
+
+# ---------------------------------------------------------------------------
+# Functions
+# ---------------------------------------------------------------------------
+
+# --- Argument Parsing ---
+
+def parse_arguments() -> argparse.Namespace:
+    """Parse command-line arguments or prompt for required paths.
 
     Returns:
-        argparse.Namespace: An object containing 'batch_path' (str) and 
-            'exceptions_log' (str).
+        Parsed command-line arguments.
     """
-    parser = argparse.ArgumentParser(description="Taxonomy Remediation Tool")
-    parser.add_argument(
-        "--batch_path", 
-        help="Path to the batch directory"
+    parser = argparse.ArgumentParser(
+        description="Taxonomy Remediation Project Generator"
     )
     parser.add_argument(
-        "--exceptions_log", 
-        help="Path to local metadata file"
+        '-b',
+        '--batch_path',
+        type=str,
+        help="Path to the batch directory containing logs/ and metadata/.",
     )
-    
+    parser.add_argument(
+        '-e',
+        '--exceptions_log',
+        type=str,
+        help="Path to the system exceptions log CSV file.",
+    )
     args = parser.parse_args()
 
-    # Ensure batch directory is provided
     if not args.batch_path:
         args.batch_path = prompt_for_input(
             "Enter the path to the Workbench batch directory: "
         )
 
-    # Ensure at least one metadata source is provided
     if not args.exceptions_log:
         args.exceptions_log = prompt_for_input(
             "Enter the path to the exceptions log: "
@@ -70,84 +103,84 @@ def parse_arguments():
     return args
 
 
-def process_taxonomy_metadata(df):
-    """Filter, count, and expand metadata for taxonomy remediation.
+# --- Data Processing ---
 
-    This function isolates taxonomy-specific exceptions, calculates the 
-    frequency of each unique field/value pair, removes batch-specific 
-    identifiers (PID/Batch), and initializes placeholder columns for 
-    manual cleanup.
+def process_taxonomy_metadata(df: pd.DataFrame) -> pd.DataFrame:
+    """Filter, clean, and group unique taxonomy exceptions.
 
     Args:
-        df: A pandas DataFrame containing the raw exception log data.
+        df: Raw metadata exceptions log DataFrame.
 
     Returns:
-        pd.DataFrame: A cleaned and grouped DataFrame containing unique 
-            taxonomy exceptions with an added 'count' column and 
-            placeholder 'term_name' and 'uri' columns.
+        Cleaned taxonomy remediation DataFrame with count, term_name, uri, and
+        optional description columns.
     """
     # Filter rows for taxonomy exceptions
-    df = df[df["exception"].str.contains("taxonomy", na=False)].copy()
+    df = df[df['exception'].str.contains('taxonomy', na=False)].copy()
 
-    # Calculate counts for duplicate occurrences
-    counts = df.groupby(["field", "value", "exception"]).size().reset_index(
-        name="count"
+    # Get counts for exceptions
+    counts = (
+        df.groupby(GROUPING_COLUMNS)
+        .size()
+        .reset_index(name='count')
     )
 
-    # Remove batch and pid columns
-    df = df.drop(columns=["batch", "pid"])
-
-    # Remove duplicate rows and keep the first instance
+    # Remove duplicate rows, keeping the first instance
+    df = df.drop(columns=RECORD_COLUMNS, errors='ignore')
     df = df.drop_duplicates().copy()
 
     # Merge counts back into the unique dataframe
-    df = df.merge(counts, on=["field", "value", "exception"], how="left")
+    df = df.merge(
+        counts,
+        on=GROUPING_COLUMNS,
+        how='left',
+    )
 
-    # Initialize empty standard columns
-    df["term_name"] = ""
-    df["uri"] = ""
+    # Initialize additional columns
+    df['term_name'] = ''
+    df['uri'] = ''
+
+    if df['field'].isin(FIELDS_WITH_DESCRIPTIONS).any():
+        df['description'] = ''
 
     return df
 
 
-def main():
-    """Coordinate the taxonomy remediation data processing and file generation.
+# --- File Helpers ---
 
-    Handle the loading of the exceptions log, apply transformation logic 
-    to isolate taxonomy issues, and manage the file system by creating 
-    output directories and saving the finalized remediation CSV.
+def get_output_path(batch_path: Path) -> Path:
+    """Build the output path for the taxonomy project CSV.
 
-    Side Effects:
-        - Loads a CSV or Excel file into memory via create_df.
-        - Creates a 'remediation' subdirectory within the provided batch path.
-        - Writes a new remediation CSV file to the file system.
-        - Prints status and location messages to the console.
+    Args:
+        batch_path: Workbench batch directory.
+
+    Returns:
+        Output path for the taxonomy remediation project CSV.
     """
+    remediation_path = create_directory(batch_path / 'remediation')
+    filename = f'{batch_path.name}_taxonomy_project.csv'
+
+    return remediation_path / filename
+
+
+# --- Main Workflow ---
+
+def main() -> None:
+    """Run the taxonomy remediation project generation workflow."""
     args = parse_arguments()
 
-    # Load data from the specified source
     df = create_df(args.exceptions_log)
-
-    # Process dataframe logic
     processed_df = process_taxonomy_metadata(df)
 
-    # Setup the remediation directory
-    remediation_path = os.path.join(args.batch_path, "remediation")
-    if not os.path.exists(remediation_path):
-        os.makedirs(remediation_path)
-        print(f"Created directory: {remediation_path}")
+    batch_path = Path(args.batch_path)
+    output_file = get_output_path(batch_path)
 
-    # Define output filename and path
-    batch_name = os.path.basename(args.batch_path.rstrip(os.sep))
-    filename = f"{batch_name}_taxonomy_project.csv"
-    output_file = os.path.join(remediation_path, filename)
+    df_to_csv(processed_df, output_file)
 
-    # Save processed data to CSV
-    processed_df.to_csv(output_file, index=False, encoding="utf-8")
-    
-    # Report final status
-    print(f"Remediation project file saved to: {output_file}")
+    print(
+        f"{SUCCESS_SYMBOL} Remediation project file saved to: {output_file}"
+    )
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

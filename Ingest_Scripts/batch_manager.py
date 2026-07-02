@@ -1,116 +1,119 @@
-#!/bin/python3 
+#!/bin/python3
 
-""" Modules """
+"""Batch Directory and Configuration Setup Tool.
 
-# Import standard modules
+This module provides utility functions to initialize directory structures
+for batch operations and customize YAML configuration files based on
+environment variables and runtime parameters.
+"""
+
+# --- Modules ---
+
+# Standard library imports
 import os
 from pathlib import Path
+from typing import Optional
 
-# Import third-party module
-import pandas as pd
+# Third-party imports
 from dotenv import load_dotenv
 
-# Load environment variable
-load_dotenv()
-import_password = os.getenv("IMPORT_PASSWORD")
+# Local imports
+from definitions import UTILITY_FILES_DIR
 
 
-""" Constant """
+# --- Functions ---
 
-BATCH_SUBDIRS = [
-    "configs",
-    "export",
-    "import",
-    "logs",
-    "metadata",
-    "rollback",
-    "tmp",
-]
+def setup_batch_directory(batch_path: Path) -> None:
+    """Set up the batch directory structure.
 
-
-""" Functions """
-
-def setup_batch_directory(
-    batch_path: str
-):
-    """
-    Sets up the batch directory by creating necessary subdirectories and copying the config.yml file.
+    Creates the root batch directory and all required processing
+    subdirectories if they do not already exist.
 
     Args:
-        batch_path (str): Path to the batch directory.
+        batch_path: Path to the batch directory.
     """
-    # Ensure batch directory exists
-    os.makedirs(batch_path, exist_ok=True)
-
     # Create subdirectories
-    for subdir in BATCH_SUBDIRS:
-        os.makedirs(os.path.join(batch_path, subdir), exist_ok=True)
+    batch_subdirs = [
+        'configs',
+        'export',
+        'import',
+        'logs',
+        'metadata',
+        'rollback',
+        'tmp',
+    ]
+
+    for subdir in batch_subdirs:
+        (batch_path / subdir).mkdir(parents=True, exist_ok=True)
 
 
 def prepare_config(
     batch_prefix: str,
     batch_file: str,
-    batch_path: str, 
-    batch_dir: str, 
+    batch_path: Path,
+    batch_dir: str,
     user_id: str,
     ingest_task: str,
     media_files: list[str]
-):
-    """
-    Read and customize the import config file for a specific batch.
+) -> Optional[str]:
+    """Read and customize the import config file for a specific batch.
 
     Args:
-        batch_prefix (str): Pattern used for naming output batch files.
-        batch_file (str): CSV filename for output batch file. 
-        batch_path (str): Full path to the root of the batch folder.
-        batch_dir (str): Name of the batch directory (used in config substitutions).
-        batch_count (int): The current batch number. 
-        timestamp (str): Timestamp string used in filenames.
-        user_id (str): User ID to insert into the config.
-        ingest_task (str): Ingest task to insert into the config ("create" or "update").
-        media_files (list): I2 fields for additional media files.
+        batch_prefix: Pattern used for naming output batch files.
+        batch_file: CSV filename for output batch file.
+        batch_path: Full path to the root of the batch folder.
+        batch_dir: Name of the batch directory (used in config substitutions).
+        user_id: User ID to insert into the config.
+        ingest_task: Ingest task to insert into the config ('create' or
+            'update').
+        media_files: I2 fields for additional media files.
 
     Returns:
-        str: Path to the customized config file, or None if the default config is missing.
+        Path to the customized config file, or None if the default config is
+        missing.
     """
+    # Load environment variable right where it's needed
+    load_dotenv()
+    import_password = os.getenv('IMPORT_PASSWORD', '')
+
     # Define source and destination config paths
-    default_config = "default_create_config.yml"
-    config_src = os.path.join("Utility_Files", default_config)
-    config_filename = f"{batch_prefix}.yml"
-    config_dest = os.path.join(batch_path, "configs", config_filename)
+    default_config = 'default_create_config.yml'
+    config_src = UTILITY_FILES_DIR / default_config
+    config_filename = f'{batch_prefix}.yml'
+    config_dest = batch_path / 'configs' / config_filename
 
     # Ensure configs directory exists
-    os.makedirs(os.path.dirname(config_dest), exist_ok=True)
+    config_dest.parent.mkdir(parents=True, exist_ok=True)
 
     # Read and update placeholders from default config
-    if not os.path.exists(config_src):
-        print("default_create_config.yml not found in Utility_Files.")
+    if not config_src.exists():
+        print('default_create_config.yml not found in Utility_Files.')
         return None
 
-    with open(config_src, "r", encoding="utf-8") as f:
+    with config_src.open('r', encoding='utf-8') as f:
         content = f.read()
 
     # Replace placeholders
-    content = content.replace("[IMPORT_PASSWORD]", import_password)
-    content = content.replace("[BATCH_DIRECTORY]", batch_dir)
-    content = content.replace("[BATCH_PREFIX]", batch_prefix)
-    content = content.replace("[BATCH_FILE]", batch_file)
-    content = content.replace("[USER_ID]", user_id)
-    content = content.replace("[INGEST_TASK]", ingest_task)
+    content = content.replace('[IMPORT_PASSWORD]', import_password)
+    content = content.replace('[BATCH_DIRECTORY]', batch_dir)
+    content = content.replace('[BATCH_PREFIX]', batch_prefix)
+    content = content.replace('[BATCH_FILE]', batch_file)
+    content = content.replace('[USER_ID]', user_id)
+    content = content.replace('[INGEST_TASK]', ingest_task)
 
     # Uncomment additional media file types in batch
     if media_files:
-        content = content.replace("#additional_files", "additional_files")
+        content = content.replace('#additional_files', 'additional_files')
 
     for field, comment in {
-        'transcript': "# - transcript" # Can extend list as needed
+        'transcript': '# - transcript'  # Can extend list as needed
     }.items():
         if field in media_files:
             content = content.replace(comment, comment[2:])
 
     # Write the customized config to the destination
-    with open(config_dest, "w", encoding="utf-8") as f:
+    with config_dest.open('w', encoding='utf-8') as f:
         f.write(content)
 
-    print(f"\nConfig file saved: {Path(config_dest).as_posix()}")
+    print(f"\nConfig file saved: {config_dest.as_posix()}")
     return config_dest

@@ -1,81 +1,159 @@
-#!/bin/python3 
+#!/usr/bin/env python3
 
-# --- Modules ---
+"""Shared utility functions for metadata processing scripts."""
 
-# Import standard modules
-import os
+# ---------------------------------------------------------------------------
+# Modules
+# ---------------------------------------------------------------------------
+
+# Standard library imports
+import csv
 import logging
+import re
+import traceback
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
-# Import third-party modules
+# Third-party imports
 import pandas as pd
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-try:
-    from tkinter import filedialog
-    TK_AVAILABLE = True
-except ImportError:
-    TK_AVAILABLE = False
 
-# --- Constants ---
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 
-# Setup the log file format
+# Set the log file format
 LOG_FORMATTER = logging.Formatter(
     fmt='%(asctime)s.%(msecs)03d %(levelname)s %(message)s',
-    datefmt="%Y%m%d %H:%M:%S"
+    datefmt='%Y%m%d %H:%M:%S'
 )
 
-# Status Symbols
-GREEN = "\033[92m"
-YELLOW = "\033[33m"
-RED = "\033[91m"
-CYAN = "\033[96m"
-RESET = "\033[0m"
-success_symbol = "✅" if TK_AVAILABLE else f"{GREEN}[✓]{RESET}"
-warning_symbol = "⚠️ " if TK_AVAILABLE else f"{YELLOW}[!]{RESET}"
-error_symbol = "❌ " if TK_AVAILABLE else f"{RED}[X]{RESET}"
-transformation_symbol = "↩️ " if TK_AVAILABLE else f"{CYAN}[*]{RESET}"
+# Status symbols
+GREEN = '\033[92m'
+YELLOW = '\033[33m'
+RED = '\033[91m'
+CYAN = '\033[96m'
+RESET = '\033[0m'
+
+SUCCESS_SYMBOL = f"{GREEN}[✓]{RESET}"
+WARNING_SYMBOL = f"{YELLOW}[!]{RESET}"
+ERROR_SYMBOL = f"{RED}[X]{RESET}"
+TRANSFORM_SYMBOL = f"{CYAN}[*]{RESET}"
+
+# Status symbols
+DRUPAL_EXTENDED_EDTF_PATTERN = re.compile(
+    r'^'
+    r'\d{1,3}X{1,3}'
+    r'/'
+    r'(?:'
+    r'\d{4}[?~%]?'
+    r'|'
+    r'\d{1,3}X{1,3}[?~%]?'
+    r'|'
+    r'\.\.'
+    r')?'
+    r'$'
+)
 
 
-# --- Variable ---
-logger = logging.getLogger(__name__)
+# ---------------------------------------------------------------------------
+# Classes
+# ---------------------------------------------------------------------------
+
+class LogRegistry:
+    """Registry of primary module logger names."""
+
+    BULK_MAKE_METADATA_SHEET = 'bulk_make_metadata_sheet'
+    I7_TO_I2_TEMPLATE = 'i7_to_i2_template'
+    MAKE_INGEST_SHEET = 'make_ingest_sheet'
+    MAKE_MARC_METADATA_SHEET = 'make_marc_metadata_sheet'
+    MAKE_METADATA_SHEET = 'make_metadata_sheet'
+    SETUP_TAXONOMY_INGEST = 'setup_taxonomy_ingest'
+    SETUP_TAXONOMY_PROJECT = 'setup_taxonomy_project'
 
 
-# --- Functions ---
+# ---------------------------------------------------------------------------
+# Funtions
+# ---------------------------------------------------------------------------
+
+# --- Prompt and GUI Helpers ---
 
 def prompt_for_input(
-        prompt_text: str, 
-        valid_choices: Optional[list[str]] = None
+    prompt_text: str,
+    valid_choices: list[str] | None = None
 ) -> str:
-    """Handles the interactive prompting loop for arguments."""
-    while True:
-        user_input = input(prompt_text).strip()
-        if user_input:
-            if valid_choices and user_input not in valid_choices:
-                print(f"Invalid input. Must be one of: {', '.join(valid_choices)}.")
-            else:
-                return user_input
-        print("Input cannot be empty. Please try again.")
-
-
-def setup_logger(
-    name: str, 
-    log_file: str,
-    level: int = logging.DEBUG
-) -> logging.Logger:
-    """
-    Configure a logger that writes to a log file.
+    """Prompt for non-empty user input.
 
     Args:
-        name (str): Logger name.
-        log_file (str): Path to log file.
-        level (int): Logging level.
+        prompt_text: Text to display when requesting input.
+        valid_choices: Optional list of allowed responses.
 
     Returns:
-        logging.Logger: Configured logger instance.
+        User-provided input string.
+
+    Raises:
+        KeyboardInterrupt: If the user interrupts input.
+    """
+    while True:
+        user_input = input(prompt_text).strip()
+
+        if not user_input:
+            print("Input cannot be empty. Please try again.")
+            continue
+
+        if valid_choices and user_input not in valid_choices:
+            print(
+                "Invalid input. Must be one of: "
+                f"{', '.join(valid_choices)}."
+            )
+            continue
+
+        return user_input
+
+
+def get_directory(
+    io_type: str,
+    title: str,
+) -> str:
+    """Prompt the user to select a directory.
+
+    Args:
+        io_type: Directory role, such as "input" or "output".
+        title: Dialog title or console prompt.
+
+    Returns:
+        Selected directory path.
+
+    Raises:
+        SystemExit: If no directory is selected.
+    """
+    directory = input(f"{title}: ").strip()
+
+    if not directory:
+        raise SystemExit(f"No {io_type} directory selected.")
+
+    return directory
+
+
+# --- Logging Helpers ---
+
+def setup_logger(
+    name: str,
+    log_file: str | Path,
+    level: int = logging.DEBUG
+) -> logging.Logger:
+    """Configure a logger that writes to a file.
+
+    Args:
+        name: Logger name.
+        log_file: Path to the log file.
+        level: Logging level.
+
+    Returns:
+        Configured logger.
     """
     logger = logging.getLogger(name)
     logger.setLevel(level)
@@ -83,125 +161,224 @@ def setup_logger(
     if logger.handlers:
         logger.handlers.clear()
 
-    handler = logging.FileHandler(log_file, encoding="utf-8")
+    handler = logging.FileHandler(log_file, encoding='utf-8')
     handler.setFormatter(LOG_FORMATTER)
     logger.addHandler(handler)
 
     return logger
 
 
-def get_directory(io_type: str, title: str, tk_available: bool) -> str:
-    """
-    Prompt the user to select a directory, either via a GUI dialog or manual input.
-
-    Args:
-        io_type (str): The type of directory being selected (e.g., "input" or "output").
-        title (str): The prompt or title for the file dialog or manual input request.
-        tk_available (bool): Indicates whether tkinter is available for GUI selection.
-
-    Returns:
-        str: The path to the selected directory.
-
-    Raises:
-        SystemExit: If no directory is selected.
-    """
-    if tk_available:
-        dir = filedialog.askdirectory(title=title)
-    else:
-        dir = input(f"{title}: ")
-    if not dir:
-        print(f"No {io_type} directory selected.")
-        exit(0)
-    return dir
-
+# --- Filesystem Helpers ---
 
 def create_directory(directory_path: str | Path) -> Path:
-    """
-    Creates a directory and any necessary parent directories if they do not exist.
-
-    This function utilizes pathlib.Path.mkdir with 'parents=True' to allow 
-    recursive directory creation and 'exist_ok=True' to prevent errors if 
-    the target path is already present.
+    """Create a directory and any missing parent directories.
 
     Args:
-        directory_path (str | Path): The filesystem path to create. Can be 
-            passed as a string or a Path object.
+        directory_path: Directory path to create.
 
     Returns:
-        Path: A pathlib.Path object pointing to the created directory.
+        Created directory path.
 
     Raises:
-        PermissionError: If the current user lacks the necessary permissions 
-            to create the directory at the specified location.
-        OSError: For other system-level errors (e.g., disk full, read-only 
-            filesystem).
+        PermissionError: If permissions are insufficient.
+        OSError: If another filesystem error occurs.
     """
     path = Path(directory_path)
-    
+
     try:
-        # parents=True: Create missing parents (like mkdir -p)
-        # exist_ok=True: Don't raise an error if directory already exists
         path.mkdir(parents=True, exist_ok=True)
         return path
-        
-    except PermissionError as e:
+    except PermissionError as error:
         message = f"Permission denied: Cannot create directory at {path}."
-        
+        logger = logging.getLogger(__name__)
+
         if logger.hasHandlers() or logging.getLogger().hasHandlers():
             logger.exception(message)
         else:
             print(f"ERROR: {message}")
-            import traceback
             traceback.print_exc()
-            
+
         raise PermissionError(
             f"Insufficient permissions to create: {path}"
-        ) from e
-        
-    except OSError as e:
+        ) from error
+    except OSError:
         logging.exception(
-            "OS error occurred while creating directory %s.", path
+            "OS error occurred while creating directory %s.",
+            path
         )
         raise
 
 
-def create_df(filepath: str) -> pd.DataFrame:
-    """
-    Reads a CSV or Excel file into a Pandas DataFrame with all values as strings.
+# --- Text Helpers ---
+
+def remove_whitespaces(text: str) -> str:
+    """Collapse whitespace in a string.
 
     Args:
-        filepath (str): The path to the CSV or Excel file.
+        text: Text to clean.
 
     Returns:
-        pd.DataFrame: A DataFrame containing the data with all values as strings,
-                      with empty values retained as empty strings (no NaN).
+        Cleaned text with whitespace collapsed, or an empty string if input is
+        not a string.
     """
-    # Determine the file extension
-    ext = Path(filepath).suffix.lower()
+    if not isinstance(text, str):
+        return ''
 
-    # Load CSV data
+    new_text = text.replace('\n    ', ' ').replace('\n', '').strip()
+    new_text = re.sub(r'\s+', ' ', new_text)
+    new_text = new_text.replace('\r', ' ')
+
+    return new_text.strip()
+
+
+def normalize_for_join(series: pd.Series) -> pd.Series:
+    """Normalize identifier values for DataFrame joins.
+
+    Args:
+        series: Series containing identifier values.
+
+    Returns:
+        Normalized Series with null-like values masked.
+    """
+    normalized = series.astype(str).str.strip()
+    empty_values = {'', 'nan', 'none', 'null', 'n/a', 'na'}
+
+    return normalized.mask(normalized.str.lower().isin(empty_values))
+
+
+def cap_first(text: str) -> str:
+    """Capitalize the first character without changing the rest.
+
+    Args:
+        text: Text to capitalize.
+
+    Returns:
+        Text with the first character capitalized, or an empty string for
+        invalid input.
+    """
+    if not text or not isinstance(text, str):
+        return ''
+
+    return text[0].upper() + text[1:]
+
+
+# --- CSV and DataFrame Helpers ---
+
+def create_df(filepath: str | Path) -> pd.DataFrame:
+    """Read a CSV or Excel file into a DataFrame as strings.
+
+    Args:
+        filepath: Path to a CSV or Excel file.
+
+    Returns:
+        DataFrame with values read as strings and empty values preserved.
+
+    Raises:
+        ValueError: If the file format is unsupported.
+    """
+    filepath = Path(filepath)
+    ext = filepath.suffix.lower()
+
+        # Load CSV data
+
     if ext == '.csv':
-        df = pd.read_csv(
+        return pd.read_csv(
             filepath,
             dtype=str,
             encoding='utf-8',
             keep_default_na=False,
             na_filter=False
         )
-    # Load Excel data
-    elif ext in ['.xlsx', '.xls']:
-        df = pd.read_excel(
+
+    if ext in {'.xlsx', '.xls'}:
+        return pd.read_excel(
             filepath,
             dtype=str,
             keep_default_na=False,
             na_filter=False
         )
-    # Raise error if format is not supported
-    else:
-        raise ValueError(f"Unsupported file format: {ext}")
 
-    return df
+    raise ValueError(f"Unsupported file format: {ext}")
 
+
+def df_to_csv(df: pd.DataFrame, filepath: Path | str) -> None:
+    """Write a DataFrame to CSV using standard project settings.
+
+    Args:
+        df: DataFrame to write.
+        filepath: Output CSV filepath.
+    """
+    df.to_csv(
+        filepath,
+        index=False,
+        encoding='utf-8'
+    )
+
+
+def csv_to_dict(
+    filepath: str | Path,
+    key_col: str | int = 0,
+    has_header: bool = True,
+    delimiter: str = ','
+) -> dict:
+    """Load a CSV into a simple or nested dictionary.
+
+    For two-column CSVs, returns a simple dictionary mapping one column to the
+    other. For CSVs with more than two columns and headers, returns a nested
+    dictionary where the selected key column maps to the remaining column data.
+
+    Args:
+        filepath: Path to the CSV file.
+        key_col: Column name or index to use as dictionary key.
+        has_header: Whether the CSV has a header row.
+        delimiter: CSV delimiter.
+
+    Returns:
+        Dictionary representation of the CSV.
+    """
+    filepath = Path(filepath)
+
+    with filepath.open(newline='', encoding='utf-8-sig') as csv_file:
+        if not has_header:
+            reader = csv.reader(csv_file, delimiter=delimiter)
+
+            return {
+                row[0].strip(): row[1].strip()
+                for row in reader
+                if len(row) >= 2 and row[0].strip()
+            }
+
+        reader = csv.DictReader(csv_file, delimiter=delimiter)
+        fieldnames = reader.fieldnames or []
+
+        if not fieldnames:
+            return {}
+
+        if isinstance(key_col, int):
+            key_col = fieldnames[key_col]
+
+        other_cols = [col for col in fieldnames if col != key_col]
+
+        if len(fieldnames) == 2:
+            value_col = other_cols[0]
+
+            return {
+                row[key_col].strip(): row[value_col].strip()
+                for row in reader
+                if row.get(key_col)
+            }
+
+        return {
+            row[key_col].strip(): {
+                col: row[col].strip() if row.get(col) else ''
+                for col in other_cols
+            }
+            for row in reader
+            if row.get(key_col)
+        }
+
+
+# --- Report Helpers ---
 
 def write_reports(
     output_dir: Path,
@@ -209,82 +386,86 @@ def write_reports(
     label: str | None,
     transformations: list,
     exceptions: list
-):
-    """
-    Writes two CSV reports: one for transformations and one for exceptions.
+) -> None:
+    """Write transformation and exception reports to CSV files.
 
     Args:
-        output_dir (Path): Path to the folder where reports will be saved.
-        timestamp (str): Timestamp to include in the filenames of the reports.
-        label (str | None): An additional label to describe file.
-        transformations (list): List of transformations made during processing.
-        exceptions (list): List of exceptions encountered during processing.
-
-    Returns:
-        None
+        output_dir: Directory where report files will be saved.
+        timestamp: Timestamp to include in report filenames.
+        label: Optional label to append to report filenames.
+        transformations: Transformation records.
+        exceptions: Exception records.
     """
-    label = f"_{label}" if label else label
-    
-    # Save exceptions to DataFrame
+    def grammarize(rows: list, unit: str) -> str:
+        """Return a count-aware phrase such as "1 transformation was"."""
+        count = len(rows)
+        verb = "was" if count == 1 else "were"
+        unit = unit if count == 1 else f"{unit}s"
+
+        return f"{count} {unit} {verb}"
+
+    label_part = f'_{label}' if label else ''
+    file_prefix = f'{timestamp}{label_part}'
+
     if transformations:
-        transformations_df = pd.DataFrame.from_dict(transformations)
-    
-        # Write DataFrame to CSV
         transformations_filepath = (
-            output_dir / f"{timestamp}{label}_transformations.csv"
+            output_dir / f'{file_prefix}_transformations.csv'
         )
-        transformations_df.to_csv(
-            transformations_filepath,
-            index=False,
-            encoding='utf-8'
+
+        df_to_csv(
+            pd.DataFrame.from_dict(transformations),
+            transformations_filepath
         )
+
         print(
-            f"\n{transformation_symbol} {len(transformations)} transformation"
-            f"{' was' if len(transformations) == 1 else 's were'} made. "
+            f"\n{TRANSFORM_SYMBOL} "
+            f"{grammarize(transformations, 'transformation')} made. "
             f"See logs: {transformations_filepath}"
         )
 
-    # Save exceptions to DataFrame
     if exceptions:
-        exceptions_df = pd.DataFrame.from_dict(exceptions)
+        exceptions_filepath = output_dir / f'{file_prefix}_exceptions.csv'
 
-        # Write DataFrame to CSV
-        exceptions_filepath = \
-            output_dir / f"{timestamp}{label}_exceptions.csv"
-        exceptions_df.to_csv(
-            exceptions_filepath,
-            index=False,
-            encoding='utf-8'
+        df_to_csv(
+            pd.DataFrame.from_dict(exceptions),
+            exceptions_filepath
         )
+
         print(
-            f"\n{warning_symbol} {len(exceptions)} metadata exception"
-            f"{' was' if len(exceptions) == 1 else 's were'} encountered. "
+            f"\n{WARNING_SYMBOL} "
+            f"{grammarize(exceptions, 'metadata exception')} encountered. "
             f"See logs: {exceptions_filepath}"
         )
-        
     else:
-        print(f"\n{success_symbol} No metadata exceptions were encountered.")
+        print(
+            f"\n{SUCCESS_SYMBOL} "
+            "No metadata exceptions were encountered."
+        )
 
+
+# --- Google API Helpers ---
 
 def connect_to_google_sheet(
-    credentials_file: str,
+    credentials_file: str | Path,
     logger: logging.Logger | None = None
-):
+) -> Any:
     """Connect to the Google Sheets API using a service account.
 
     Args:
-        credentials_file (str): Path to the service account JSON credentials file.
-        logger (logging.Logger | None): Logger for writing error messages.
+        credentials_file: Path to the service account JSON credentials file.
+        logger: Optional logger for error messages.
 
     Returns:
-        googleapiclient.discovery.Resource: A Google Sheets API service object.
+        Google Sheets API service object.
 
     Raises:
         FileNotFoundError: If the credentials file does not exist.
-        RuntimeError: If the Google Sheets service cannot be created.
+        RuntimeError: If the service cannot be created.
     """
-    if not Path(credentials_file).exists():
-        msg = f"Configuration file not found: {Path(credentials_file).resolve()}"
+    credentials_path = Path(credentials_file)
+
+    if not credentials_path.exists():
+        msg = f"Configuration file not found: {credentials_path.resolve()}"
         if logger:
             logger.error(msg)
         raise FileNotFoundError(msg)
@@ -293,154 +474,162 @@ def connect_to_google_sheet(
 
     try:
         creds = service_account.Credentials.from_service_account_file(
-            credentials_file,
+            credentials_path,
             scopes=scopes
         )
         return build('sheets', 'v4', credentials=creds)
-    except Exception as e:
-        msg = f"Failed to create Google Sheets service."
+    except Exception as error:
+        msg = "Failed to create Google Sheets service."
         if logger:
             logger.exception(msg)
-        raise RuntimeError(msg) from e
-    
-    
+        raise RuntimeError(msg) from error
+
+
 def get_google_sheet_filename(
     sheet_id: str,
-    credentials_file: str = "credentials.json",
+    credentials_file: str | Path = 'credentials.json',
     logger: logging.Logger | None = None
 ) -> str:
-    """Retrieve the title of a Google Sheet given its ID.
+    """Retrieve the title of a Google Sheet.
 
     Args:
-        sheet_id (str): ID of the Google Sheet.
-        credentials_file (str): Path to service account JSON credentials.
-        logger (logging.Logger | None): Logger for error and info messages.
+        sheet_id: Google Sheet ID.
+        credentials_file: Path to service account JSON credentials.
+        logger: Optional logger.
 
     Returns:
-        str: The title of the Google Sheet.
+        Google Sheet title.
 
     Raises:
-        ValueError: If the sheet ID is invalid or cannot be accessed.
-        AttributeError: If the metadata response does not contain a title.
-        RuntimeError: If an unexpected error occurs while fetching the title.
+        ValueError: If the sheet cannot be accessed.
+        AttributeError: If the title is missing from metadata.
+        RuntimeError: If an unexpected error occurs.
     """
-    # Connect to the Google Sheets API service using the existing function
     service = connect_to_google_sheet(credentials_file, logger=logger)
 
     try:
-        # Call the spreadsheets().get() method to retrieve the sheet's metadata
+        # Get the sheet's metadata
         meta = service.spreadsheets().get(
             spreadsheetId=sheet_id,
-            # Request only the 'properties' field to keep the API response small
-            fields='properties.title' 
+            fields='properties.title'
         ).execute()
 
-        # Extract and return the title (filename) from the metadata
+        # Retrieve the title (filename) from the metadata
         if 'properties' in meta and 'title' in meta['properties']:
             filename = meta['properties']['title']
+
             if logger:
                 logger.info(
-                    "Successfully retrieved filename for Sheet ID %s: '%s'", 
-                    sheet_id, filename
+                    "Successfully retrieved filename for Sheet ID %s: %s",
+                    sheet_id,
+                    filename
                 )
-            return filename
-        else:
-            # Should not happen if the request succeeds, but good for safety.
-            msg = f"Missing title in metadata for Google Sheet ID: {sheet_id}"
-            if logger:
-                logger.error(msg)
-            raise AttributeError(msg)
 
-    except HttpError as e:
+            return filename
+
+        msg = f"Missing title in metadata for Google Sheet ID: {sheet_id}"
+        if logger:
+            logger.error(msg)
+        raise AttributeError(msg)
+
+    except HttpError as error:
         msg = (
             f"Failed to retrieve metadata for Google Sheet ID {sheet_id}. "
             "Check ID and service account permissions."
         )
         if logger:
             logger.exception(msg)
-        raise ValueError(msg) from e
-    except Exception as e:
+        raise ValueError(msg) from error
+    except Exception as error:
         msg = (
-            f"Unexpected error while fetching filename for Google Sheet ID "
+            "Unexpected error while fetching filename for Google Sheet ID "
             f"{sheet_id}."
         )
         if logger:
             logger.exception(msg)
-        raise RuntimeError(msg) from e
+        raise RuntimeError(msg) from error
 
 
-def read_google_sheet(sheet_id: str,
-                      sheet_name: str = None,
-                      credentials_file: str = "credentials.json",
-                      logger: logging.Logger | None = None
-                      ) -> pd.DataFrame:
-    """
-    Read the first (or given) tab of a Google Sheet into a DataFrame.
+def read_google_sheet(
+    sheet_id: str,
+    sheet_name: str | None = None,
+    credentials_file: str | Path = 'credentials.json',
+    logger: logging.Logger | None = None
+) -> pd.DataFrame:
+    """Read a Google Sheet tab into a DataFrame.
 
     Args:
-        sheet_id (str): ID of the Google Sheet.
-        sheet_name (str, optional): Tab name. If None or "None", first tab is used.
-        credentials_file (str): Path to service account JSON credentials.
-        logger (logging.Logger, optional): Logger for error/info messages.
+        sheet_id: Google Sheet ID.
+        sheet_name: Optional tab name. If omitted, the first tab is used.
+        credentials_file: Path to service account JSON credentials.
+        logger: Optional logger.
 
     Returns:
-        pd.DataFrame: Data from the sheet with padded rows and empty rows removed.
+        DataFrame containing sheet data.
 
     Raises:
-        ValueError: If the sheet ID is invalid, permissions are missing, or tab doesn't exist.
+        ValueError: If the sheet cannot be accessed or tab is missing.
     """
     service = connect_to_google_sheet(credentials_file, logger=logger)
 
-    # Handle tab name (auto-detect if sheet_name is None or "None")
-    if not sheet_name or str(sheet_name).strip() == "None":
+    if not sheet_name or str(sheet_name).strip() == 'None':
         try:
-            meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
+            meta = service.spreadsheets().get(
+                spreadsheetId=sheet_id
+            ).execute()
             sheet_name = meta['sheets'][0]['properties']['title']
-        except HttpError as e:
+        except HttpError as error:
             msg = (
-                "Access Denied or Invalid ID: Could not reach Google Sheet "
-                f"{sheet_id}. Check permissions for your service account."
+                "Access denied or invalid ID: Could not reach Google Sheet "
+                f"{sheet_id}. Check service account permissions."
             )
             if logger:
                 logger.exception(msg)
-            raise ValueError(msg) from e
+            raise ValueError(msg) from error
 
-    # Fetch data from specified tab
     try:
+        # Fetch data from specified tab
         result = service.spreadsheets().values().get(
             spreadsheetId=sheet_id,
             range=sheet_name
         ).execute()
-    except HttpError as e:
+    except HttpError as error:
         msg = (
-            f"Tab Not Found: Failed to fetch '{sheet_name}' "
-            f"from Google Sheet {sheet_id}. Check the tab name."
+            f"Tab not found: Failed to fetch '{sheet_name}' "
+            f"from Google Sheet {sheet_id}."
         )
         if logger:
             logger.exception(msg)
-        raise ValueError(msg) from e
-    except Exception as e:
-        msg = f"Unexpected error while reading Google Sheet {sheet_id}"
+        raise ValueError(msg) from error
+    except Exception:
+        msg = f"Unexpected error while reading Google Sheet {sheet_id}."
         if logger:
             logger.exception(msg)
         raise
 
     # Process result into a DataFrame
     values = result.get('values', [])
+
     if not values:
         return pd.DataFrame()
 
-    headers = values[0]  # first row = headers
-    rows = values[1:] if len(values) > 1 else []
-
     # Pad each row to match number of headers
+    headers = values[0]
+    rows = values[1:] if len(values) > 1 else []
     max_cols = len(headers)
-    padded_rows = [row + [None] * (max_cols - len(row)) for row in rows]
+
+    padded_rows = [
+        row + [None] * (max_cols - len(row))
+        for row in rows
+    ]
 
     # Drop rows that are completely empty or contain common null-strings
     filtered_rows = [
-        r for r in padded_rows
-        if any(cell not in (None, "", " ", "nan", "NaN") for cell in r)
+        row for row in padded_rows
+        if any(
+            cell not in (None, '', ' ', 'nan', 'NaN')
+            for cell in row
+        )
     ]
 
     return pd.DataFrame(filtered_rows, columns=headers)
@@ -448,146 +637,163 @@ def read_google_sheet(sheet_id: str,
 
 def read_google_sheets_in_folder(
     folder_id: str,
-    credentials_file: str = "credentials.json",
+    credentials_file: str | Path = 'credentials.json',
     logger: logging.Logger | None = None
 ) -> list[pd.DataFrame]:
-    """
-    Read all Google Sheets in a given Google Drive folder and return a list
-    of DataFrames (one per file, first tab only).
+    """Read all Google Sheets in a Drive folder.
 
     Args:
-        folder_id (str): ID of the Google Drive folder.
-        credentials_file (str): Path to service account JSON credentials.
-        logger (logging.Logger, optional): Logger for error/info messages.
+        folder_id: Google Drive folder ID.
+        credentials_file: Path to service account JSON credentials.
+        logger: Optional logger.
 
     Returns:
-        list[pd.DataFrame]: A list of DataFrames, one per Google Sheet file.
+        List of DataFrames, one per Google Sheet.
 
     Raises:
-        Exception: If the folder cannot be accessed or files cannot be read.
+        HttpError: If Drive access fails.
+        Exception: If a sheet cannot be read.
     """
-    # Authenticate with Drive
     scopes = [
-        "https://www.googleapis.com/auth/drive.readonly",
-        "https://www.googleapis.com/auth/spreadsheets.readonly"
+        'https://www.googleapis.com/auth/drive.readonly',
+        'https://www.googleapis.com/auth/spreadsheets.readonly',
     ]
+
     creds = service_account.Credentials.from_service_account_file(
-        credentials_file, scopes=scopes
+        credentials_file,
+        scopes=scopes
     )
-    drive_service = build("drive", "v3", credentials=creds)
+    drive_service = build('drive', 'v3', credentials=creds)
 
     try:
         # Find all Sheets files in the folder
         query = (
             f"'{folder_id}' in parents "
             "and mimeType='application/vnd.google-apps.spreadsheet' "
-            "and trashed=false"
+            'and trashed=false'
         )
         results = drive_service.files().list(
             q=query,
-            fields="files(id, name)"
+            fields='files(id, name)'
         ).execute()
 
-        files = results.get("files", [])
+        files = results.get('files', [])
+
         if not files:
-            msg = f"No Google Sheets found in folder {folder_id}"
             if logger:
-                logger.warning(msg)
+                logger.warning("No Google Sheets found in folder %s", folder_id)
             return []
 
-        dataframes: list[pd.DataFrame] = []
+        dataframes = []
+
         for file in files:
             if logger:
-                logger.info("Reading Google Sheet: %s (%s)", file["name"], file["id"])
+                logger.info(
+                    "Reading Google Sheet: %s (%s)",
+                    file['name'],
+                    file['id']
+                )
+
             try:
                 df = read_google_sheet(
-                    file["id"],
+                    file['id'],
                     credentials_file=credentials_file,
                     logger=logger
                 )
-                df.attrs["sheet_name"] = file["name"]  # preserve filename if helpful
+                df.attrs['sheet_name'] = file['name']
                 dataframes.append(df)
             except Exception:
-                msg = f"Failed to read Google Sheet {file['name']} ({file['id']})"
                 if logger:
-                    logger.exception(msg)
+                    logger.exception(
+                        "Failed to read Google Sheet %s (%s)",
+                        file['name'],
+                        file['id']
+                    )
                 raise
 
         return dataframes
 
     except HttpError:
-        msg = f"Drive API error while accessing folder {folder_id}"
         if logger:
-            logger.exception(msg)
+            logger.exception(
+                "Drive API error while accessing folder %s",
+                folder_id
+            )
         raise
     except Exception:
-        msg = "Unexpected error while listing sheets in folder %s", folder_id
         if logger:
-            logger.exception(msg)
+            logger.exception(
+                "Unexpected error while listing sheets in folder %s",
+                folder_id
+            )
         raise
 
 
-def get_first_tab_info(sheet_id: str,
-                       credentials_file: str = "credentials.json",
-                       logger: logging.Logger | None = None
-                       ) -> dict[str, str | int]:
-    """
-    Get the GID and title of the first tab in a Google Sheet.
+def get_first_tab_info(
+    sheet_id: str,
+    credentials_file: str | Path = 'credentials.json',
+    logger: logging.Logger | None = None
+) -> dict[str, str | int]:
+    """Get the GID and title of the first tab in a Google Sheet.
 
     Args:
-        sheet_id (str): ID of the Google Sheet.
-        credentials_file (str): Path to service account JSON credentials.
-        logger (logging.Logger, optional): Logger for error/info messages.
+        sheet_id: Google Sheet ID.
+        credentials_file: Path to service account JSON credentials.
+        logger: Optional logger.
 
     Returns:
-        dict: A dictionary with 'gid' (int) and 'name' (str) of the first tab.
+        Dictionary with ``gid`` and ``name`` values.
 
     Raises:
-        ValueError: If the sheet has no tabs or if the fetch fails.
-        Exception: For unexpected errors.
+        ValueError: If the sheet has no tabs or metadata cannot be fetched.
     """
     service = connect_to_google_sheet(credentials_file, logger=logger)
 
     try:
-        # Fetch spreadsheet metadata, which includes sheet/tab properties
+       # Fetch spreadsheet metadata
         meta = service.spreadsheets().get(
             spreadsheetId=sheet_id,
             fields='sheets.properties'
         ).execute()
-        
-        # The 'sheets' list contains objects, one for each tab.
+
+        # Get metadata for each sheet/tab
         sheets = meta.get('sheets', [])
+
         if not sheets:
             msg = f"Google Sheet {sheet_id} contains no tabs."
-            if logger: 
+            if logger:
                 logger.error(msg)
             raise ValueError(msg)
 
-        # The first tab is at index 0
+        # Get metadata for first sheet/tab
         first_sheet_properties = sheets[0]['properties']
-        
-        # Get first sheet's GID (sheetId) and title
         sheet_gid = first_sheet_properties.get('sheetId')
         sheet_name = first_sheet_properties.get('title')
 
         if sheet_gid is None or sheet_name is None:
-             msg = f"Could not retrieve GID or name for the first tab of Sheet {sheet_id}."
-             if logger: 
+            msg = (
+                "Could not retrieve GID or name for the first tab of "
+                f"Sheet {sheet_id}."
+            )
+            if logger:
                 logger.error(msg)
-             raise ValueError(msg)
+            raise ValueError(msg)
 
         return {
-            "gid": sheet_gid,
-            "name": sheet_name
+            'gid': sheet_gid,
+            'name': sheet_name,
         }
 
-    except HttpError as e:
+    except HttpError as error:
         msg = f"Failed to fetch metadata for Google Sheet {sheet_id}"
-        if logger: 
+        if logger:
             logger.exception(msg)
-        raise ValueError(msg) from e
+        raise ValueError(msg) from error
     except Exception:
-        msg = f"Unexpected error while getting first tab info for Google Sheet {sheet_id}"
-        if logger: 
+        msg = (
+            "Unexpected error while getting first tab info for Google Sheet "
+            f"{sheet_id}"
+        )
+        if logger:
             logger.exception(msg)
         raise

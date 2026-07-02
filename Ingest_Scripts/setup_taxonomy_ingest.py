@@ -1,96 +1,119 @@
-#!/bin/python3
+#!/usr/bin/env python3
 
-"""Generate taxonomy ingest sheets and Workbench configurations from project CSVs.
+"""Generate taxonomy ingest batches from a completed remediation project.
 
-This sript automates the splitting of a master taxonomy CSV into individual 
-vocabulary batches. It maps input fields to Drupal vocabulary IDs, determines 
-authority sources (LCSH, AAT, etc.) from URIs, and generates the necessary 
-YAML configuration files required for Drupal Workbench operations.
+This script converts a completed taxonomy remediation project into one or more
+Workbench taxonomy ingest spreadsheets and the corresponding configuration
+files. It maps source fields to Drupal vocabularies, prepares authority links,
+and generates the commands required to create taxonomy terms in Islandora.
 
 Usage:
-    python setup_taxonomy_ingest.py -t /workbench/batches/[BATCH_DIR]/remediation/[TAXONOMY_PROJECT_COMPLETE].csv
+    # Generate taxonomy ingest files
+    python3 setup_taxonomy_ingest.py \
+        --taxonomy_project \
+        /workbench/batches/example/remediation/example_taxonomy_project.csv
 
-Dependencies:
-    - pandas: For data manipulation.
-    - python-dotenv: For managing import credentials.
-    - Utility_Files/create_taxonomy_template.yml: Must exist as a base config.
+    # Run interactively
+    python3 setup_taxonomy_ingest.py
 """
 
-# --- Modules ---
+# ---------------------------------------------------------------------------
+# Modules
+# ---------------------------------------------------------------------------
 
-# Import standard modules
-import os
+# Standard library imports
 import argparse
+import os
 import sys
 from pathlib import Path
+from urllib.parse import unquote
 
-# Import third-party modules
+# Third-party imports
 import pandas as pd
 from dotenv import load_dotenv
 
-# Import local module
-from utilities import prompt_for_input, create_df
+# Local imports
+from definitions import UTILITY_FILES_DIR
+from utilities import (
+    ERROR_SYMBOL,
+    SUCCESS_SYMBOL,
+    create_df,
+    df_to_csv,
+    prompt_for_input,
+)
 
 
-# --- Constants ---
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 
-# Map input field names to vocabulary IDs
-VOCAB_MAPPING = {
-    "format": "physical_form",
-    "genre": "genre",
-    "genre_japanese_prints": "genre_japanese_prints",
-    "source_collection": "source_collection",
-    "source_collection_id": "source_collection_identifier",
-    "source_repository": "source_repository",
-    "subject_genre": "subject_genre",
-    "subject_geographic": "geo_location",
-    "subject_name_conference": "person",
-    "subject_name_corporate": "corporate_body",
-    "subject_name_family": "family",
-    "subject_name_person": "person",
-    "subject_temporal": "temporal",
-    "subject_title": "subject_title",
-    "subject_topic": "subject",
-    "arranger": "person",
-    "composer": "person",
-    "conductor": "person",
-    "contributor_corporate": "corporate_body",
-    "contributor_person": "person",
-    "creator_conference": "conference",
-    "creator_corporate": "corporate_body",
-    "creator_family": "family",
-    "creator_person": "person",
-    "instrumentalist": "person",
-    "interviewee": "person",
-    "interviewer": "person",
-    "lyricist": "person",
-    "photographer_corporate": "corporate_body",
-    "photographer_person": "person",
-    "singer": "person",
+REQUIRED_COLUMNS = (
+    'field',
+    'term_name',
+    'uri',
+)
+
+DESCRIPTION_FIELDS = {
+    'genre',
+    'genre_japanese_prints',
+    'source_collection',
 }
 
-DESC_FIELDS = [
-    "genre", 
-    "genre_japanese_prints", 
-    "source_collection"
-]
+VOCAB_MAPPING = {
+    'format': 'physical_form',
+    'genre': 'genre',
+    'genre_japanese_prints': 'genre_japanese_prints',
+    'source_collection': 'source_collection',
+    'source_collection_id': 'source_collection_identifier',
+    'source_repository': 'source_repository',
+    'subject_genre': 'subject_genre',
+    'subject_geographic': 'geo_location',
+    'subject_name_conference': 'person',
+    'subject_name_corporate': 'corporate_body',
+    'subject_name_family': 'family',
+    'subject_name_person': 'person',
+    'subject_temporal': 'temporal',
+    'subject_title': 'subject_title',
+    'subject_topic': 'subject',
+    'arranger': 'person',
+    'composer': 'person',
+    'conductor': 'person',
+    'instrumentalist': 'person',
+    'interviewee': 'person',
+    'interviewer': 'person',
+    'lyricist': 'person',
+    'singer': 'person',
+}
 
-# --- Functions ---
+AGENT_SUFFIX_MAPPING = {
+    '_person': 'person',
+    '_corporate': 'corporate_body',
+    '_family': 'family',
+    '_conference': 'conference',
+}
 
-def parse_arguments():
-    """Parse command line arguments for the taxonomy project.
 
-    If the taxonomy project path is not provided via the '-t' flag, 
-    trigger an interactive prompt to collect the path.
+# ---------------------------------------------------------------------------
+# Functions
+# ---------------------------------------------------------------------------
+
+# --- Argument Parsing ---
+
+def parse_arguments() -> argparse.Namespace:
+    """Parse command-line arguments for the taxonomy project.
+
+    If the taxonomy project path is not provided with ``--taxonomy_project``,
+    prompt the user to enter it interactively.
 
     Returns:
-        argparse.Namespace: An object containing the 'taxonomy_project' path string.
-
+        Parsed command-line arguments.
     """
     parser = argparse.ArgumentParser(description="Taxonomy Ingest Generator")
     parser.add_argument(
-        "-t", "--taxonomy_project",
-        help="Path to taxonomy CSV"
+        '-t',
+        '--taxonomy_project',
+        type=str,
+        help="Path to the taxonomy project tracking CSV file.",
     )
     args = parser.parse_args()
 
@@ -98,159 +121,316 @@ def parse_arguments():
         args.taxonomy_project = prompt_for_input(
             "Enter path to completed taxonomy project (CSV): "
         )
+
     return args
 
 
-def get_authority_source(uri):
-    """Determine the authority source code based on URI string content.
+# --- Mapping Helpers ---
+
+def resolve_vocab_id(field: str) -> str | None:
+    """Resolve a source field to a Drupal vocabulary ID.
 
     Args:
-        uri: The full URI string.
+        field: Input field name from the taxonomy project CSV.
 
     Returns:
-
-        str: A shortcode identifier (e.g., 'aat', 'lcsh', 'naf', 'viaf') 
-            or an empty string if no match is found.
+        Drupal vocabulary ID, or None if no match is found.
     """
-    if "aat" in uri:
-        return "aat"
-    if "subjects" in uri:
-        return "lcsh"
-    if "names" in uri:
-        return "naf"
-    if "viaf" in uri:
-        return "viaf"
-    return ""
+    vocab_id = VOCAB_MAPPING.get(field)
+
+    if vocab_id:
+        return vocab_id
+
+    for suffix, suffix_vocab_id in AGENT_SUFFIX_MAPPING.items():
+        if field.endswith(suffix):
+            return suffix_vocab_id
+
+    return None
 
 
-def main():
-    """Split taxonomy data into ingest sheets and generate Workbench configs.
+def get_authority_source(uri: str) -> str:
+    """Determine the authority source code from a URI.
 
-    Handle the end-to-end processing of taxonomy projects by validating 
-    input columns, grouping data by field type, and generating individual 
-    ingest CSVs based on VOCAB_MAPPING. Populate YAML configuration templates 
-    with environment-specific credentials and generates a manifest of commands 
-    for the workbench runner.
+    Args:
+        uri: Authority URI.
 
-    Side Effects:
-        - Loads environment variables from a local .env file.
-        - Creates 'logs' and 'tmp' directories within the project folder.
-        - Writes multiple CSV ingest sheets and YAML config files to disk.
-        - Generates a 'workbench_commands.txt' file in the project directory.
-        - Terminates the process with sys.exit(1) if required columns or 
-          vocabulary mappings are missing.
+    Returns:
+        Shortcode identifier, such as ``aat``, ``lcsh``, ``naf``, or ``viaf``.
+        Returns an empty string if no authority source is identified.
     """
-    args = parse_arguments()
+    if 'aat' in uri:
+        return 'aat'
 
-    # Load environment variable
-    load_dotenv()
-    import_password = os.getenv("IMPORT_PASSWORD")
-    
-    # Set directory paths
-    project_path = os.path.abspath(args.taxonomy_project)
-    project_dir = os.path.dirname(project_path)
+    if 'subjects' in uri:
+        return 'lcsh'
 
-    # Create utility directories for workbench operations
-    for sub_dir in ["logs", "tmp"]:
-        os.makedirs(os.path.join(project_dir, sub_dir), exist_ok=True)
+    if 'names' in uri:
+        return 'naf'
 
-    # Load project data
-    df = create_df(project_path)
-    
-    # Ensure all required columns exist
-    required = ["field", "term_name", "uri"]
-    missing = [col for col in required if col not in df.columns]
+    if 'viaf' in uri:
+        return 'viaf'
+
+    return ''
+
+
+def normalize_authority_uri(uri: str) -> str:
+    """Normalize and decode an authority URI.
+
+    Args:
+        uri: Raw authority URI.
+
+    Returns:
+        Normalized authority URI.
+    """
+    if uri.startswith('aat/'):
+        uri = uri.replace(
+            'aat/',
+            'http://vocab.getty.edu/page/aat/',
+            1,
+        )
+
+    return unquote(uri)
+
+
+# --- Taxonomy Processing ---
+
+def process_vocab_group(
+    vocab_id: str,
+    group_df: pd.DataFrame,
+) -> list[dict[str, str]]:
+    """Transform rows for a vocabulary-specific taxonomy ingest sheet.
+
+    Args:
+        vocab_id: Drupal vocabulary machine name.
+        group_df: Rows belonging to the vocabulary.
+
+    Returns:
+        Cleaned rows ready to write to a taxonomy ingest CSV.
+    """
+    rows_to_ingest = []
+
+    for _, row in group_df.iterrows():
+        field = row['field']
+        uri = row['uri']
+        term_entry = {
+            'term_name': row['term_name'],
+        }
+
+        is_source = 'source_' in field
+
+        if not is_source and field != 'format':
+            if vocab_id == 'conference':
+                auth_col = 'field_authority_sources_conf'
+            elif vocab_id == 'subject_genre':
+                auth_col = 'field_authority_sources_subj_gen'
+            elif vocab_id == 'subject_title':
+                auth_col = 'field_authority_sources_subj_ti'
+            else:
+                auth_col = 'field_authority_link'
+
+            authority_source = get_authority_source(uri)
+            clean_uri = normalize_authority_uri(uri)
+
+            if clean_uri:
+                term_entry[auth_col] = f'{authority_source}%%{clean_uri}'
+
+        if (
+            field in DESCRIPTION_FIELDS
+            and 'description' in row
+            and pd.notna(row['description'])
+        ):
+            term_entry['description'] = row['description']
+
+        rows_to_ingest.append(term_entry)
+
+    return rows_to_ingest
+
+
+# --- File Writing Helpers ---
+
+def write_workbench_config(
+    project_dir: Path,
+    ingest_path: Path,
+    vocab_id: str,
+    import_password: str,
+) -> Path:
+    """Generate a YAML configuration file for Drupal Workbench.
+
+    Args:
+        project_dir: Project directory.
+        ingest_path: Generated taxonomy ingest CSV.
+        vocab_id: Target vocabulary ID.
+        import_password: Drupal import user password.
+
+    Returns:
+        Path to the created Workbench config file.
+    """
+    template_path = UTILITY_FILES_DIR / 'create_taxonomy_template.yml'
+    config_content = template_path.read_text(encoding='utf-8')
+
+    replacements = {
+        '[PASSWORD]': import_password,
+        '[INPUT_CSV]': ingest_path.as_posix(),
+        '[VOCAB_ID]': vocab_id,
+        '[INPUT_DIR]': project_dir.as_posix(),
+    }
+
+    for placeholder, value in replacements.items():
+        config_content = config_content.replace(placeholder, str(value))
+
+    config_path = project_dir / f'create_taxonomy_{vocab_id}_batch.yml'
+    config_path.write_text(config_content, encoding='utf-8')
+
+    return config_path
+
+
+def write_taxonomy_ingest(
+    project_dir: Path,
+    vocab_id: str,
+    rows_to_ingest: list[dict[str, str]],
+) -> Path:
+    """Write a vocabulary-specific taxonomy ingest CSV.
+
+    Args:
+        project_dir: Project directory.
+        vocab_id: Target vocabulary ID.
+        rows_to_ingest: Rows to write to the ingest CSV.
+
+    Returns:
+        Path to the written ingest CSV.
+    """
+    ingest_df = pd.DataFrame(rows_to_ingest)
+    ingest_path = project_dir / f'taxonomy_{vocab_id}_batch.csv'
+
+    df_to_csv(ingest_df, ingest_path)
+
+    return ingest_path
+
+
+def write_command_file(
+    project_dir: Path,
+    commands: list[str],
+) -> Path:
+    """Write generated Workbench commands to a text file.
+
+    Args:
+        project_dir: Project directory.
+        commands: Workbench commands to write.
+
+    Returns:
+        Path to the command file.
+    """
+    command_file_path = project_dir / 'workbench_commands.txt'
+    command_file_path.write_text(
+        "\n".join(commands),
+        encoding='utf-8',
+    )
+
+    return command_file_path
+
+
+# --- Main Workflow ---
+
+def validate_project_columns(df: pd.DataFrame) -> None:
+    """Validate that the taxonomy project contains required columns.
+
+    Args:
+        df: Taxonomy project DataFrame.
+
+    Raises:
+        SystemExit: If any required columns are missing.
+    """
+    missing = [
+        column for column in REQUIRED_COLUMNS
+        if column not in df.columns
+    ]
+
     if missing:
         print(f"Error: Missing columns {missing}")
         sys.exit(1)
 
-    # Map vocab_id by field
-    df["vocab_id"] = df["field"].map(VOCAB_MAPPING)
-    if df["vocab_id"].isnull().any():
-        print(
-            f"Error: Unmapped fields found: {
-                df[df['vocab_id'].isnull()]['field'].unique()
-            }"
-            )
+
+def prepare_project_directory(project_dir: Path) -> None:
+    """Create helper directories needed by Workbench operations.
+
+    Args:
+        project_dir: Taxonomy project directory.
+    """
+    for sub_dir in ('logs', 'tmp'):
+        (project_dir / sub_dir).mkdir(parents=True, exist_ok=True)
+
+
+def process_taxonomy_project(
+    project_file: Path,
+    import_password: str,
+) -> None:
+    """Process a completed taxonomy project CSV into ingest files.
+
+    Args:
+        project_file: Path to the completed taxonomy project CSV.
+        import_password: Drupal import user password.
+    """
+    project_dir = project_file.parent
+    prepare_project_directory(project_dir)
+
+    df = create_df(project_file)
+    validate_project_columns(df)
+
+    df['vocab_id'] = df['field'].apply(resolve_vocab_id)
+
+    if df['vocab_id'].isnull().any():
+        unmapped = df[df['vocab_id'].isnull()]['field'].unique()
+        print(f"\n{ERROR_SYMBOL} Unmapped fields found: {unmapped}")
         sys.exit(1)
 
     commands = []
 
-   # Process each vocab_id group
-    for vocab_id, group in df.groupby("vocab_id"):
-        
-        # Build ingest sheet
-        rows_to_ingest = []
-        for _, row in group.iterrows():
-            field = row["field"]
-            uri = row["uri"]
-            term_entry = {"term_name": row["term_name"]}
-            
-            # Add authority link fields
-            is_source = "source_" in field
-            if not is_source and field != "format":
-                # Determine correct authority column name
-                if vocab_id == "conference":
-                    auth_col = "field_authority_sources_conf"
-                elif vocab_id == "subject_genre":
-                    auth_col = "field_authority_sources_subj_gen"
-                elif vocab_id == "subject_title":
-                    auth_col = "field_authority_sources_subj_ti"
-                else:
-                    auth_col = "field_authority_link"
-                
-                # Build authority values
-                src = get_authority_source(uri)
-                clean_uri = uri.replace("%3A", ":").replace("%2F", "/")
-                term_entry[auth_col] = f"{src}%%{clean_uri}"
+    for vocab_id, group_df in df.groupby('vocab_id'):
+        rows_to_ingest = process_vocab_group(vocab_id, group_df)
 
-            # Add description column, if applicable
-            if field in DESC_FIELDS and "description" in row \
-                and pd.notna(row["description"]):
-                term_entry["description"] = row["description"]
-            
-            rows_to_ingest.append(term_entry)
-
-        # Save ingest CSV
-        ingest_df = pd.DataFrame(rows_to_ingest)
-        ingest_name = f"taxonomy_{vocab_id}_batch.csv"
-        ingest_path = os.path.join(project_dir, ingest_name)
-        ingest_df.to_csv(ingest_path, index=False, encoding="utf-8")
-        print(f"Ingest sheet for {vocab_id} saved: {ingest_path}")
-
-        # Prepare config file from template
-        template_path = os.path.join(
-            "Utility_Files", "create_taxonomy_template.yml"
+        ingest_path = write_taxonomy_ingest(
+            project_dir,
+            vocab_id,
+            rows_to_ingest,
         )
-        with open(template_path, "r", encoding="utf-8") as f:
-            config_content = f.read()
+        print(
+            f"{SUCCESS_SYMBOL} Ingest sheet for {vocab_id} saved: "
+            f"{ingest_path}"
+        )
 
-        # Update config placeholders
-        replacements = {
-            "[PASSWORD]": import_password,
-            "[INPUT_CSV]": Path(ingest_path).as_posix(),
-            "[VOCAB_ID]": vocab_id,
-            "[INPUT_DIR]": Path(project_dir).as_posix()
-        }
-        for placeholder, value in replacements.items():
-            config_content = config_content.replace(placeholder, str(value))
+        config_path = write_workbench_config(
+            project_dir,
+            ingest_path,
+            vocab_id,
+            import_password,
+        )
+        print(
+            f"{SUCCESS_SYMBOL} Config file for {vocab_id} saved: "
+            f"{config_path}"
+        )
 
-        # Save config file
-        config_name = f"create_taxonomy_{vocab_id}_batch.yml"
-        config_path = os.path.join(project_dir, config_name)
-        with open(config_path, "w", encoding="utf-8") as f:
-            f.write(config_content)
-        print(f"Config file for {vocab_id} saved: {config_path}")
+        commands.append(f'workbench --config {config_path.name} --check')
 
-        # Store command for the runner file
-        commands.append(f"workbench --config {config_path} --check")
-
-    # Generate command manifest
-    cmd_file_path = os.path.join(project_dir, "workbench_commands.txt")
-    with open(cmd_file_path, "w", encoding="utf-8") as f:
-        f.write("\n".join(commands))
-    print(f"Commands saved: {cmd_file_path}")
+    command_file_path = write_command_file(project_dir, commands)
+    print(f"Commands saved: {command_file_path}")
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Run the taxonomy ingest generation workflow."""
+    load_dotenv()
+    args = parse_arguments()
+
+    import_password = os.getenv('IMPORT_PASSWORD')
+
+    if not import_password:
+        print(f"{ERROR_SYMBOL} IMPORT_PASSWORD not found in .env")
+        sys.exit(1)
+
+    process_taxonomy_project(
+        Path(args.taxonomy_project),
+        import_password,
+    )
+
+
+if __name__ == '__main__':
     main()
