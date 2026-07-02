@@ -66,7 +66,7 @@ LOGGER_NAME = LogRegistry.MAKE_MARC_METADATA_SHEET
 @dataclass
 class MARCProcessingResult:
     mods_tree: ET.ElementTree
-    root: ET.Element
+    root: ET._Element
     record_id: str
     record: dict = field(default_factory=dict)
     issues: list = field(default_factory=list)
@@ -192,8 +192,8 @@ def remove_whitespaces(text: str) -> str:
 
 def ensure_mods_prefix(
     tree: ET.ElementTree,
-    root: ET.Element
-) -> tuple[ET.ElementTree, ET.Element]:
+    root: ET._Element
+) -> tuple[ET.ElementTree, ET._Element]:
     """Ensure the XML root element uses the explicit MODS namespace prefix.
 
     Checks if the current root element lacks an explicit namespace prefix. If none 
@@ -221,7 +221,7 @@ def ensure_mods_prefix(
     return tree, root
 
 
-def get_xpath(mods_tree: ET.ElementTree, element: ET.Element) -> str:
+def get_xpath(mods_tree: ET.ElementTree, element: ET._Element) -> str:
     """Extract and normalize the simplified XPath string for a target element.
 
     Retrieves the raw path from the document tree structure, strips common metadata 
@@ -247,7 +247,7 @@ def get_xpath(mods_tree: ET.ElementTree, element: ET.Element) -> str:
     return xpath
 
 
-def get_tag(element: ET.Element | None) -> str | None:
+def get_tag(element: ET._Element | None) -> str | None:
     """Retrieve the core tag name of an XML element stripped of its namespace.
 
     Args:
@@ -263,8 +263,8 @@ def get_tag(element: ET.Element | None) -> str | None:
 
 
 def get_toplevel_parent(
-    root: ET.Element,
-    element: ET.Element
+    root: ET._Element,
+    element: ET._Element
 ) -> ET._Element | None:
     """Return the highest ancestor below root for an element.
 
@@ -287,7 +287,7 @@ def get_toplevel_parent(
 
 
 def get_child_text(
-    parent: ET.Element,
+    parent: ET._Element,
 ) -> list[str]:
     """Extract and normalize text from all immediate child elements."""
     values = []
@@ -439,7 +439,7 @@ def get_mapped_field(
 
 # --- Field Extractors ---
 
-def get_record_id(root: ET.Element) -> str:
+def get_record_id(root: ET._Element) -> str:
     """Extract the primary record identifier from the MODS metadata block.
 
     Locates the recordIdentifier element nested within the recordInfo container. 
@@ -465,7 +465,7 @@ def get_record_id(root: ET.Element) -> str:
 
 
 def get_accessCondition_data(
-    accessCondition: ET.Element,
+    accessCondition: ET._Element,
 ) -> list[tuple[str, str]]:
     """Extract and structure data from a MODS access condition element.
 
@@ -549,7 +549,7 @@ def get_accessCondition_data(
 def get_title_data(
     result: MARCProcessingResult, 
     xpath: str,
-    title: ET.Element, 
+    title: ET._Element, 
     title_type: str
 ) -> list[tuple[str, str]]:
     """Extract and format title data from a MODS <titleInfo> element.
@@ -617,7 +617,7 @@ def get_title_data(
 def get_name_data(
     result: MARCProcessingResult,
     xpath: str,
-    name: ET.Element
+    name: ET._Element
 ) -> list[tuple[str, str]]:
     """Extract linked-agent data from a MODS <name> or <agent> element.
 
@@ -780,7 +780,7 @@ def get_name_data(
 def get_subject_data(
     result: MARCProcessingResult,
     xpath: str,
-    subject: ET.Element,
+    subject: ET._Element,
 ) -> list[tuple[str, str]]:
     """Extract and parse structured metadata descriptors from a MODS subject element.
 
@@ -866,7 +866,7 @@ def get_subject_data(
 def get_language_data(
     result: MARCProcessingResult,
     xpath: str,    
-    language_term: ET.Element
+    language_term: ET._Element
 ) -> list[tuple[str, str]] | None:
     """Validate or resolve a MODS languageTerm element.
 
@@ -934,7 +934,7 @@ def get_language_data(
 def get_place_data(
     result: MARCProcessingResult,
     xpath: str,
-    place_term: ET.Element
+    place_term: ET._Element
 ) -> list[tuple[str, str]] | None:
     """Validate or resolve a MODS placeTerm element.
 
@@ -972,7 +972,7 @@ def get_place_data(
 
 def get_date_data(
     result: MARCProcessingResult,
-    element: ET.Element,
+    element: ET._Element,
     tag: str,
     field: str
 ) -> list[tuple[str, str]]:
@@ -1138,7 +1138,7 @@ def finalize_record_values(
 
 def process_field(
     result: MARCProcessingResult, 
-    element: ET.Element, 
+    element: ET._Element, 
     logger: logging.Logger
 ) -> list[tuple[str, str]] | None:
     """Parse an individual XML element and route it to its specific data extraction handler.
@@ -1273,7 +1273,7 @@ def process_data(
             )
 
 
-def process_mods(root: ET.Element) -> MARCProcessingResult:
+def process_mods(root: ET._Element) -> MARCProcessingResult:
     """Orchestrate the extraction, crosswalking, and validation of MODS XML elements.
 
     Normalizes the source XML namespace schema, traverses all descending XML nodes 
