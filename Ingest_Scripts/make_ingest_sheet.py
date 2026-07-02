@@ -690,6 +690,9 @@ def flush_batch(
 
     records_df = save_records(buffer, sub_batch_path, config)
 
+    if records_df is None:
+        return pd.DataFrame()
+
     # Check for additional media files
     media_files = []
 
@@ -736,7 +739,10 @@ def save_records(
     records_df = filter_fields(records_df, config.ingest_task)
 
     # Sort records so that parent objects are first
-    if 'parent_id' in records_df.columns:
+    if (
+        'parent_id' in records_df.columns 
+        and 'field_model' in records_df.columns
+        ):
         # Ensure that parent_id is empty for top-level object models
         parent_models = ['Paged Content', 'Compound Object', 'Newspaper']
 
