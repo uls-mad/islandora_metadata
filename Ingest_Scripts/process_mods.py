@@ -1039,7 +1039,7 @@ def get_date_data(
     data = []
 
     # Loop through each tuple in the result list
-    for edtf_date, is_copyright_date in edtf_results:
+    for edtf_date, is_copyright_date, used_fallback in edtf_results:
         # Log transformation
         if raw_date != edtf_date:
             result.log_transformation(
@@ -1072,6 +1072,15 @@ def get_date_data(
             )
         else:
             data.append((f'originInfo/{tag}', edtf_date))
+
+        # Flag that fallback date was used
+        if used_fallback:
+            result.log_transformation(
+                field,
+                raw_date,
+                edtf_date,
+                "fallback date was used; check for accuracy"
+            )
 
     return data
 
