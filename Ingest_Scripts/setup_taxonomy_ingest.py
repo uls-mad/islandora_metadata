@@ -409,7 +409,9 @@ def process_taxonomy_project(
             f"{config_path}"
         )
 
-        commands.append(f'workbench --config {config_path.name} --check')
+        commands.append(
+            f'workbench --config remediation/{config_path.name} --check'
+        )
 
     command_file_path = write_command_file(project_dir, commands)
     print(f"Commands saved: {command_file_path}")
