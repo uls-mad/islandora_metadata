@@ -247,7 +247,7 @@ def get_xpath(mods_tree: ET.ElementTree, element: ET.Element) -> str:
     return xpath
 
 
-def get_tag(element: Optional[ET.Element]) -> str | None:
+def get_tag(element: ET.Element | None) -> str | None:
     """Retrieve the core tag name of an XML element stripped of its namespace.
 
     Args:
