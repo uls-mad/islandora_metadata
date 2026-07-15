@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-"""Generate Workbench ingest sheets from manifest and metadata sources.
+"""Generate Workbench ingest sheets from Islandora Workbench exports and metadata sheets.
 
-This script combines manifest and descriptive metadata from Google Sheets or
-local spreadsheet files, validates and transforms the metadata into
-Islandora-compatible fields, and generates one or more Workbench ingest
+This script combines Islandora Workbench exports and descriptive metadata from 
+Google Sheets or local spreadsheet files, validates and transforms the metadata 
+into Islandora-compatible fields, and generates one or more Workbench ingest
 spreadsheets. It supports create, update, and publish workflows while
 performing schema validation, controlled vocabulary checking, EDTF date
 validation, and detailed logging of metadata issues and transformations.
@@ -15,15 +15,15 @@ Usage:
         --user_id abc123 \
         --ingest_task create \
         --batch_path /workbench/batches/example \
-        --manifest_id <manifest_sheet_id> \
+        --export_sheet_id <export_sheet_id> \
         --metadata_id <metadata_sheet_id>
 
     # Update existing objects using local spreadsheets
     python3 make_ingest_sheet.py \
         --ingest_task update \
         --batch_path /workbench/batches/example \
-        --manifest_sheet manifest.xlsx \
-        --metadata_sheet metadata.xlsx
+        --export_sheet /workbench/batches/example/export/example.csv \
+        --metadata_sheet /workbench/batches/example/metadata.csv
 
     # Publish existing objects
     python3 make_ingest_sheet.py \
@@ -125,14 +125,14 @@ class AppConfig:
     user_id: str
     batch_path: str | Path
     batch_size: int
-    manifest_id: str | None
+    export_sheet_id: str | None
     metadata_id: str | None
     credentials_file: str
     ingest_task: str
     metadata_level: str
     publish: bool
     remove_pages: bool
-    manifest_sheet: str | None = None
+    export_sheet: str | None = None
     metadata_sheet: str | None = None
     refresh_taxonomies: bool = False
     batch_dir: str | None = None
@@ -301,14 +301,14 @@ def parse_arguments() -> AppConfig:
     )
     parser.add_argument(
         '-m',
-        '--manifest_id',
+        '--export_sheet_id',
         type=str,
-        help="Google Sheet ID for the manifest file.",
+        help="Google Sheet ID for the export file.",
     )
     parser.add_argument(
-        '--manifest_sheet',
+        '--export_sheet',
         type=str,
-        help="Path to manifest on local device.",
+        help="Path to export sheet on local device.",
     )
     parser.add_argument(
         '-d',
@@ -370,10 +370,10 @@ def parse_arguments() -> AppConfig:
 
     if (
         args.ingest_task == 'create'
-        and not (args.manifest_id or args.manifest_sheet)
+        and not (args.export_sheet_id or args.export_sheet)
     ):
-        args.manifest_id = prompt_for_input(
-            "Enter the Google Sheet ID for the manifest sheet: "
+        args.export_sheet_id = prompt_for_input(
+            "Enter the Google Sheet ID for the export sheet: "
         )
 
     if not args.metadata_id and not args.metadata_sheet:
@@ -396,9 +396,9 @@ def parse_arguments() -> AppConfig:
     if args.batch_size < 1:
         raise ValueError("--batch_size must be a positive integer.")
 
-    if args.manifest_id and args.manifest_sheet:
+    if args.export_sheet_id and args.export_sheet:
         raise ValueError(
-            "Provide either --manifest_id or --manifest_sheet, not both."
+            "Provide either --export_sheet_id or --export_sheet, not both."
         )
 
     if args.metadata_id and args.metadata_sheet:
@@ -412,35 +412,35 @@ def parse_arguments() -> AppConfig:
 
 
 def load_input_sheets(config: AppConfig) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Load manifest and metadata inputs.
+    """Load export and metadata sheets.
 
     Args:
         config: Application configuration object.
 
     Returns:
-        Tuple containing manifest and metadata DataFrames.
+        Tuple containing export and metadata DataFrames.
     """
     logger = logging.getLogger(LOGGER_NAME)
 
-    if config.manifest_id:
+    if config.export_sheet_id:
         logger.info(
-            "Using manifest from Google ID: %s",
-            config.manifest_id,
+            "Using export sheet from Google ID: %s",
+            config.export_sheet_id,
         )
-        manifest_df = read_google_sheet(
-            config.manifest_id,
-            sheet_name=config.manifest_sheet,
+        export_df = read_google_sheet(
+            config.export_sheet_id,
+            sheet_name=config.export_sheet,
             credentials_file=config.credentials_file,
         )
-    elif config.manifest_sheet:
+    elif config.export_sheet:
         logger.info(
-            "Using manifest sheet from local file: %s",
-            config.manifest_sheet,
+            "Using export sheet from local file: %s",
+            config.export_sheet,
         )
-        manifest_df = create_df(config.manifest_sheet)
+        export_df = create_df(config.export_sheet)
     else:
-        logger.info("No manifest provided.")
-        manifest_df = pd.DataFrame()
+        logger.info("No export sheet provided.")
+        export_df = pd.DataFrame()
 
     if config.metadata_id:
         logger.info(
@@ -461,20 +461,20 @@ def load_input_sheets(config: AppConfig) -> tuple[pd.DataFrame, pd.DataFrame]:
     else:
         metadata_df = pd.DataFrame()
 
-    return manifest_df, metadata_df
+    return export_df, metadata_df
 
 
 # --- Sheet Merging ---
 
 def merge_sheets(
-    manifest_df: pd.DataFrame,
+    export_df: pd.DataFrame,
     metadata_df: pd.DataFrame,
     ingest_task: str,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Merge manifest and metadata DataFrames.
+    """Merge export and metadata DataFrames.
 
     Args:
-        manifest_df: Manifest DataFrame containing file-level data.
+        export_df: Export DataFrame containing file-level data.
         metadata_df: Metadata DataFrame containing descriptive data.
         ingest_task: Workbench ingest task, either 'create' or 'update'.
 
@@ -482,7 +482,7 @@ def merge_sheets(
         Tuple containing merged ingest sheet and unmatched metadata rows.
 
     Raises:
-        KeyError: If the manifest DataFrame is missing 'id'.
+        KeyError: If the export DataFrame is missing 'id'.
         ValueError: If metadata is missing both 'identifier' and 'id', or if
             duplicate normalized identifiers are detected.
     """
@@ -510,23 +510,23 @@ def merge_sheets(
         'thumbnail',
     ]
 
-    # Drop manifest columns not in required or optional lists
+    # Drop export columns not in required or optional lists
     allowed_cols = required_columns + optional_columns
-    manifest_df = manifest_df[
-        [col for col in manifest_df.columns if col in allowed_cols]
+    export_df = export_df[
+        [col for col in export_df.columns if col in allowed_cols]
     ].copy()
     metadata_df = metadata_df.copy()
 
-    # Ensure manifest contains required merge key
-    if 'id' not in manifest_df.columns:
-        msg = "Manifest is missing the required column: 'id'"
+    # Ensure export contains required merge key
+    if 'id' not in export_df.columns:
+        msg = "Export sheet is missing the required column: 'id'"
         logger.error(msg)
         raise KeyError(msg)
 
-    # Ensure all required columns exist in manifest
+    # Ensure all required columns exist in export sheet
     for col in required_columns:
-        if col not in manifest_df.columns:
-            manifest_df.loc[:, col] = None
+        if col not in export_df.columns:
+            export_df.loc[:, col] = None
             logger.info("Adding missing required column: %s", col)
 
     # Identify the ID field in metadata sheet
@@ -554,25 +554,25 @@ def merge_sheets(
         metadata_df.rename(columns={'id': 'identifier'}, inplace=True)
 
     # Create normalized join keys
-    manifest_df['__manifest_id_join__'] = normalize_for_join(
-        manifest_df['id']
+    export_df['__export_sheet_id_join__'] = normalize_for_join(
+        export_df['id']
     )
     metadata_df['__metadata_id_join__'] = normalize_for_join(
         metadata_df['identifier']
     )
 
-    # Check for duplicate normalized IDs in manifest
-    manifest_dupes = (
-        manifest_df['__manifest_id_join__']
+    # Check for duplicate normalized IDs in export sheet
+    export_dupes = (
+        export_df['__export_sheet_id_join__']
         .dropna()
         .value_counts()
     )
-    manifest_dupes = manifest_dupes[manifest_dupes > 1]
+    export_dupes = export_dupes[export_dupes > 1]
 
-    if not manifest_dupes.empty:
-        sample_dupes = ', '.join(manifest_dupes.index[:10])
+    if not export_dupes.empty:
+        sample_dupes = ', '.join(export_dupes.index[:10])
         msg = (
-            "Manifest contains duplicate normalized IDs. "
+            "export contains duplicate normalized IDs. "
             f"Examples: {sample_dupes}"
         )
         logger.error(msg)
@@ -596,47 +596,47 @@ def merge_sheets(
         raise ValueError(msg)
 
     # Identify overlapping columns for post-merge validation
-    common_cols = set(manifest_df.columns).intersection(set(metadata_df.columns))
+    common_cols = set(export_df.columns).intersection(set(metadata_df.columns))
     common_cols.discard('id')
     common_cols.discard('identifier')
-    common_cols.discard('__manifest_id_join__')
+    common_cols.discard('__export_sheet_id_join__')
     common_cols.discard('__metadata_id_join__')
 
-    # Merge manifest and metadata sheet
+    # Merge export and metadata sheet
     ingest_sheet = pd.merge(
-        manifest_df,
+        export_df,
         metadata_df,
         how='left',
-        left_on='__manifest_id_join__',
+        left_on='__export_sheet_id_join__',
         right_on='__metadata_id_join__',
-        suffixes=('_manifest', '_metadata'),
+        suffixes=('_export', '_metadata'),
         validate='one_to_one',
     )
     logger.info("Merge completed successfully.")
 
-    # Identify and report any records in metadata sheet but not manifest
-    in_manifest = metadata_df['__metadata_id_join__'].isin(
-        manifest_df['__manifest_id_join__']
+    # Identify and report any records in metadata sheet but not export sheet
+    in_export = metadata_df['__metadata_id_join__'].isin(
+        export_df['__export_sheet_id_join__']
     )
     nonempty = metadata_df['__metadata_id_join__'].notna()
-    unmatched = metadata_df[nonempty & ~in_manifest].copy()
+    unmatched = metadata_df[nonempty & ~in_export].copy()
 
     if not unmatched.empty:
         logger.warning("%d unmatched metadata rows found.", len(unmatched))
 
     # Compare values in duplicate columns and resolve
     for col in common_cols:
-        manifest_col = f'{col}_manifest'
+        export_col = f'{col}_export'
         metadata_col = f'{col}_metadata'
 
         if (
-            manifest_col not in ingest_sheet.columns
+            export_col not in ingest_sheet.columns
             or metadata_col not in ingest_sheet.columns
         ):
             continue
 
         mismatch_count = (
-            ingest_sheet[manifest_col] != ingest_sheet[metadata_col]
+            ingest_sheet[export_col] != ingest_sheet[metadata_col]
         ).sum()
 
         if mismatch_count > 0:
@@ -646,16 +646,16 @@ def merge_sheets(
                 mismatch_count,
             )
 
-        # Keep metadata values and remove manifest duplicates
+        # Keep metadata values and remove export duplicates
         ingest_sheet[col] = ingest_sheet[metadata_col]
         ingest_sheet.drop(
-            columns=[manifest_col, metadata_col],
+            columns=[export_col, metadata_col],
             inplace=True,
         )
 
-    # Clean up helper columns and manifest 'id' column
+    # Clean up helper columns and export sheet 'id' column
     ingest_sheet.drop(
-        columns=['id', '__manifest_id_join__', '__metadata_id_join__'],
+        columns=['id', '__export_sheet_id_join__', '__metadata_id_join__'],
         errors='ignore',
         inplace=True,
     )
@@ -1992,7 +1992,7 @@ def process_record(
 
 
 def process_files(
-    manifest_df: pd.DataFrame,
+    export_df: pd.DataFrame,
     metadata_df: pd.DataFrame,
     config: AppConfig,
     result: ProcessingResult,
@@ -2000,7 +2000,7 @@ def process_files(
     """Process records, write ingest batches, and generate reports.
 
     Args:
-        manifest_df: Manifest DataFrame.
+        export_df: Export sheet DataFrame.
         metadata_df: Metadata DataFrame.
         config: Application configuration object.
         result: Runtime processing result.
@@ -2011,10 +2011,10 @@ def process_files(
     logger = logging.getLogger(LOGGER_NAME)
 
     try:
-        # Merge manifest and metadata sheet
-        if not manifest_df.empty and not metadata_df.empty:
+        # Merge export and metadata sheets
+        if not export_df.empty and not metadata_df.empty:
             ingest_sheet, unmatched_records = merge_sheets(
-                manifest_df,
+                export_df,
                 metadata_df,
                 config.ingest_task,
             )
@@ -2161,12 +2161,12 @@ def main() -> None:
 
         result = ProcessingResult()
 
-        # Convert manifest and metadata sheet to DataFrames
-        manifest_df, metadata_df = load_input_sheets(config)
+        # Convert export and metadata sheets to DataFrames
+        export_df, metadata_df = load_input_sheets(config)
 
         # Process records and write ingest batches
         success = process_files(
-            manifest_df,
+            export_df,
             metadata_df,
             config,
             result,
