@@ -47,6 +47,7 @@ import pandas as pd
 from definitions import (
     CONTENT_TYPES,
     COPYRIGHT_MAPPING,
+    GOOGLE_CREDENTIALS_FILE,
     I7_to_I2_MAPPING,
     LANGUAGES,
     TYPE_MAPPING,
@@ -55,6 +56,7 @@ from utilities import (
     ERROR_SYMBOL,
     create_df,
     create_directory,
+    df_to_csv,
     get_google_sheet_filename,
     prompt_for_input,
     read_google_sheet,
@@ -81,6 +83,16 @@ OBLIGATION_LEVELS = {
     'recommended',
     'required, if applicable',
     'required',
+}
+
+CONTENT_TYPE_ALIASES = {
+    'books': 'book',
+    'images': 'image',
+    'interviews': 'interview',
+    'manuscripts': 'manuscript',
+    'maps': 'map',
+    'photographs': 'photograph',
+    'serials': 'serial',
 }
 
 
@@ -112,11 +124,77 @@ class AppConfig:
         # Optional parameters
         self.metadata_id = metadata_id
         self.metadata_sheet = Path(metadata_sheet) if metadata_sheet else None
+        self.timestamp: str | None = None
+        self.file_prefix: str | None = None
+        self.log_dir: Path | None = None
+        self.log_path: Path | None = None
+
+
+class ConversionResult:
+    """Output paths created during template conversion."""
+
+    def __init__(
+        self,
+        metadata_path: Path,
+        audit_log_path: Path,
+        processing_log_path: Path,
+    ) -> None:
+        """Initialize conversion result paths."""
+        self.metadata_path = metadata_path
+        self.audit_log_path = audit_log_path
+        self.processing_log_path = processing_log_path
 
 
 # ---------------------------------------------------------------------------
 # CLI / I/O
 # ---------------------------------------------------------------------------
+
+def normalize_content_types(content_type: str | list[str]) -> list[str]:
+    """Normalize one or more content type values.
+
+    Args:
+        content_type: Content type input as a string or list of strings. Values
+            may be separated by spaces or commas.
+
+    Returns:
+        Ordered list of normalized content type values.
+
+    Raises:
+        ValueError: If a content type is not recognized.
+    """
+    input_data = (
+        [content_type]
+        if isinstance(content_type, str)
+        else content_type
+    )
+
+    raw: list[str] = []
+
+    for chunk in input_data:
+        normalized_chunk = chunk.replace(',', ' ')
+        raw.extend(normalized_chunk.split())
+
+    content_types = [ct.lower() for ct in raw]
+    invalid = [ct for ct in content_types if ct not in CONTENT_TYPES]
+
+    if invalid:
+        invalid_str = ', '.join(sorted(set(invalid)))
+        allowed_str = ', '.join(sorted(CONTENT_TYPES))
+        raise ValueError(
+            f"Invalid content type value(s): {invalid_str}. "
+            f"Allowed: {allowed_str}"
+        )
+
+    seen: set[str] = set()
+    ordered: list[str] = []
+
+    for ct in content_types:
+        if ct not in seen:
+            ordered.append(ct)
+            seen.add(ct)
+
+    return ordered
+
 
 def parse_arguments() -> AppConfig:
     """Parse CLI arguments and interactively prompt for missing configuration.
@@ -186,38 +264,10 @@ def parse_arguments() -> AppConfig:
             "(space- or comma-separated): "
         )
 
-    # Ensure args.content_type is a list
-    input_data = [
-        args.content_type
-    ] if isinstance(args.content_type, str) else args.content_type
-
-    # Flatten and split content type input by commas and spaces
-    raw: list[str] = []
-    for chunk in input_data:
-        # Replace commas with spaces, then split by any whitespace
-        normalized_chunk = chunk.replace(',', ' ')
-        raw.extend(normalized_chunk.split())
-
-    cts = [ct.lower() for ct in raw]
-    invalid_cts = [ct for ct in cts if ct not in CONTENT_TYPES]
-
-    if invalid_cts:
-        invalid_str = ', '.join(sorted(set(invalid_cts)))
-        allowed_str = ', '.join(sorted(CONTENT_TYPES))
-        raise SystemExit(
-            f"Invalid --content_type values: {invalid_str}. "
-            f"Allowed: {allowed_str}"
-        )
-
-    # Process content type(s) and remove duplicates
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for ct in cts:
-        if ct not in seen:
-            ordered.append(ct)
-            seen.add(ct)
-
-    args.content_type = ordered
+    try:
+        args.content_type = normalize_content_types(args.content_type)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
 
     # Return the Config Object
     return AppConfig(**vars(args))
@@ -374,16 +424,19 @@ def save_outputs(
     audit_data: dict[str, list],
     mapping_ct: pd.DataFrame,
     config: AppConfig
-) -> None:
+) -> tuple[Path, Path]:
     """Generate the final metadata CSV and the accompanying audit log.
 
     Args:
         df_final: The transformed and cleaned metadata DataFrame.
-        audit_data (dict): A dictionary containing date logs, added columns,
-            and dropped columns.
+        audit_data: A dictionary containing date logs, added columns, and
+            dropped columns.
         mapping_ct: The mapping rules used for this batch.
-        config: Parsed command-line arguments containing
-            paths, identifiers, and content types.
+        config: Parsed command-line arguments containing paths, identifiers,
+            and content types.
+
+    Returns:
+        Tuple containing the metadata CSV path and audit log CSV path.
     """
     # Determine base filename
     if config.metadata_id:
@@ -399,7 +452,7 @@ def save_outputs(
     output_dir = config.batch_path / 'metadata'
     create_directory(output_dir)
     output_path = output_dir / f'{filename}_{ct_label}_metadata.csv'
-    df_final.to_csv(output_path, index=False, encoding='utf-8')
+    df_to_csv(df_final, output_path)
 
     # --- Build and Save Log CSV ---
     log_rows = audit_data['date_logs']
@@ -441,11 +494,13 @@ def save_outputs(
 
     log_df = pd.DataFrame(log_rows).fillna('')
     log_path = config.log_dir / f'{filename}_{ct_label}_field_audit_log.csv'
-    log_df.to_csv(log_path, index=False, encoding='utf-8')
+    df_to_csv(log_df, log_path)
 
     # Notify User
     summary = f"Output saved:\n{output_path}\n\nLog saved:\n{log_path}"
     print(f"\nDone!\n{summary}")
+
+    return output_path, log_path
 
 
 # ---------------------------------------------------------------------------
@@ -453,29 +508,33 @@ def save_outputs(
 # ---------------------------------------------------------------------------
 
 def tokenize_ct_value(value: str) -> set[str]:
-    """Parse a multi-valued content type string into a set of normalized tokens.
+    """Parse a multi-valued content type string into normalized tokens.
 
-    Splits the input string by common delimiters (pipe, comma, semicolon, or
-    forward slash) and normalizes each token. To ensure broader matching, it
-    automatically generates a singular version of any token ending in 's'.
+    Splits the input string by common delimiters (pipe, comma, or semicolon), 
+    normalizes each token, and maps known aliases to the
+    project's canonical content type values.
 
     Args:
-        value: The raw string from a mapping cell (e.g., "images|photograph").
+        value: Raw content type string from a mapping cell (for example,
+            ``"images|photograph"``).
 
     Returns:
-        A set of unique, lowercase, stripped tokens including singular variants.
+        Set of unique, normalized content type values.
     """
     tokens = re.split(r'[|,;/]+', str(value))
-    out: set[str] = set()
+    normalized_tokens: set[str] = set()
+
     for token in tokens:
-        t = (token or '').strip().lower()
-        if not t:
+        normalized = token.strip().lower()
+
+        if not normalized:
             continue
-        if t.endswith('s'):
-            out.add(t[:-1])
-        else:
-            out.add(t)
-    return out
+
+        normalized_tokens.add(
+            CONTENT_TYPE_ALIASES.get(normalized, normalized)
+        )
+
+    return normalized_tokens
 
 
 def process_copyright_status(series: pd.Series) -> pd.Series:
@@ -724,38 +783,88 @@ def transform_metadata(
     return df_final, audit_data
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
+# --- Main Workflow ---
 
-def main() -> None:
-    """Coordinate the end-to-end metadata conversion and validation workflow.
+def run_i7_to_i2_template(
+    batch_path: str | Path,
+    content_type: str | list[str],
+    metadata_id: str | None = None,
+    metadata_sheet: str | Path | None = None,
+    credentials_file: str | Path = GOOGLE_CREDENTIALS_FILE,
+) -> ConversionResult:
+    """Convert I7 metadata to the I2 template format from another script.
 
-    Initialize the execution environment, parse command-line arguments,
-    and manage the sequential flow of mapping preparation, data ingestion,
-    transformation, and output generation.
+    This is the convenient callable entry point for other modules. It accepts
+    normal function arguments, builds the internal AppConfig object, and runs
+    the conversion workflow.
 
-    Side Effects:
-        - Initializes and destroys a hidden Tkinter root window, if available.
-        - Loads external mapping CSVs and source metadata.
-        - Writes processed metadata and audit logs to the file system.
-        - Terminates the script with sys.exit(1) upon encountering a fatal error.
+    Args:
+        batch_path: Batch directory where metadata and logs should be written.
+        content_type: One or more content type values. Values may be provided
+            as a list or as a space-/comma-separated string.
+        metadata_id: Google Sheet ID for the metadata source.
+        metadata_sheet: Path to a local metadata spreadsheet.
+        credentials_file: Path to the Google service account credentials JSON.
+
+    Returns:
+        ConversionResult containing output metadata, audit log, and processing
+        log paths.
+
+    Raises:
+        ValueError: If required arguments are missing, mutually exclusive, or
+            invalid.
+    """
+    if not metadata_id and not metadata_sheet:
+        raise ValueError(
+            "Provide either metadata_id or metadata_sheet."
+        )
+
+    if metadata_id and metadata_sheet:
+        raise ValueError(
+            "Provide either metadata_id or metadata_sheet, not both."
+        )
+
+    config = AppConfig(
+        batch_path=str(batch_path),
+        credentials_file=str(credentials_file),
+        content_type=normalize_content_types(content_type),
+        metadata_id=metadata_id,
+        metadata_sheet=str(metadata_sheet) if metadata_sheet else None,
+    )
+
+    return convert_i7_to_i2_template(config)
+
+
+def convert_i7_to_i2_template(config: AppConfig) -> ConversionResult:
+    """Run the Islandora 7 to Islandora 2 template conversion workflow.
+
+    This function sets up logging, prepares the mapping, loads source metadata, 
+    transforms the data, and writes the output metadata CSV and audit log.
+
+    Args:
+        config: Application configuration object.
+
+    Returns:
+        ConversionResult containing the metadata output path, audit log path,
+        and processing log path.
+
+    Raises:
+        Exception: Re-raises any processing error after logging it.
     """
     logger = None
-    log_path = None
-    root = None
-    try:
-        config = parse_arguments()
 
+    try:
         # Get a unique timestamp
-        timestamp = datetime.now().strftime('%Y-%m-%d-%H%M%S')
+        config.timestamp = datetime.now().strftime('%Y-%m-%d-%H%M%S')
 
         # Set up logger
         batch_dir = config.batch_path.name
-        file_prefix = f'{batch_dir}_{timestamp}'
+        config.file_prefix = f'{batch_dir}_{config.timestamp}'
         config.log_dir = create_directory(config.batch_path / 'logs')
-        log_path = config.log_dir / f'{file_prefix}_template_conversion.log'
-        logger = setup_logger(LOGGER_NAME, log_path)
+        config.log_path = (
+            config.log_dir / f'{config.file_prefix}_template_conversion.log'
+        )
+        logger = setup_logger(LOGGER_NAME, config.log_path)
 
         # Load and prepare the crosswalk mapping
         mapping_ct = prepare_mapping(I7_to_I2_MAPPING, config.content_type)
@@ -767,24 +876,54 @@ def main() -> None:
         df_final, audit_data = transform_metadata(df_in, mapping_ct)
 
         # Generate outputs
-        save_outputs(df_final, audit_data, mapping_ct, config)
+        metadata_path, audit_log_path = save_outputs(
+            df_final,
+            audit_data,
+            mapping_ct,
+            config,
+        )
+
+        return ConversionResult(
+            metadata_path=metadata_path,
+            audit_log_path=audit_log_path,
+            processing_log_path=config.log_path,
+        )
 
     except Exception:
         msg = "A critical system error occurred during execution."
+
         if logger:
             logger.exception(msg)
 
+        raise
+
+
+def main() -> None:
+    """Coordinate the end-to-end metadata conversion workflow.
+
+    Parses command-line arguments, runs the conversion workflow, and handles
+    user-facing fatal error messaging for CLI usage.
+    """
+    config = None
+
+    try:
+        config = parse_arguments()
+        convert_i7_to_i2_template(config)
+
+    except Exception:
+        msg = "A critical system error occurred during execution."
+
         # Show the user error message
         print(f"\n{ERROR_SYMBOL} {msg}")
+
+        log_path = getattr(config, 'log_path', None)
 
         if log_path:
             print(f"See logs: {log_path}")
         else:
             traceback.print_exc()
+
         sys.exit(1)
-    finally:
-        if root:
-            root.destroy()
 
 
 if __name__ == '__main__':

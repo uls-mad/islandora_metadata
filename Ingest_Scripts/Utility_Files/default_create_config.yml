@@ -1,7 +1,7 @@
 task: [INGEST_TASK]
 host: "https://digital.library.pitt.edu/"
 username: ingester
-password: [IMPORT_PASSWORD]
+password: [ISLANDORA_PASSWORD]
 input_dir: /workbench/batches/[BATCH_DIRECTORY]/import
 input_csv: /workbench/batches/[BATCH_DIRECTORY]/import/[BATCH_FILE]
 #input_csv: "https://docs.google.com/spreadsheets/d/[INGEST_SHEET_ID]/edit"

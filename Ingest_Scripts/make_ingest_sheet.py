@@ -45,25 +45,23 @@ Usage:
 import argparse
 import logging
 import re
+import os
 import sys
-import threading
 import traceback
 from dataclasses import dataclass, field, fields
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
-from queue import Queue
+from typing import Optional
 
 # Third-party imports
 import pandas as pd
 import requests
 from edtf import parse_edtf
+from dotenv import load_dotenv
+from tqdm import tqdm
 
 # Local imports
-from batch_manager import (
-    prepare_config,
-    setup_batch_directory,
-)
 from definitions import (
     CONTROLLED_FIELDS,
     DATE_FIELDS,
@@ -71,6 +69,7 @@ from definitions import (
     DOMAINS,
     FIELDS,
     FORMATTED_FIELDS,
+    GOOGLE_CREDENTIALS_FILE,
     LINKED_AGENT_TYPES,
     MANDATORY_FIELDS,
     MANIFEST_FIELD_MAPPING,
@@ -80,17 +79,21 @@ from definitions import (
     METADATA_REQUIRED_FIELDS,
     PUBLISH_FIELDS,
     RELATOR_TERMS,
-    TAXONOMIES,
+    SCAN_BATCH_DIR_FIELDS,
     TEMPLATE_FIELD_MAPPING,
+    UTILITY_FILES_DIR
 )
 from process_mods import check_if_agent_field
-from progress_tracker import ProgressTracker
+from taxonomy_manager import (
+    TAXONOMIES,
+    load_taxonomies,
+)
 from utilities import (
     DRUPAL_EXTENDED_EDTF_PATTERN,
     ERROR_SYMBOL,
-    LogRegistry,
     SUCCESS_SYMBOL,
     WARNING_SYMBOL,
+    LogRegistry,
     cap_first,
     create_df,
     create_directory,
@@ -98,13 +101,13 @@ from utilities import (
     normalize_for_join,
     prompt_for_input,
     read_google_sheet,
+    remove_whitespaces,
     setup_logger,
     write_reports,
 )
 
-
 # ---------------------------------------------------------------------------
-# Globals
+# Constants
 # ---------------------------------------------------------------------------
 
 DEFAULT_BATCH_SIZE = 10000
@@ -130,6 +133,7 @@ class AppConfig:
     publish: bool
     manifest_sheet: str | None = None
     metadata_sheet: str | None = None
+    refresh_taxonomies: bool = False
     batch_dir: str | None = None
     timestamp: str | None = None
     file_prefix: str | None = None
@@ -264,7 +268,9 @@ def parse_arguments() -> AppConfig:
     Returns:
         Application configuration object.
     """
-    parser = argparse.ArgumentParser(description="Process CSV files in batches.")
+    parser = argparse.ArgumentParser(
+        description="Process CSV files in batches."
+    )
 
     parser.add_argument(
         '-u',
@@ -318,7 +324,7 @@ def parse_arguments() -> AppConfig:
         '-c',
         '--credentials_file',
         type=str,
-        default='/workbench/etc/google_ulswfown_service_account.json',
+        default=GOOGLE_CREDENTIALS_FILE,
         help="Path to the Google service account credentials JSON.",
     )
     parser.add_argument(
@@ -334,6 +340,11 @@ def parse_arguments() -> AppConfig:
         type=str,
         choices=['y', 'n'],
         help="Specify whether the ingest batch should be published.",
+    )
+    parser.add_argument(
+        '--refresh_taxonomies',
+        action='store_true',
+        help="Refresh the taxonomy cache before processing records.",
     )
     args = parser.parse_args()
 
@@ -518,7 +529,7 @@ def merge_sheets(
     if id_field not in metadata_df.columns:
         if 'id' in metadata_df.columns:
             id_field = 'id'
-            logger.warning(
+            logger.info(
                 "Preferred metadata sheet join field 'identifier' was not "
                 "found; using fallback field 'id'."
             )
@@ -735,14 +746,18 @@ def save_records(
     # Convert list of dictionaries to DataFrame
     records_df = pd.DataFrame.from_dict(records)
 
+    # Filter to keep only fields for minimal metadata ingest
+    if config.metadata_level == 'minimal':
+        records_df = filter_minimal_metadata_fields(records_df)
+
     # Filter fields to those allowable by ingest task
     records_df = filter_fields(records_df, config.ingest_task)
 
     # Sort records so that parent objects are first
     if (
-        'parent_id' in records_df.columns 
+        'parent_id' in records_df.columns
         and 'field_model' in records_df.columns
-        ):
+    ):
         # Ensure that parent_id is empty for top-level object models
         parent_models = ['Paged Content', 'Compound Object', 'Newspaper']
 
@@ -766,6 +781,102 @@ def save_records(
     print(f"\nIngest file saved: {formatted_path}")
 
     return records_df
+
+
+def setup_batch_directory(batch_path: Path) -> None:
+    """Set up the batch directory structure.
+
+    Creates the root batch directory and all required processing
+    subdirectories if they do not already exist.
+
+    Args:
+        batch_path: Path to the batch directory.
+    """
+    # Create subdirectories
+    batch_subdirs = [
+        'configs',
+        'export',
+        'import',
+        'logs',
+        'metadata',
+        'rollback',
+        'tmp',
+    ]
+
+    for subdir in batch_subdirs:
+        create_directory(batch_path / subdir)
+
+
+def prepare_config(
+    batch_prefix: str,
+    batch_file: str,
+    batch_path: Path,
+    batch_dir: str,
+    user_id: str,
+    ingest_task: str,
+    media_files: list[str]
+) -> Optional[str]:
+    """Read and customize the import config file for a specific batch.
+
+    Args:
+        batch_prefix: Pattern used for naming output batch files.
+        batch_file: CSV filename for output batch file.
+        batch_path: Full path to the root of the batch folder.
+        batch_dir: Name of the batch directory (used in config substitutions).
+        user_id: User ID to insert into the config.
+        ingest_task: Ingest task to insert into the config ('create' or
+            'update').
+        media_files: I2 fields for additional media files.
+
+    Returns:
+        Path to the customized config file, or None if the default config is
+        missing.
+    """
+    # Load environment variable right where it's needed
+    load_dotenv()
+    import_password = os.getenv('ISLANDORA_PASSWORD', '')
+
+    # Define source and destination config paths
+    default_config = 'default_create_config.yml'
+    config_src = UTILITY_FILES_DIR / default_config
+    config_filename = f'{batch_prefix}.yml'
+    config_dest = batch_path / 'configs' / config_filename
+
+    # Ensure configs directory exists
+    create_directory(config_dest.parent)
+
+    # Read and update placeholders from default config
+    if not config_src.exists():
+        print('default_create_config.yml not found in Utility_Files.')
+        return None
+
+    with config_src.open('r', encoding='utf-8') as f:
+        content = f.read()
+
+    # Replace placeholders
+    content = content.replace('[ISLANDORA_PASSWORD]', import_password)
+    content = content.replace('[BATCH_DIRECTORY]', batch_dir)
+    content = content.replace('[BATCH_PREFIX]', batch_prefix)
+    content = content.replace('[BATCH_FILE]', batch_file)
+    content = content.replace('[USER_ID]', user_id)
+    content = content.replace('[INGEST_TASK]', ingest_task)
+
+    # Uncomment additional media file types in batch
+    if media_files:
+        content = content.replace('#additional_files', 'additional_files')
+
+    for field, comment in {
+        'transcript': '# - transcript'  # Can extend list as needed
+    }.items():
+        if field in media_files:
+            content = content.replace(comment, comment[2:])
+
+    # Write the customized config to the destination
+    with config_dest.open('w', encoding='utf-8') as f:
+        f.write(content)
+
+    print(f"\nConfig file saved: {config_dest.as_posix()}")
+    return config_dest
 
 
 # --- Record Initialization and Formatting ---
@@ -803,28 +914,6 @@ def split_and_clean(text: str) -> list[str]:
         for part in parts
         if part.strip()
     ]
-
-
-def remove_whitespaces(text: str, allow_newlines: bool = False) -> str:
-    """Collapse whitespace in a string.
-
-    Args:
-        text: Raw input string.
-        allow_newlines: Whether to preserve paragraph breaks.
-
-    Returns:
-        Cleaned text, or an empty string for non-string input.
-    """
-    if not isinstance(text, str):
-        return ''
-
-    if allow_newlines:
-        cleaned = re.sub(r'[ \t]+', ' ', text)
-        cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
-    else:
-        cleaned = re.sub(r'\s+', ' ', text)
-
-    return cleaned.strip()
 
 
 def format_record(record: dict) -> dict:
@@ -883,36 +972,38 @@ def filter_fields(
     return records.drop(columns=fields_to_drop).copy()
 
 
-def filter_minimal_metadata_fields(record: dict) -> dict:
-    """Keep only minimal metadata fields.
+def filter_minimal_metadata_fields(records_df: pd.DataFrame) -> pd.DataFrame:
+    """Keep only minimal metadata fields in an output DataFrame.
+    
+        Args:
+            records_df: Records to filter.
+    
+        Returns:
+            Records containing only publish fields.
 
-    Args:
-        record: Record to filter.
-
-    Returns:
-        Record containing only minimal metadata fields.
     """
-    return {
-        key: value
-        for key, value in record.items()
-        if key in MINIMAL_METADATA_FIELDS
-    }
+    fields_to_keep = [
+        field for field in records_df.columns
+        if field in MINIMAL_METADATA_FIELDS
+    ]
+
+    return records_df[fields_to_keep].copy()
 
 
-def filter_publish_fields(record: dict) -> dict:
+def filter_publish_fields(records_df: pd.DataFrame) -> pd.DataFrame:
     """Keep only fields needed for publish updates.
-
-    Args:
-        record: Record or row to filter.
-
-    Returns:
-        Record containing only publish fields.
+        Args:
+            record: Records to filter.
+    
+        Returns:
+            Records containing only publish fields.
     """
-    return {
-        key: record[key]
-        for key in PUBLISH_FIELDS
-        if key in record
-    }
+    fields_to_keep = [
+        field for field in records_df.columns
+        if field in PUBLISH_FIELDS
+    ]
+
+    return records_df[fields_to_keep].copy()
 
 
 # --- Mapping Helpers ---
@@ -1023,6 +1114,9 @@ def get_mapped_field(
         prefix, and repeatability. If no mapping is found, all optional
         attributes will be None and ``repeatable`` will be False.
     """
+    if csv_field in SCAN_BATCH_DIR_FIELDS:
+        return FieldMapping()
+
     mapping_columns = [
         'machine_name',
         'taxonomy',
@@ -1088,7 +1182,7 @@ def get_mapped_field(
         "could not find matching I2 field",
         (
             f"Could not find matching I2 field for CSV field "
-            f"'{csv_field}' with data '{data}'."
+            f"'{csv_field}' with data '{data}'. Dropping column."
         ),
     )
 
@@ -1302,98 +1396,6 @@ def validate_domain(
     return False
 
 
-def validate_edtf_date(
-    result: ProcessingResult,
-    pid: str,
-    field: str,
-    value: str,
-) -> bool:
-    """Validate an EDTF date.
-
-    Args:
-        result: Runtime processing result.
-        pid: Current record PID.
-        field: Source field name.
-        value: Date value.
-
-    Returns:
-        True if valid; otherwise False.
-    """
-    try:
-        edtf_date = parse_edtf(value)
-
-        if not edtf_date:
-            result.log_issue(
-                pid,
-                field,
-                value,
-                "invalid EDTF date",
-            )
-            return False
-
-        return True
-
-    except Exception:
-        valid = bool(DRUPAL_EXTENDED_EDTF_PATTERN.search(value))
-
-        if not valid:
-            result.log_issue(
-                pid,
-                field,
-                value,
-                "could not parse EDTF date",
-                f"Could not parse EDTF date '{value}'.",
-            )
-            return False
-
-        return True
-
-
-def validate_term(
-    result: ProcessingResult,
-    pid: str,
-    field: str,
-    value: str,
-    taxonomy: str,
-) -> bool:
-    """Validate that a term exists in a taxonomy.
-
-    Args:
-        result: Runtime processing result.
-        pid: Current record PID.
-        field: Source field name.
-        value: Term value.
-        taxonomy: Taxonomy name.
-
-    Returns:
-        True if term is valid; otherwise False.
-    """
-    mask = (
-        (TAXONOMIES['Name'] == value)
-        & (TAXONOMIES['Vocabulary'] == taxonomy)
-    )
-    matching_rows = TAXONOMIES.loc[mask]
-
-    if matching_rows.empty:
-        mask = (
-            (TAXONOMIES['Term ID'] == value)
-            & (TAXONOMIES['Vocabulary'] == taxonomy)
-        )
-        matching_rows = TAXONOMIES.loc[mask]
-
-    if matching_rows.empty:
-        result.log_issue(
-            pid,
-            field,
-            value,
-            f"could not find term in {taxonomy} taxonomy",
-            f"Could not find term '{value}' in {taxonomy} taxonomy.",
-        )
-        return False
-
-    return True
-
-
 def validate_coordinates(
     result: ProcessingResult,
     pid: str,
@@ -1524,41 +1526,96 @@ def validate_coordinates(
     return True
 
 
-def get_parent_domain(
-    ingest_sheet: pd.DataFrame,
+def validate_edtf_date(
+    result: ProcessingResult,
     pid: str,
-    parent_id: str,
-) -> list[str]:
-    """Inherit domain access values from a parent record.
+    field: str,
+    value: str,
+) -> bool:
+    """Validate an EDTF date.
 
     Args:
-        ingest_sheet: Master ingest DataFrame.
-        pid: PID of the current child record.
-        parent_id: PID of the parent record.
+        result: Runtime processing result.
+        pid: Current record PID.
+        field: Source field name.
+        value: Date value.
 
     Returns:
-        Parent domain values, if found.
+        True if valid; otherwise False.
     """
-    parent_domains = []
-
     try:
-        # Locate parent row and extract the membership column
-        match = ingest_sheet.loc[
-            ingest_sheet['identifier'] == parent_id,
-            'field_domain_access',
-        ]
+        edtf_date = parse_edtf(value)
 
-        # Tokenize the URIs
-        if not match.empty and pd.notna(match.values[0]):
-            parent_domains = split_and_clean(str(match.values[0]))
+        if not edtf_date:
+            result.log_issue(
+                pid,
+                field,
+                value,
+                "invalid EDTF date",
+            )
+            return False
+
+        return True
 
     except Exception:
-        logging.getLogger(LOGGER_NAME).exception(
-            "Record %s: Failed to retrieve parent domain.",
-            pid,
-        )
+        valid = bool(DRUPAL_EXTENDED_EDTF_PATTERN.search(value))
 
-    return parent_domains
+        if not valid:
+            result.log_issue(
+                pid,
+                field,
+                value,
+                "could not parse EDTF date",
+                f"Could not parse EDTF date '{value}'.",
+            )
+            return False
+
+        return True
+
+
+def validate_term(
+    result: ProcessingResult,
+    pid: str,
+    field: str,
+    value: str,
+    taxonomy: str,
+) -> bool:
+    """Validate that a term exists in a taxonomy.
+
+    Args:
+        result: Runtime processing result.
+        pid: Current record PID.
+        field: Source field name.
+        value: Term value.
+        taxonomy: Taxonomy name.
+
+    Returns:
+        True if term is valid; otherwise False.
+    """
+    mask = (
+        (TAXONOMIES['Name'] == value)
+        & (TAXONOMIES['Vocabulary'] == taxonomy)
+    )
+    matching_rows = TAXONOMIES.loc[mask]
+
+    if matching_rows.empty:
+        mask = (
+            (TAXONOMIES['Term ID'] == value)
+            & (TAXONOMIES['Vocabulary'] == taxonomy)
+        )
+        matching_rows = TAXONOMIES.loc[mask]
+
+    if matching_rows.empty:
+        result.log_issue(
+            pid,
+            field,
+            value,
+            f"could not find term in {taxonomy} taxonomy",
+            f"Could not find term '{value}' in {taxonomy} taxonomy.",
+        )
+        return False
+
+    return True
 
 
 def validate_record(
@@ -1679,6 +1736,43 @@ def validate_record(
 
 # --- Field-Specific Processing ---
 
+def get_parent_domain(
+    ingest_sheet: pd.DataFrame,
+    pid: str,
+    parent_id: str,
+) -> list[str]:
+    """Inherit domain access values from a parent record.
+
+    Args:
+        ingest_sheet: Master ingest DataFrame.
+        pid: PID of the current child record.
+        parent_id: PID of the parent record.
+
+    Returns:
+        Parent domain values, if found.
+    """
+    parent_domains = []
+
+    try:
+        # Locate parent row and extract the membership column
+        match = ingest_sheet.loc[
+            ingest_sheet['identifier'] == parent_id,
+            'field_domain_access',
+        ]
+
+        # Tokenize the URIs
+        if not match.empty and pd.notna(match.values[0]):
+            parent_domains = split_and_clean(str(match.values[0]))
+
+    except Exception:
+        logging.getLogger(LOGGER_NAME).exception(
+            "Record %s: Failed to retrieve parent domain.",
+            pid,
+        )
+
+    return parent_domains
+
+
 def process_model(
     result: ProcessingResult,
     record: dict,
@@ -1697,9 +1791,9 @@ def process_model(
         True if model is valid; otherwise False.
     """
     pid = record['id'][0]
-    model = MODEL_MAPPING.get(value)
+    model_mapping = MODEL_MAPPING.get(value)
 
-    if not model:
+    if not model_mapping:
         mask = (
             (TAXONOMIES['Term ID'] == value)
             & (TAXONOMIES['Vocabulary'] == 'Islandora Models')
@@ -1707,9 +1801,10 @@ def process_model(
         matching_rows = TAXONOMIES.loc[mask]
 
         if not matching_rows.empty:
-            model = matching_rows.iloc[0]
+            model_name = matching_rows.iloc[0]['Name']
+            model_mapping = MODEL_MAPPING.get(model_name)
 
-    if model is None:
+    if model_mapping is None:
         result.log_issue(
             pid,
             'field_member_of',
@@ -1718,7 +1813,7 @@ def process_model(
         )
         return False
 
-    resource_type = model.get('resource_type')
+    resource_type = model_mapping.get('resource_type')
     add_value(
         result,
         record,
@@ -1727,7 +1822,7 @@ def process_model(
         resource_type,
     )
 
-    display_hint = model.get('display_hint')
+    display_hint = model_mapping.get('display_hint')
     add_value(
         result,
         record,
@@ -1739,7 +1834,7 @@ def process_model(
     return True
 
 
-# --- Record Processing ---
+# --- Main Workflow ---
 
 def process_record(
     result: ProcessingResult,
@@ -1816,6 +1911,8 @@ def process_record(
                     validate_domain(result, pid, value)
                 elif mapping.field == 'field_coordinates':
                     validate_coordinates(result, pid, value)
+                elif mapping.field in DATE_FIELDS:
+                    validate_edtf_date(result, pid, csv_field, value)
                 elif mapping.field in CONTROLLED_FIELDS:
                     validate_term(
                         result,
@@ -1824,8 +1921,6 @@ def process_record(
                         value,
                         mapping.taxonomy,
                     )
-                elif mapping.field in DATE_FIELDS:
-                    validate_edtf_date(result, pid, csv_field, value)
 
                 if value:
                     add_value(
@@ -1850,22 +1945,21 @@ def process_record(
 
 
 def process_files(
-    progress_queue: Queue,
-    tracker: ProgressTracker,
     manifest_df: pd.DataFrame,
     metadata_df: pd.DataFrame,
     config: AppConfig,
     result: ProcessingResult,
-) -> None:
+) -> bool:
     """Process records, write ingest batches, and generate reports.
 
     Args:
-        progress_queue: Queue for progress updates.
-        tracker: Progress tracker.
         manifest_df: Manifest DataFrame.
         metadata_df: Metadata DataFrame.
         config: Application configuration object.
         result: Runtime processing result.
+
+    Returns:
+        True if processing completes; otherwise False.
     """
     logger = logging.getLogger(LOGGER_NAME)
 
@@ -1885,6 +1979,9 @@ def process_files(
         publish_value = '1' if config.publish else '0'
         ingest_sheet['published'] = publish_value
 
+        if config.metadata_level == 'publish':
+            ingest_sheet = filter_publish_fields(ingest_sheet)
+
         if not unmatched_records.empty:
             unmatched_log_csv = (
                 config.log_dir / f'{config.file_prefix}_unmatched.csv'
@@ -1895,67 +1992,58 @@ def process_files(
             )
             df_to_csv(unmatched_records, unmatched_log_csv)
 
-        # Set total number of files for progress tracking
-        progress_queue.put((tracker.set_total_files, (1,)))
-        progress_queue.put(
-            (tracker.set_current_file, ("Ingest Sheet", len(ingest_sheet)))
-        )
-
         # Process Batch
         buffer = []
         result.current_batch = 1
 
-        for idx, row in ingest_sheet.iterrows():
-            if tracker.cancel_requested.is_set():
-                logger.info("Processing cancelled by user.")
-                return
+        if config.metadata_level == 'publish':
+            records = ingest_sheet.to_dict('records')
 
-            if config.metadata_level == 'publish':
-                record = filter_publish_fields(row)
-            else:
+            for record in tqdm(
+                records,
+                total=len(records),
+                desc="Processing Records",
+                unit='record',
+            ):
+                buffer.append(record)
+
+                if should_flush_batch(buffer, config.batch_size):
+                    flush_batch(buffer, result.current_batch, config)
+                    result.advance_batch()
+                    buffer.clear()
+
+        else:
+            for idx, row in tqdm(
+                ingest_sheet.iterrows(),
+                total=len(ingest_sheet),
+                desc="Processing Records",
+                unit='record',
+            ):
                 record = process_record(result, row, idx)
 
-            if record:
-                if config.metadata_level != 'publish':
+                if record:
                     record = validate_record(
                         result,
                         record,
                         ingest_sheet,
                         config.ingest_task,
                     )
+                    record = format_record(record)
+                    buffer.append(record)
+                else:
+                    result.increment_failure_count()
+                    continue
 
-                # TODO: Move this to filter fields
-                if config.metadata_level == 'minimal':
-                    record = filter_minimal_metadata_fields(record)
+                # Complete batch if max size reached
+                if should_flush_batch(buffer, config.batch_size):
+                    flush_batch(
+                        buffer,
+                        result.current_batch,
+                        config,
+                    )
 
-                record = format_record(record)
-                buffer.append(record)
-            else:
-                result.increment_failure_count()
-                continue
-
-            # Update progress for processed record
-            is_last = idx == ingest_sheet.index[-1]
-            progress_queue.put(
-                (tracker.update_processed_records, (is_last,))
-            )
-
-            # Complete batch if max size reached
-            if should_flush_batch(buffer, config.batch_size):
-                flush_batch(
-                    buffer,
-                    result.current_batch,
-                    config,
-                )
-
-                result.advance_batch()
-                buffer.clear()
-
-        # Send final progress update
-        progress_queue.put((tracker.update_processed_files, ()))
-        progress_queue.put(
-            ('FAILURE_COUNT', result.unexpected_failure_count)
-        )
+                    result.advance_batch()
+                    buffer.clear()
 
         # Flush remaining buffer
         if buffer:
@@ -1973,23 +2061,18 @@ def process_files(
             result.issues
         )
 
-        progress_queue.put(('PROCESSING_COMPLETE', True))
+        return True
 
     except Exception as error:
         logger.exception("An error occurred during processing.")
-        progress_queue.put((
-            print,
-            (
-                f"\n{ERROR_SYMBOL} Data processor stopped unexpectedly: "
-                f"{error}.",
-                f"See logs: {config.log_path}",
-            ),
-        ))
+        print(
+            f"\n{ERROR_SYMBOL} Data processor stopped unexpectedly: "
+            f"{error}.",
+            f"See logs: {config.log_path}",
+        )
 
+        return False
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 
 def main() -> None:
     """Run the metadata ingest generation workflow."""
@@ -2008,7 +2091,8 @@ def main() -> None:
         config.output_dir = create_directory(config.batch_path / 'import')
         config.log_dir = create_directory(config.batch_path / 'logs')
         config.log_path = (
-            config.log_dir / f'{config.file_prefix}_ingest_sheet_processing.log'
+            config.log_dir /
+            f'{config.file_prefix}_ingest_{config.metadata_level}_processing.log'
         )
 
         setup_batch_directory(config.batch_path)
@@ -2016,71 +2100,29 @@ def main() -> None:
         # Set up logging
         logger = setup_logger(LOGGER_NAME, config.log_path)
 
-        critical_failures = 0
-        success = False
-
         # Log configuration input
         config.log_configuration(logger)
 
-        # Set up progress tracking
-        update_queue = Queue()
-        tracker = ProgressTracker()
+        # Load taxonomies
+        load_taxonomies(
+            refresh=config.refresh_taxonomies,
+            logger=logger,
+        )
+
         result = ProcessingResult()
 
         # Convert manifest and metadata sheet to DataFrames
         manifest_df, metadata_df = load_input_sheets(config)
 
-        # Run file/record processing in a separate thread
-        processing_thread = threading.Thread(
-            target=process_files,
-            args=(
-                update_queue,
-                tracker,
-                manifest_df,
-                metadata_df,
-                config,
-                result,
-            ),
+        # Process records and write ingest batches
+        success = process_files(
+            manifest_df,
+            metadata_df,
+            config,
+            result,
         )
-        processing_thread.start()
 
-        # Monitor thread
-        while processing_thread.is_alive() or not update_queue.empty():
-            # After processing thread ends, flush any remaining updates
-            while not update_queue.empty():
-                update = update_queue.get()
-                # Check if this is a status message
-                if (
-                    isinstance(update, tuple)
-                    and len(update) > 0
-                    and isinstance(update[0], str)
-                ):
-                    if update[0] == 'FAILURE_COUNT':
-                        critical_failures = update[1]
-                        continue
-
-                    if update[0] == 'PROCESSING_COMPLETE':
-                        success = update[1]
-                        continue
-                # Otherwise, treat it as a UI function call
-                elif (
-                    isinstance(update, tuple)
-                    and len(update) == 2
-                    and callable(update[0])
-                ):
-                    try:
-                        func, args = update
-                        # Guard against non-iterable args
-                        if isinstance(args, (list, tuple)):
-                            func(*args)
-                        else:
-                            func(args)
-
-                    except Exception:
-                        logger.exception("UI update failed: %s", update)
-
-                else:
-                    logger.warning("Unknown queue item type: %s", update)
+        critical_failures_count = result.unexpected_failure_count
 
     except Exception:
         msg = "A critical system error occurred during execution."
@@ -2099,19 +2141,18 @@ def main() -> None:
 
         sys.exit(1)
 
-    finally:
-        # If the thread is still running for some reason, ensure it stops
-        if 'tracker' in locals():
-            tracker.cancel_requested.set()
-
-    if critical_failures > 0:
-        unit = "record" if critical_failures == 1 else "records"
+    if critical_failures_count > 0:
+        unit = "record" if critical_failures_count == 1 else "records"
+        msg = f"{critical_failures_count} {unit} failed to process."
+        logger.error("%s", msg)
         print(
-            f"\n{WARNING_SYMBOL} {critical_failures} {unit} failed to process."
-            + (f" See logs: {config.log_path}" if config.log_path else "")
+            f"\n{WARNING_SYMBOL} {msg}",
+            f" See logs: {config.log_path}" if config.log_path else ""
         )
     elif success:
-        print(f"\n{SUCCESS_SYMBOL} All records were processed successfully.")
+        msg = "All records were processed successfully."
+        logger.info("%s", msg)
+        print(f"\n{SUCCESS_SYMBOL} {msg}")
 
 
 if __name__ == '__main__':

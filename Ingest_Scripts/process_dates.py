@@ -1,3 +1,13 @@
+"""Extended EDTF Date Validation and Processing Utilities.
+
+Provides functions for validating, normalizing, and deduplicating date values 
+according to Extended Date/Time Format (EDTF) strings. 
+"""
+
+# ---------------------------------------------------------------------------
+# Modules
+# ---------------------------------------------------------------------------
+
 # Standard library imports
 import re
 
@@ -21,8 +31,6 @@ EDTF_QUALIFIER_PATTERN = re.compile(r"[?~%]$")
 # ---------------------------------------------------------------------------
 # Functions
 # ---------------------------------------------------------------------------
-
-# --- Validation Helpers ---
 
 def validate_edtf_date(value: str) -> bool:
     """Validate an EDTF date string.
@@ -48,8 +56,6 @@ def validate_edtf_date(value: str) -> bool:
         valid = bool(DRUPAL_EXTENDED_EDTF_PATTERN.search(value))
         return valid
 
-
-# --- Conversion Helpers ---
 
 def convert_marc_date_to_edtf(
     value: str,
@@ -216,8 +222,6 @@ def convert_marc_date_to_edtf(
 
     return []
 
-
-# --- Post-processing Helpers ---
 
 def resolve_dates(
     date_list: list[str],

@@ -26,7 +26,7 @@ from definitions import (
     COUNTRIES,
     FORMATTED_FIELDS,
     LINKED_AGENT_TYPES,
-    IGNORED_FIELDS,
+    IGNORED_MODS_FIELDS,
     ISSUANCE_MAPPING,
     LANGUAGES,
     MARC_FIELD_MAPPING,
@@ -35,9 +35,8 @@ from definitions import (
     NAMESPACES,
     RELATOR_CODES,
     RELATOR_TERMS,
-    SPECIAL_FIELDS,
-    TAXONOMIES,
-    TYPE_IGNORED_FIELDS,
+    SPECIAL_MODS_FIELDS,
+    TYPE_IGNORED_MODS_FIELDS,
     TYPE_MAPPING,
 )
 from process_dates import (
@@ -46,14 +45,16 @@ from process_dates import (
     validate_edtf_date,
 )
 from process_related_item import process_related_item
+from taxonomy_manager import TAXONOMIES
 from utilities import (
     LogRegistry,
     cap_first,
     create_directory,
+    remove_whitespaces,
 )
 
 # ---------------------------------------------------------------------------
-# Global
+# Constants
 # ---------------------------------------------------------------------------
 
 LOGGER_NAME = LogRegistry.MAKE_MARC_METADATA_SHEET
@@ -139,7 +140,7 @@ class MARCProcessingResult:
 #  Functions
 # ---------------------------------------------------------------------------
 
-# --- General Utilities ---
+# --- Text Helpers ---
 
 def normalize_text(
     value: str | None,
@@ -165,27 +166,6 @@ def normalize_text(
         return None if empty == 'none' else ''
 
     return normalized
-
-
-def remove_whitespaces(text: str) -> str:
-    """Normalize string spacing by collapsing and stripping arbitrary whitespaces.
-
-    Removes explicit line breaks, carriage returns, and deeply indented spaces, 
-    then compresses any remaining consecutive whitespace characters into a single 
-    standard space.
-
-    Args:
-        text: The raw input string containing potential multi-line gaps or trailing spaces.
-
-    Returns:
-        The fully normalized and cleaned plaintext string, or an empty string
-    """
-    if isinstance(text, str):
-        new_text = text.replace('\n    ', ' ').replace('\n', '').strip()
-        new_text = re.sub(r'\s+', ' ', new_text)
-        new_text = new_text.replace('\r', ' ')
-        return new_text.strip()
-    return ''
 
 
 # --- XML Helpers ---
@@ -312,7 +292,7 @@ def check_if_special_field(tag: str | None) -> bool:
         True if the element exists within the controlled special fields mapping, 
         otherwise False.
     """
-    return tag in SPECIAL_FIELDS
+    return tag in SPECIAL_MODS_FIELDS
 
 
 def check_if_agent_field(field: str) -> bool:
@@ -1143,7 +1123,7 @@ def finalize_record_values(
             record[field] = '|'.join(values)
 
 
-# --- Orchestrators ---
+# --- Main Workflow ---
 
 def process_field(
     result: MARCProcessingResult, 
@@ -1172,8 +1152,8 @@ def process_field(
     # Skip elements that shouldn't be processed
     is_special_field = check_if_special_field(parent_tag)
     is_ignored_field = (
-        tag in IGNORED_FIELDS
-        or parent_tag in IGNORED_FIELDS
+        tag in IGNORED_MODS_FIELDS
+        or parent_tag in IGNORED_MODS_FIELDS
     )
     if is_special_field or is_ignored_field:
         return None
@@ -1186,7 +1166,7 @@ def process_field(
     type_attribute = None
     if tag == 'originInfo':
         type_attribute = element.attrib.get('eventType')
-    elif tag not in TYPE_IGNORED_FIELDS:
+    elif tag not in TYPE_IGNORED_MODS_FIELDS:
         type_attribute = element.attrib.get('type')
     elif element.attrib.get('type'):
         logger.info(

@@ -30,7 +30,6 @@ from urllib.parse import unquote
 
 # Third-party imports
 import pandas as pd
-from dotenv import load_dotenv
 
 # Local imports
 from definitions import UTILITY_FILES_DIR
@@ -39,6 +38,7 @@ from utilities import (
     SUCCESS_SYMBOL,
     WARNING_SYMBOL,
     create_df,
+    create_directory,
     df_to_csv,
     prompt_for_input,
 )
@@ -358,7 +358,7 @@ def prepare_project_directory(project_dir: Path) -> None:
         project_dir: Taxonomy project directory.
     """
     for sub_dir in ('logs', 'tmp'):
-        (project_dir / sub_dir).mkdir(parents=True, exist_ok=True)
+        create_directory(project_dir / sub_dir)
 
 
 def process_taxonomy_project(
@@ -455,13 +455,12 @@ def process_taxonomy_project(
 
 def main() -> None:
     """Run the taxonomy ingest generation workflow."""
-    load_dotenv()
     args = parse_arguments()
 
-    import_password = os.getenv('IMPORT_PASSWORD')
+    import_password = os.getenv('ISLANDORA_PASSWORD')
 
     if not import_password:
-        print(f"{ERROR_SYMBOL} IMPORT_PASSWORD not found in .env")
+        print(f"{ERROR_SYMBOL} ISLANDORA_PASSWORD not found in .env")
         sys.exit(1)
 
     process_taxonomy_project(

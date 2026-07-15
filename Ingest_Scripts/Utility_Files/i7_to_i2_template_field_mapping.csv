@@ -1,76 +1,77 @@
 i7_field,i2_field,obligation,field_type,content_type
-identifier,identifier,required,Text (plain),av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-id,identifier,required,Text (plain),av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-media_object_identifier,identifier,required,Text (plain),av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-title,title,required,"Text (formatted, long)",av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-media_object_title,title,required,"Text (formatted, long)",av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-description,description,required,"Text (formatted, long)",av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-language,language,"required, if applicable",Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-edition,edition,"required, if applicable",Text (plain),books
-,volume,"required, if applicable",Text (plain),serials
-,issue,"required, if applicable",Text (plain),serials
-,frequency,"required, if applicable","Text (plain, long)",serials
-normalized_date,date,required,EDTF,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-normalized_date_qualifier,,,EDTF,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-copyright_date,copyright_date,"required, if applicable",EDTF,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-copyright_status,copyright_status,required,Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-rights_holder,copyright_holder,"required, if applicable","Text (plain, long)",av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-,rights_notes,optional,"Text (plain, long)",av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-publisher,publisher,"required, if applicable","Text (plain, long)",av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-pub_place,publication_place,"required, if applicable","Text (plain, long)",av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-creator,creator_person,"required, if applicable",Typed Relation,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-creator,creator_corporate,"required, if applicable",Typed Relation,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-creator,creator_conference,"required, if applicable",Typed Relation,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-creator,creator_family,"required, if applicable",Typed Relation,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-,photographer_person,"required, if applicable",Typed Relation,photographs
-,photographer_corporate,"required, if applicable",Typed Relation,photographs
-interviewee,interviewee,"required, if applicable",Typed Relation,interviews
-interviewer,interviewer,"required, if applicable",Typed Relation,interviews
-,conductor,"required, if applicable",Typed Relation,musical_recordings
-,instrumentalist,"required, if applicable",Typed Relation,musical_recordings
-,singer,"required, if applicable",Typed Relation,musical_recordings
+identifier,identifier,required,Text (plain),av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+id,identifier,required,Text (plain),av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+media_object_identifier,identifier,required,Text (plain),av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+title,title,required,"Text (formatted, long)",av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+media_object_title,title,required,"Text (formatted, long)",av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+description,description,required,"Text (formatted, long)",av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+language,language,"required, if applicable",Entity reference,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+edition,edition,"required, if applicable",Text (plain),book
+,volume,"required, if applicable",Text (plain),serial
+,issue,"required, if applicable",Text (plain),serial
+,frequency,"required, if applicable","Text (plain, long)",serial
+normalized_date,date,required,EDTF,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+normalized_date_qualifier,,,EDTF,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+copyright_date,copyright_date,"required, if applicable",EDTF,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+copyright_status,copyright_status,required,Entity reference,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+rights_holder,copyright_holder,"required, if applicable","Text (plain, long)",av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+,rights_notes,optional,"Text (plain, long)",av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+publisher,publisher,"required, if applicable","Text (plain, long)",av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+pub_place,publication_place,"required, if applicable","Text (plain, long)",av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+creator,creator_person,"required, if applicable",Typed Relation,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+creator,creator_corporate,"required, if applicable",Typed Relation,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+creator,creator_conference,"required, if applicable",Typed Relation,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+creator,creator_family,"required, if applicable",Typed Relation,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+,photographer_person,"required, if applicable",Typed Relation,photograph
+,photographer_corporate,"required, if applicable",Typed Relation,photograph
+interviewee,interviewee,"required, if applicable",Typed Relation,interview
+interviewer,interviewer,"required, if applicable",Typed Relation,interview
+,conductor,"required, if applicable",Typed Relation,musical_recording
+,instrumentalist,"required, if applicable",Typed Relation,musical_recording
+,singer,"required, if applicable",Typed Relation,musical_recording
 ,composer,"required, if applicable",Typed Relation,notated_music
 ,lyricist,"required, if applicable",Typed Relation,notated_music
 ,arranger,"required, if applicable",Typed Relation,notated_music
-contributor,contributor_person,"required, if applicable",Typed Relation,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-contributor,contributor_corporate,"required, if applicable",Typed Relation,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-subject_name,subject_name_person,"required, if applicable",Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-subject_name,subject_name_corporate,"required, if applicable",Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-subject_name,subject_name_conference,"required, if applicable",Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-subject_name,subject_name_family,"required, if applicable",Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-subject_topic,subject_topic,required,Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-subject_geographic,subject_geographic,"required, if applicable",Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-,subject_temporal,"required, if applicable",Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-,subject_title,"required, if applicable",Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-genre,genre,required,Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-type_of_resource,type_of_resource,required,Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-,alternative_title,optional,"Text (plain, long)",books|manuscripts|serials
-,preceding_title,optional,"Text (plain, long)",serials
-,succeeding_title,optional,"Text (plain, long)",serials
-,related_title,optional,"Text (plain, long)",books|manuscripts|serials
-,part_of,optional,"Text (plain, long)",books|manuscripts|serials
-format,format,recommended,Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-extent,extent,recommended,Text (plain),av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-,isbn,"required, if applicable",Text (plain),books
-,issn,"required, if applicable",Text (plain),serials
+contributor,contributor_person,"required, if applicable",Typed Relation,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+contributor,contributor_corporate,"required, if applicable",Typed Relation,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+subject_name,subject_name_person,"required, if applicable",Entity reference,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+subject_name,subject_name_corporate,"required, if applicable",Entity reference,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+subject_name,subject_name_conference,"required, if applicable",Entity reference,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+subject_name,subject_name_family,"required, if applicable",Entity reference,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+subject_topic,subject_topic,required,Entity reference,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+subject_geographic,subject_geographic,"required, if applicable",Entity reference,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+,subject_temporal,"required, if applicable",Entity reference,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+,subject_title,"required, if applicable",Entity reference,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+genre,genre,required,Entity reference,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+,genre_japenese_prints,required,Entity reference,japanese_print
+type_of_resource,type_of_resource,required,Entity reference,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+,alternative_title,optional,"Text (plain, long)",book|manuscript|serial
+,preceding_title,optional,"Text (plain, long)",serial
+,succeeding_title,optional,"Text (plain, long)",serial
+,related_title,optional,"Text (plain, long)",book|manuscript|serial
+,part_of,optional,"Text (plain, long)",book|manuscript|serial
+format,format,recommended,Entity reference,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+extent,extent,recommended,Text (plain),av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+,isbn,"required, if applicable",Text (plain),book
+,issn,"required, if applicable",Text (plain),serial
 ,music_publisher_number,"required, if applicable","Text (plain, long)",notated_music
-,table_of_contents,optional,"Text (formatted, long)",books|manuscripts|serials
-address,address,optional,"Text (plain, long)",images|maps|photographs
-,thoroughfares,optional,"Text (plain, long)",images|maps|photographs
-,coordinates,recommended,Geolocation,maps
-,coordinates_text,recommended,Text (plain),maps
-,projection,recommended,"Text (plain, long)",maps
-,scale,recommended,Text (plain),maps
-depositor,field_depositor,required,Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-source_identifier,source_identifier,recommended,Text (plain),av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-source_collection,source_collection,"required, if applicable",Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-source_collection_id,source_collection_id,"required, if applicable",Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-,source_repository,"required, if applicable",Entity reference,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-source_citation,source_citation,"required, if applicable","Text (formatted, long)",av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-source_container,source_container,"required, if applicable",Text (plain),av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-source_series,source_series,recommended,"Text (plain, long)",manuscripts
-source_subseries,source_subseries,recommended,"Text (plain, long)",manuscripts
-source_other_level,source_other_level,recommended,"Text (plain, long)",manuscripts
-note,note,optional,"Text (formatted, long)",av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-media_object_filename,file,"required, if applicable",,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
-file,file,"required, if applicable",,av|books|images|interviews|manuscripts|maps|musical_recordings|notated_music|photographs|serials
+,table_of_contents,optional,"Text (formatted, long)",book|manuscript|serial
+address,address,optional,"Text (plain, long)",image|map|photograph
+,thoroughfares,optional,"Text (plain, long)",image|map|photograph
+,coordinates,recommended,Geolocation,map
+,coordinates_text,recommended,Text (plain),map
+,projection,recommended,"Text (plain, long)",map
+,scale,recommended,Text (plain),map
+depositor,field_depositor,required,Entity reference,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+source_identifier,source_identifier,recommended,Text (plain),av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+source_collection,source_collection,"required, if applicable",Entity reference,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+source_collection_id,source_collection_id,"required, if applicable",Entity reference,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+,source_repository,"required, if applicable",Entity reference,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+source_citation,source_citation,"required, if applicable","Text (formatted, long)",av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+source_container,source_container,"required, if applicable",Text (plain),av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+source_series,source_series,recommended,"Text (plain, long)",manuscript
+source_subseries,source_subseries,recommended,"Text (plain, long)",manuscript
+source_other_level,source_other_level,recommended,"Text (plain, long)",manuscript
+note,note,optional,"Text (formatted, long)",av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+media_object_filename,file,"required, if applicable",,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial
+file,file,"required, if applicable",,av|book|image|interview|japanese_print|manuscript|map|musical_recording|notated_music|photograph|serial

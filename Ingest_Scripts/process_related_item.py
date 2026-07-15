@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
-# Globals
+# Constants
 # ---------------------------------------------------------------------------
 
 LOGGER_NAME = LogRegistry.MAKE_MARC_METADATA_SHEET
@@ -163,6 +163,27 @@ SKIPPED_VALUES = {
 # ---------------------------------------------------------------------------
 # Functions
 # ---------------------------------------------------------------------------
+
+# --- Logging Helpers ---
+
+def log_skipped_element(
+    result: "MARCProcessingResult",
+    tag: str,
+    text: str,
+) -> None:
+    """Log a relatedItem component that was skipped.
+
+    Args:
+        result: Processing result object used for record-level logging.
+        tag: Tag or tag-with-attribute label for the skipped component.
+        text: Text value that was skipped.
+    """
+    result.log_issue(
+        'relatedItem',
+        text,
+        f"skipped unsupported relatedItem component: {tag}",
+    )
+
 
 # --- XML Helpers ---
 
@@ -391,27 +412,6 @@ def clean_up_note_text(note_text: str) -> str:
     return note_text.strip()
 
 
-# --- Logging Helpers ---
-
-def log_skipped_element(
-    result: "MARCProcessingResult",
-    tag: str,
-    text: str,
-) -> None:
-    """Log a relatedItem component that was skipped.
-
-    Args:
-        result: Processing result object used for record-level logging.
-        tag: Tag or tag-with-attribute label for the skipped component.
-        text: Text value that was skipped.
-    """
-    result.log_issue(
-        'relatedItem',
-        text,
-        f"skipped unsupported relatedItem component: {tag}",
-    )
-
-
 # --- Note Constructor ---
 
 def create_note(
@@ -501,7 +501,7 @@ def create_note(
         return ""
 
 
-# --- Orchestrator ---
+# --- Main Workflow ---
 
 def process_related_item(
     result: "MARCProcessingResult",

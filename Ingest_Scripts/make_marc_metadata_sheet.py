@@ -2,25 +2,25 @@
 
 """Generate Islandora metadata sheets from MARC bibliographic records.
 
-This script extracts descriptive metadata from MARC records, transforms the
+This script extracts bibliographic metadata from MARC records, transforms the
 records to MODS using an XSLT stylesheet, and converts the resulting metadata
-into an Islandora metadata spreadsheet. It supports batch processing, optional
-manifest merging, XML export, detailed processing logs, and automatic reporting
-of metadata issues and transformations.
+into an Islandora metadata sheet. It supports batch processing, optional
+manifest merging, XML export, detailed processing logs, and reporting of 
+metadata issues and transformations.
 
 Usage:
     # Process an input directory
     python3 make_marc_metadata_sheet.py \
-        --input_dir /workbench/marc
+        --batch_path /workbench/batches/example
 
     # Merge extracted metadata with a manifest
     python3 make_marc_metadata_sheet.py \
-        --input_dir /workbench/marc \
+        --batch_path /workbench/batches/example \
         --manifest_id <manifest_sheet_id>
 
     # Save intermediate MODS XML
     python3 make_marc_metadata_sheet.py \
-        --input_dir /workbench/marc \
+        --batch_path /workbench/batches/example \
         --save_xml
 """
 
@@ -31,6 +31,7 @@ Usage:
 # Standard library imports
 import argparse
 import logging
+from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -38,25 +39,31 @@ from pathlib import Path
 # Third-party imports
 import pandas as pd
 from lxml import etree as ET
-from pymarc import MARCReader, Record, XMLWriter, parse_xml_to_array
+from pymarc import (
+    MARCReader,
+    Record,
+    XMLWriter,
+    parse_xml_to_array
+)
 from tqdm import tqdm
 
 # Local imports
 from definitions import (
+    GOOGLE_CREDENTIALS_FILE,
     MARC_FIELD_MAPPING,
     UTILITY_FILES_DIR,
 )
 from process_mods import process_mods
+from taxonomy_manager import load_taxonomies
 from utilities import (
     LogRegistry,
     create_df,
     create_directory,
-    get_directory,
+    df_to_csv,
     normalize_for_join,
     prompt_for_input,
     read_google_sheet,
     setup_logger,
-    show_message,
     write_reports,
 )
 
@@ -71,45 +78,53 @@ LOGGER_NAME = LogRegistry.MAKE_MARC_METADATA_SHEET
 # Classes
 # ---------------------------------------------------------------------------
 
+@dataclass
 class AppConfig:
-    """
-    A container for application configuration parameters.
+    """Application configuration parameters.
 
     Attributes:
-        input_dir (str): Path to the directory containing MARC files.
-        save_xml (bool): Whether to save intermediate MODS XML files.
-        credentials_file (str): Path to the Google service account JSON.
-        manifest_id (str): Google Sheet ID for the manifest.
-        manifest_sheet (Optional[str]): Path to a local manifest sheet.
+        batch_path: Batch directory containing MARC files.
+        manifest_id: Google Sheet ID for the manifest.
+        credentials_file: Path to the Google service account JSON.
+        save_xml: Whether to save intermediate MODS XML files.
+        split: Whether to save separate metadata files for each input file.
+        refresh_taxonomies: Whether to refresh the taxonomy cache before
+            processing.
+        timestamp: Timestamp used for output and log filenames.
+        manifest_sheet: Path to a local manifest spreadsheet.
+        output_dir: Directory for generated metadata files.
+        log_dir: Directory for processing reports and logs.
+        log_path: Runtime log file path.
     """
 
-    def __init__(
-        self,
-        input_dir: str,
-        manifest_id: str,
-        credentials_file: str,
-        save_xml: bool,
-        split: bool,
-        timestamp: str | None,
-        manifest_sheet: str | None,
-    ):
-        """
-        Initialize the configuration object.
+    batch_path: str | Path
+    manifest_id: str | None
+    credentials_file: str | Path
+    save_xml: bool
+    split: bool
+    refresh_taxonomies: bool = False
+    timestamp: str | None = None
+    manifest_sheet: str | Path | None = None
+    output_dir: str | Path | None = None
+    log_dir: str | Path | None = None
+    log_path: str | Path | None = None
 
-        Args:
-            credentials_file: Path to Google API credentials.
-            input_dir: Source directory for MARC records.
-            save_xml: Toggle for saving XML output.
-            manifest_id: ID for the Google Sheet manifest.
-            manifest_sheet: Local path for manifest (if not using Google Sheets).
-        """
-        self.input_dir = input_dir
-        self.split = split
-        self.manifest_id = manifest_id
-        self.credentials_file = credentials_file
-        self.save_xml = save_xml
-        self.timestamp = timestamp
-        self.manifest_sheet = manifest_sheet
+    def __post_init__(self) -> None:
+        """Normalize path-like configuration values to Path objects."""
+        self.batch_path = Path(self.batch_path)
+        self.credentials_file = Path(self.credentials_file)
+
+        if self.manifest_sheet:
+            self.manifest_sheet = Path(self.manifest_sheet)
+
+        if self.output_dir:
+            self.output_dir = Path(self.output_dir)
+
+        if self.log_dir:
+            self.log_dir = Path(self.log_dir)
+
+        if self.log_path:
+            self.log_path = Path(self.log_path)
 
 
 class MARCTransformer:
@@ -247,7 +262,7 @@ def parse_arguments() -> AppConfig:
         description="Process MARC records into a metadata spreadsheet."
     )
     parser.add_argument(
-        '-i', '--input_dir',
+        '-i', '--batch_path',
         type=str,
         help="Path to input directory containing MARC files."
     )
@@ -264,7 +279,7 @@ def parse_arguments() -> AppConfig:
     parser.add_argument(
         '-c', '--credentials_file',
         type=str,
-        default='/workbench/etc/google_ulswfown_service_account.json',
+        default=GOOGLE_CREDENTIALS_FILE,
         help="Path to the Google service account credentials JSON."
     )
     parser.add_argument(
@@ -277,17 +292,22 @@ def parse_arguments() -> AppConfig:
         action='store_true',
         help="Save a separate metadata CSV for each input file."
     )
+    parser.add_argument(
+        '--refresh_taxonomies',
+        action='store_true',
+        help="Refresh the taxonomy cache before processing records.",
+    )
     args = parser.parse_args()
 
-    if not args.input_dir:
-        while not args.input_dir:
-            args.input_dir = prompt_for_input(
-                "Enter the full path to the input directory: "
+    if not args.batch_path:
+        while not args.batch_path:
+            args.batch_path = prompt_for_input(
+                "Enter the full path to the batch directory: "
             )
 
     if not args.manifest_id and not args.manifest_sheet:
         args.manifest_id = prompt_for_input(
-            "Enter the Google Sheet ID for the metadata sheet: "
+            "Enter the Google Sheet ID for the manifest: "
         )
 
     return AppConfig(**vars(args))
@@ -635,15 +655,12 @@ def merge_manifest_metadata(
         raise
 
 
-# --- Orchestrators ---
+# --- Main Workflow ---
 
 def process_files(
-    input_dir: Path,
-    output_dir: Path,
-    log_dir: Path,
     transformer: MARCTransformer,
     manifest_df: pd.DataFrame,
-    config: AppConfig
+    config: AppConfig,
 ) -> int:
     """
     Process MARC files in a directory and save CSV output.
@@ -653,10 +670,9 @@ def process_files(
     CSV file. Processing errors are captured in a shared log CSV.
 
     Args:
-        input_dir: Directory containing `.mrc` or `.xml` files.
-        output_dir: Directory where processed CSV files and logs are saved.
         transformer: Initialized MARC transformer used to convert records.
         manifest_df: Loaded manifest DataFrame.
+        config: Application configuration containing input and output paths.
 
     Returns:
         Total number of exceptions encountered during processing, including 
@@ -668,18 +684,18 @@ def process_files(
     exceptions = 0
     logger = logging.getLogger(LOGGER_NAME)
     
-    def save_batch(records_list: list, filename: str):
+    def save_batch(records_list: list, filename: str) -> None:
         """Helper to handle sorting, merging, and CSV writing."""
         if not records_list:
             return
         df = sort_fields(pd.DataFrame(records_list))
         if not manifest_df.empty:
             df = merge_manifest_metadata(manifest_df, df, logger)
-        df.to_csv(output_dir / filename, index=False, encoding='utf-8')
+        df_to_csv(df, config.output_dir / filename)
     
     try:
         files = [
-            file_path for file_path in input_dir.iterdir()
+            file_path for file_path in config.batch_path.iterdir()
             if (
                 file_path.is_file()
                 and file_path.suffix.lower() in {'.mrc', '.xml'}
@@ -708,7 +724,7 @@ def process_files(
                         )
 
                         if config.save_xml:
-                            result.save_mods_xml(output_dir)
+                            result.save_mods_xml(config.output_dir)
 
                         if result.record:
                             file_records.append(result.record)
@@ -738,11 +754,11 @@ def process_files(
                 )
         
         if not config.split and all_records:
-            save_batch(all_records, f"{input_dir.name}_metadata.csv")
+            save_batch(all_records, f"{config.batch_path.name}_metadata.csv")
 
         if issues or transformations:
             write_reports(
-                log_dir,
+                config.log_dir,
                 config.timestamp,
                 'metadata',
                 transformations,
@@ -779,31 +795,38 @@ def main() -> None:
     try:
         # Set up directories
         config.timestamp = datetime.now().strftime('%Y-%m-%d-%H%M%S')
-        input_dir = create_directory(Path(config.input_dir))
-        output_dir = create_directory(input_dir / 'metadata')
-        log_dir = create_directory(input_dir / 'logs')
+        config.batch_path = create_directory(config.batch_path)
+        config.output_dir = create_directory(config.batch_path / 'metadata')
+        config.log_dir = create_directory(config.batch_path / 'logs')
 
         # Set up logger
-        log_path = log_dir / f"{config.timestamp}_metadata_sheet_processing.log"
-        logger = setup_logger(LOGGER_NAME, log_path)
+        config.log_path = (
+            config.log_dir
+            / f"{config.timestamp}_metadata_sheet_processing.log"
+        )
+        log_path = config.log_path
+        logger = setup_logger(LOGGER_NAME, config.log_path)
+
+        # Load taxonomies
+        load_taxonomies(
+            refresh=config.refresh_taxonomies,
+            logger=logger,
+        )
 
         # Process MARC files
         transformer = MARCTransformer(xslt_path)
         manifest_df = load_manifest(config)
 
         exceptions = process_files(
-            input_dir,
-            output_dir,
-            log_dir,
             transformer,
             manifest_df,
-            config
+            config,
         )
     
         if exceptions:
             print(
                 f"{exceptions} exceptions occurred during processing. "
-                f"See logs for details: {log_path}"
+                f"See logs: {log_path}"
             )
 
     except Exception as e:
@@ -814,7 +837,7 @@ def main() -> None:
             f"A critical error occurred: {e}"
         )
         if log_path:
-            msg = f"{msg}\nSee log file for details: {log_path}"
+            msg = f"{msg}\nSee logs: {log_path}"
 
         print(msg)
 

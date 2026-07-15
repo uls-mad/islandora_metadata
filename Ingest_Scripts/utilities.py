@@ -66,11 +66,11 @@ DRUPAL_EXTENDED_EDTF_PATTERN = re.compile(
 class LogRegistry:
     """Registry of primary module logger names."""
 
-    BULK_MAKE_METADATA_SHEET = 'bulk_make_metadata_sheet'
     I7_TO_I2_TEMPLATE = 'i7_to_i2_template'
     MAKE_INGEST_SHEET = 'make_ingest_sheet'
     MAKE_MARC_METADATA_SHEET = 'make_marc_metadata_sheet'
     MAKE_METADATA_SHEET = 'make_metadata_sheet'
+    MERGE_BATCHES = 'merge_batches'
     SETUP_TAXONOMY_INGEST = 'setup_taxonomy_ingest'
     SETUP_TAXONOMY_PROJECT = 'setup_taxonomy_project'
 
@@ -112,30 +112,6 @@ def prompt_for_input(
             continue
 
         return user_input
-
-
-def get_directory(
-    io_type: str,
-    title: str,
-) -> str:
-    """Prompt the user to select a directory.
-
-    Args:
-        io_type: Directory role, such as "input" or "output".
-        title: Dialog title or console prompt.
-
-    Returns:
-        Selected directory path.
-
-    Raises:
-        SystemExit: If no directory is selected.
-    """
-    directory = input(f"{title}: ").strip()
-
-    if not directory:
-        raise SystemExit(f"No {io_type} directory selected.")
-
-    return directory
 
 
 # --- Logging Helpers ---
@@ -211,24 +187,35 @@ def create_directory(directory_path: str | Path) -> Path:
 
 # --- Text Helpers ---
 
-def remove_whitespaces(text: str) -> str:
-    """Collapse whitespace in a string.
+def remove_whitespaces(text: str, allow_newlines: bool = False) -> str:
+    """Normalize string spacing by collapsing and stripping arbitrary whitespaces.
+    
+    Acts as a backwards-compatible drop-in replacement for legacy text cleaning functions.
 
     Args:
-        text: Text to clean.
+        text: Raw input string.
+        allow_newlines: Whether to preserve and clean up paragraph breaks.
+            If False, explicit line breaks (\n, \r) are flattened into standard spaces.
 
     Returns:
-        Cleaned text with whitespace collapsed, or an empty string if input is
-        not a string.
+        Cleaned text, or an empty string for non-string input.
     """
+    # Bypass non-string inputs
     if not isinstance(text, str):
         return ''
 
-    new_text = text.replace('\n    ', ' ').replace('\n', '').strip()
-    new_text = re.sub(r'\s+', ' ', new_text)
-    new_text = new_text.replace('\r', ' ')
+    if allow_newlines:
+        # Collapse internal spaces and tabs, but leave newlines
+        cleaned = re.sub(r'[ \t]+', ' ', text)
+        # Collapse multiple line breaks into two max
+        cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+    else:
+        # Collapse carriage returns into one space
+        cleaned = text.replace('\r', ' ')
+        # Collapse all consecutive whitespace into one space
+        cleaned = re.sub(r'\s+', ' ', cleaned)
 
-    return new_text.strip()
+    return cleaned.strip()
 
 
 def normalize_for_join(series: pd.Series) -> pd.Series:
@@ -378,7 +365,43 @@ def csv_to_dict(
         }
 
 
-# --- Report Helpers ---
+def get_merged_column_order(dfs: list[pd.DataFrame]) -> list[str]:
+    """Build a master column list preserving relative column order.
+
+    Args:
+        dfs: DataFrames whose headers need to be merged.
+
+    Returns:
+        Unique column names ordered according to their relative positions across
+        the input DataFrames.
+    """
+    master_order = []
+
+    for df in dfs:
+        for col in df.columns:
+            if col in master_order:
+                continue
+
+            col_list = list(df.columns)
+            idx = col_list.index(col)
+
+            if idx == 0:
+                master_order.insert(0, col)
+                continue
+
+            prev_col = col_list[idx - 1]
+
+            if prev_col in master_order:
+                prev_idx = master_order.index(prev_col)
+                master_order.insert(prev_idx + 1, col)
+            else:
+                master_order.append(col)
+
+    return master_order
+
+
+
+# --- Reporting Helper ---
 
 def write_reports(
     output_dir: Path,
@@ -447,13 +470,15 @@ def write_reports(
 
 def connect_to_google_sheet(
     credentials_file: str | Path,
-    logger: logging.Logger | None = None
+    logger: logging.Logger | None = None,
+    readonly: bool = True,
 ) -> Any:
     """Connect to the Google Sheets API using a service account.
 
     Args:
         credentials_file: Path to the service account JSON credentials file.
         logger: Optional logger for error messages.
+        readonly: Whether to request read-only Google Sheets access.
 
     Returns:
         Google Sheets API service object.
@@ -470,7 +495,12 @@ def connect_to_google_sheet(
             logger.error(msg)
         raise FileNotFoundError(msg)
 
-    scopes = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+    scope = (
+        'https://www.googleapis.com/auth/spreadsheets.readonly'
+        if readonly
+        else 'https://www.googleapis.com/auth/spreadsheets'
+    )
+    scopes = [scope]
 
     try:
         creds = service_account.Credentials.from_service_account_file(
@@ -480,71 +510,6 @@ def connect_to_google_sheet(
         return build('sheets', 'v4', credentials=creds)
     except Exception as error:
         msg = "Failed to create Google Sheets service."
-        if logger:
-            logger.exception(msg)
-        raise RuntimeError(msg) from error
-
-
-def get_google_sheet_filename(
-    sheet_id: str,
-    credentials_file: str | Path = 'credentials.json',
-    logger: logging.Logger | None = None
-) -> str:
-    """Retrieve the title of a Google Sheet.
-
-    Args:
-        sheet_id: Google Sheet ID.
-        credentials_file: Path to service account JSON credentials.
-        logger: Optional logger.
-
-    Returns:
-        Google Sheet title.
-
-    Raises:
-        ValueError: If the sheet cannot be accessed.
-        AttributeError: If the title is missing from metadata.
-        RuntimeError: If an unexpected error occurs.
-    """
-    service = connect_to_google_sheet(credentials_file, logger=logger)
-
-    try:
-        # Get the sheet's metadata
-        meta = service.spreadsheets().get(
-            spreadsheetId=sheet_id,
-            fields='properties.title'
-        ).execute()
-
-        # Retrieve the title (filename) from the metadata
-        if 'properties' in meta and 'title' in meta['properties']:
-            filename = meta['properties']['title']
-
-            if logger:
-                logger.info(
-                    "Successfully retrieved filename for Sheet ID %s: %s",
-                    sheet_id,
-                    filename
-                )
-
-            return filename
-
-        msg = f"Missing title in metadata for Google Sheet ID: {sheet_id}"
-        if logger:
-            logger.error(msg)
-        raise AttributeError(msg)
-
-    except HttpError as error:
-        msg = (
-            f"Failed to retrieve metadata for Google Sheet ID {sheet_id}. "
-            "Check ID and service account permissions."
-        )
-        if logger:
-            logger.exception(msg)
-        raise ValueError(msg) from error
-    except Exception as error:
-        msg = (
-            "Unexpected error while fetching filename for Google Sheet ID "
-            f"{sheet_id}."
-        )
         if logger:
             logger.exception(msg)
         raise RuntimeError(msg) from error
@@ -729,6 +694,110 @@ def read_google_sheets_in_folder(
         raise
 
 
+def get_google_sheet_filename(
+    sheet_id: str,
+    credentials_file: str | Path = 'credentials.json',
+    logger: logging.Logger | None = None
+) -> str:
+    """Retrieve the title of a Google Sheet.
+
+    Args:
+        sheet_id: Google Sheet ID.
+        credentials_file: Path to service account JSON credentials.
+        logger: Optional logger.
+
+    Returns:
+        Google Sheet title.
+
+    Raises:
+        ValueError: If the sheet cannot be accessed.
+        AttributeError: If the title is missing from metadata.
+        RuntimeError: If an unexpected error occurs.
+    """
+    service = connect_to_google_sheet(credentials_file, logger=logger)
+
+    try:
+        # Get the sheet's metadata
+        meta = service.spreadsheets().get(
+            spreadsheetId=sheet_id,
+            fields='properties.title'
+        ).execute()
+
+        # Retrieve the title (filename) from the metadata
+        if 'properties' in meta and 'title' in meta['properties']:
+            filename = meta['properties']['title']
+
+            if logger:
+                logger.info(
+                    "Successfully retrieved filename for Sheet ID %s: %s",
+                    sheet_id,
+                    filename
+                )
+
+            return filename
+
+        msg = f"Missing title in metadata for Google Sheet ID: {sheet_id}"
+        if logger:
+            logger.error(msg)
+        raise AttributeError(msg)
+
+    except HttpError as error:
+        msg = (
+            f"Failed to retrieve metadata for Google Sheet ID {sheet_id}. "
+            "Check ID and service account permissions."
+        )
+        if logger:
+            logger.exception(msg)
+        raise ValueError(msg) from error
+    except Exception as error:
+        msg = (
+            "Unexpected error while fetching filename for Google Sheet ID "
+            f"{sheet_id}."
+        )
+        if logger:
+            logger.exception(msg)
+        raise RuntimeError(msg) from error
+
+
+def get_google_sheet_titles_by_gid(
+    sheet_id: str,
+    credentials_file: str | Path = 'credentials.json',
+    logger: logging.Logger | None = None,
+) -> dict[int, str]:
+    """Return worksheet titles keyed by numeric GID.
+
+    Args:
+        sheet_id: Google spreadsheet ID.
+        credentials_file: Path to service account JSON credentials.
+        logger: Optional logger.
+
+    Returns:
+        Mapping of worksheet GIDs to worksheet titles.
+    """
+    service = connect_to_google_sheet(
+        credentials_file,
+        logger=logger,
+    )
+
+    try:
+        response = service.spreadsheets().get(
+            spreadsheetId=sheet_id,
+            fields='sheets.properties(sheetId,title)',
+        ).execute()
+    except HttpError as error:
+        msg = (
+            f"Failed to retrieve tab metadata for Google Sheet {sheet_id}."
+        )
+        if logger:
+            logger.exception(msg)
+        raise ValueError(msg) from error
+
+    return {
+        int(sheet['properties']['sheetId']): sheet['properties']['title']
+        for sheet in response.get('sheets', [])
+    }
+
+
 def get_first_tab_info(
     sheet_id: str,
     credentials_file: str | Path = 'credentials.json',
@@ -797,3 +866,80 @@ def get_first_tab_info(
         if logger:
             logger.exception(msg)
         raise
+
+
+def clear_google_sheet_ranges(
+    sheet_id: str,
+    ranges: list[str],
+    credentials_file: str | Path = 'credentials.json',
+    logger: logging.Logger | None = None,
+) -> None:
+    """Clear values from one or more Google Sheet ranges.
+
+    Formatting and data validation are preserved.
+
+    Args:
+        sheet_id: Google spreadsheet ID.
+        ranges: A1 notation ranges to clear.
+        credentials_file: Path to service account JSON credentials.
+        logger: Optional logger.
+    """
+    if not ranges:
+        return
+
+    service = connect_to_google_sheet(
+        credentials_file,
+        logger=logger,
+        readonly=False,
+    )
+
+    try:
+        service.spreadsheets().values().batchClear(
+            spreadsheetId=sheet_id,
+            body={'ranges': ranges},
+        ).execute()
+    except HttpError as error:
+        msg = f"Failed to clear ranges in Google Sheet {sheet_id}."
+        if logger:
+            logger.exception(msg)
+        raise ValueError(msg) from error
+
+
+def update_google_sheet_ranges(
+    sheet_id: str,
+    data: list[dict[str, Any]],
+    credentials_file: str | Path = 'credentials.json',
+    logger: logging.Logger | None = None,
+    value_input_option: str = 'RAW',
+) -> None:
+    """Write values to one or more Google Sheet ranges.
+
+    Args:
+        sheet_id: Google spreadsheet ID.
+        data: Batch update entries containing ranges and values.
+        credentials_file: Path to service account JSON credentials.
+        logger: Optional logger.
+        value_input_option: Google Sheets value input mode.
+    """
+    if not data:
+        return
+
+    service = connect_to_google_sheet(
+        credentials_file,
+        logger=logger,
+        readonly=False,
+    )
+
+    try:
+        service.spreadsheets().values().batchUpdate(
+            spreadsheetId=sheet_id,
+            body={
+                'valueInputOption': value_input_option,
+                'data': data,
+            },
+        ).execute()
+    except HttpError as error:
+        msg = f"Failed to update ranges in Google Sheet {sheet_id}."
+        if logger:
+            logger.exception(msg)
+        raise ValueError(msg) from error
