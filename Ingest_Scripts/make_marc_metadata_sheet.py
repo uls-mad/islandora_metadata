@@ -1,25 +1,27 @@
 #!/usr/bin/env python3
 
-"""Convert a Islandora (Workbench) export sheet to a metadata sheet.
+"""Generate Islandora metadata sheets from MARC bibliographic records.
 
-The script reverses the field-oriented transformations used when generating an
-Islandora Workbench ingest sheet. It:
-
-- maps Islandora machine-field columns back to metadata-sheet field names;
-- removes prefixes from values except for fields mapped from ``note``;
-- changes pipe-delimited values to semicolon-and-space delimiters;
-- uses prefixes to route values that share one Islandora field;
-- drops export columns that are not represented in the mapping tables; and
-- writes the resulting metadata sheet to CSV.
+This script extracts bibliographic metadata from MARC records, transforms the
+records to MODS using an XSLT stylesheet, and converts the resulting metadata
+into an Islandora metadata sheet. It supports batch processing, optional
+manifest merging, XML export, detailed processing logs, and reporting of 
+metadata issues and transformations.
 
 Usage:
-    # Run interactively
-    python3 make_metadata_sheet.py
+    # Process an input directory
+    python3 make_marc_metadata_sheet.py \
+        --batch_path /workbench/batches/example
 
-    # Provide the export and output paths
-    python3 make_metadata_sheet.py \
-        --export_sheet /path/to/export.csv \
-        --output_dir /path/to/batch/metadata
+    # Merge extracted metadata with a manifest
+    python3 make_marc_metadata_sheet.py \
+        --batch_path /workbench/batches/example \
+        --manifest_id <manifest_sheet_id>
+
+    # Save intermediate MODS XML
+    python3 make_marc_metadata_sheet.py \
+        --batch_path /workbench/batches/example \
+        --save_xml
 """
 
 # ---------------------------------------------------------------------------
@@ -29,56 +31,47 @@ Usage:
 # Standard library imports
 import argparse
 import logging
-import re
-import sys
-import traceback
 from dataclasses import dataclass
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
-from typing import Any
 
 # Third-party imports
 import pandas as pd
+from lxml import etree as ET
+from pymarc import (
+    MARCReader,
+    Record,
+    XMLWriter,
+    parse_xml_to_array
+)
+from tqdm import tqdm
 
 # Local imports
 from definitions import (
-    MANIFEST_FIELD_MAPPING,
+    GOOGLE_CREDENTIALS_FILE,
     MARC_FIELD_MAPPING,
-    RELATOR_TERMS,
-    TEMPLATE_FIELD_MAPPING,
+    UTILITY_FILES_DIR,
 )
+from process_mods import process_mods
+from taxonomy_manager import load_taxonomies
 from utilities import (
-    ERROR_SYMBOL,
-    SUCCESS_SYMBOL,
-    WARNING_SYMBOL,
     LogRegistry,
     create_df,
     create_directory,
     df_to_csv,
+    normalize_for_join,
     prompt_for_input,
+    read_google_sheet,
     setup_logger,
+    write_reports,
 )
 
-
 # ---------------------------------------------------------------------------
-# Constants
+# Global
 # ---------------------------------------------------------------------------
 
-LOGGER_NAME = LogRegistry.MAKE_METADATA_SHEET
-DEFAULT_SEPARATOR = '; '
-
-LINKED_AGENT_PREFIX_PATTERN = re.compile(
-    r'^relators:'
-    r'(?P<relator_code>[^:]+):'
-    r'(?P<agent_type>person|family|corporate_body|conference):'
-    r'(?P<value>.*)$'
-)
-
-RELATOR_CODE_TO_TERM = {
-    str(data['code']).strip().casefold(): term
-    for term, data in RELATOR_TERMS.items()
-    if data.get('code')
-}
+LOGGER_NAME = LogRegistry.MAKE_MARC_METADATA_SHEET
 
 
 # ---------------------------------------------------------------------------
@@ -87,671 +80,766 @@ RELATOR_CODE_TO_TERM = {
 
 @dataclass
 class AppConfig:
-    """Application configuration values.
+    """Application configuration parameters.
 
     Attributes:
-        export_sheet: Workbench export CSV or Excel file.
-        output_dir: Directory where the metadata sheet will be written.
-        timestamp: Timestamp used in the processing log filename.
-        output_path: Final metadata-sheet CSV path.
-        log_dir: Directory containing the processing log.
-        log_path: Processing log path.
+        batch_path: Batch directory containing MARC files.
+        manifest_id: Google Sheet ID for the manifest.
+        credentials_file: Path to the Google service account JSON.
+        save_xml: Whether to save intermediate MODS XML files.
+        split: Whether to save separate metadata files for each input file.
+        refresh_taxonomies: Whether to refresh the taxonomy cache before
+            processing.
+        timestamp: Timestamp used for output and log filenames.
+        manifest_sheet: Path to a local manifest spreadsheet.
+        output_dir: Directory for generated metadata files.
+        log_dir: Directory for processing reports and logs.
+        log_path: Runtime log file path.
     """
 
-    export_sheet: str | Path
-    output_dir: str | Path
+    batch_path: str | Path
+    manifest_id: str | None
+    credentials_file: str | Path
+    save_xml: bool
+    split: bool
+    refresh_taxonomies: bool = False
     timestamp: str | None = None
-    output_path: Path | None = None
-    log_dir: Path | None = None
-    log_path: Path | None = None
+    manifest_sheet: str | Path | None = None
+    output_dir: str | Path | None = None
+    log_dir: str | Path | None = None
+    log_path: str | Path | None = None
 
     def __post_init__(self) -> None:
-        """Normalize path-like values."""
-        self.export_sheet = Path(self.export_sheet)
-        self.output_dir = Path(self.output_dir)
+        """Normalize path-like configuration values to Path objects."""
+        self.batch_path = Path(self.batch_path)
+        self.credentials_file = Path(self.credentials_file)
+
+        if self.manifest_sheet:
+            self.manifest_sheet = Path(self.manifest_sheet)
+
+        if self.output_dir:
+            self.output_dir = Path(self.output_dir)
+
+        if self.log_dir:
+            self.log_dir = Path(self.log_dir)
+
+        if self.log_path:
+            self.log_path = Path(self.log_path)
+
+
+class MARCTransformer:
+    """Transform MARC records into MODS XML using an XSLT stylesheet."""
+
+    def __init__(self, xslt_path: str | Path) -> None:
+        """
+        Initialize the transformer with an XSLT stylesheet.
+
+        Args:
+            xslt_path: Path to the `.xsl` stylesheet file.
+
+        Raises:
+            FileNotFoundError: If the XSLT file does not exist.
+            etree.XMLSyntaxError: If the XSLT cannot be parsed.
+        """
+        self.transform = self._load_xslt(xslt_path)
+
+    def _load_xslt(self, xslt_path: str | Path) -> ET.XSLT:
+        """
+        Load and compile an XSLT stylesheet.
+
+        Args:
+            xslt_path: Path to the XSLT file.
+
+        Returns:
+            A compiled `lxml.etree.XSLT` transformer.
+        
+        Raises:
+            FileNotFoundError: If the file does not exist.
+
+        """
+        xslt_path = Path(xslt_path)
+
+        if not xslt_path.exists():
+            raise FileNotFoundError(f"XSLT file not found: {xslt_path}")
+
+        parser = ET.XMLParser(load_dtd=True, resolve_entities=True)
+
+        with xslt_path.open('rb') as f:
+            xsl_tree = ET.parse(f, parser=parser, base_url=str(xslt_path))
+
+        return ET.XSLT(xsl_tree)
+
+    def convert_record_to_marcxml(self, record: Record) -> ET._Element:
+        """
+        Convert a pymarc Record into an lxml MARCXML element.
+
+        Writes the record to an in-memory MARCXML stream, parses it into an
+        XML tree, and extracts the `<record>` element from the `<collection>`.
+
+        Args:
+            record: The pymarc `Record` to convert.
+
+        Returns:
+            An `lxml.etree._Element` representing the MARC `<record>` element.
+
+        
+        Raises:
+            TypeError: If `record` is not a pymarc `Record`.
+            ValueError: If XML parsing fails or the `<record>` element is missing.
+
+        """
+        if not isinstance(record, Record):
+            raise TypeError(f"Unexpected record type: {type(record)}")
+
+        record_stream = BytesIO()
+        writer = XMLWriter(record_stream)
+        writer.write(record)
+        writer.close(close_fh=False)
+        record_stream.seek(0)
+
+        try:
+            collection_tree = ET.parse(record_stream)
+        except ET.XMLSyntaxError as e:
+            raise ValueError(f"Could not parse MARCXML record: {e}") from e
+
+        record_element = collection_tree.find(
+            './/{http://www.loc.gov/MARC21/slim}record'
+        )
+
+        if record_element is None:
+            raise ValueError("No <record> element found inside <collection>.")
+
+        return record_element
+
+    def transform_to_mods(self, record_element: ET._Element) -> ET._Element:
+        """
+        Transform a MARCXML element into a MODS XML element.
+
+        Applies the configured XSLT transformation to a MARC `<record>` element
+        and returns the resulting MODS root element.
+
+        Args:
+            record_element: The MARCXML `<record>` element.
+
+        Returns:
+            The resulting MODS XML root element.
+            
+        Raises:
+            ValueError: If the transformation fails or produces an invalid result.
+
+        """
+        mods_result = self.transform(record_element)
+
+        if isinstance(mods_result, ET._XSLTResultTree):
+            mods_root = mods_result.getroot()
+        elif isinstance(mods_result, ET._Element):
+            mods_root = mods_result
+        else:
+            raise ValueError(
+                "XSLT transformation did not return a valid result tree."
+            )
+
+        if mods_root is None:
+            raise ValueError("XSLT transformation returned no root element.")
+
+        return mods_root
 
 
 # ---------------------------------------------------------------------------
-# Functions
+#  Functions
 # ---------------------------------------------------------------------------
 
-# --- Argument Parsing ---
+# --- Setup Helpers ---
 
 def parse_arguments() -> AppConfig:
-    """Parse command-line arguments and prompt for missing paths.
+    """
+    Parse command-line arguments or prompt user for directory inputs.
 
     Returns:
-        Application configuration object.
+        An AppConfig object containing the validated runtime parameters.
     """
     parser = argparse.ArgumentParser(
-        description=(
-            "Convert a Workbench export sheet to a metadata sheet."
-        )
+        description="Process MARC records into a metadata spreadsheet."
     )
     parser.add_argument(
-        '-e',
-        '--export_sheet',
+        '-i', '--batch_path',
         type=str,
-        help="Path to the Workbench export CSV or Excel file.",
+        help="Path to input directory containing MARC files."
     )
     parser.add_argument(
-        '-o',
-        '--output_dir',
+        '-m', '--manifest_id',
         type=str,
-        help="Directory where the metadata sheet should be saved.",
+        help="Google Sheet ID for the manifest file."
     )
-
+    parser.add_argument(
+        '--manifest_sheet',
+        type=str,
+        help="Path to manifest on local device (optional)."
+    )
+    parser.add_argument(
+        '-c', '--credentials_file',
+        type=str,
+        default=GOOGLE_CREDENTIALS_FILE,
+        help="Path to the Google service account credentials JSON."
+    )
+    parser.add_argument(
+        '-x', '--save_xml',
+        action='store_true',
+        help="Save intermediate MODS XML files for each record."
+    )
+    parser.add_argument(
+        '-s', '--split',
+        action='store_true',
+        help="Save a separate metadata CSV for each input file."
+    )
+    parser.add_argument(
+        '--refresh_taxonomies',
+        action='store_true',
+        help="Refresh the taxonomy cache before processing records.",
+    )
     args = parser.parse_args()
 
-    if not args.export_sheet:
-        args.export_sheet = prompt_for_input(
-            "Enter the path to the Workbench export sheet: "
-        )
+    if not args.batch_path:
+        while not args.batch_path:
+            args.batch_path = prompt_for_input(
+                "Enter the full path to the batch directory: "
+            )
 
-    if not args.output_dir:
-        args.output_dir = prompt_for_input(
-            "Enter the directory for the metadata sheet: "
+    if not args.manifest_id and not args.manifest_sheet:
+        args.manifest_id = prompt_for_input(
+            "Enter the Google Sheet ID for the manifest: "
         )
 
     return AppConfig(**vars(args))
 
 
-# --- Mapping Helpers ---
-
-def normalize_mapping_table(mapping_df: pd.DataFrame) -> pd.DataFrame:
-    """Normalize one field-mapping table for reverse conversion.
+def load_marc_records(file_path: str | Path) -> list[Record]:
+    """
+    Load MARC records from a binary MARC or MARCXML file.
 
     Args:
-        mapping_df: Mapping table containing source and machine field names.
+        file_path: Path to a `.mrc` or `.xml` file.
 
     Returns:
-        Mapping rows with standardized fields required by this script.
+        A list of pymarc `Record` objects.
+
+    Raises:
+        ValueError: If the file extension is not `.mrc` or `.xml`.
     """
-    required_columns = {
-        'field',
-        'machine_name',
-    }
+    file_path = Path(file_path)
 
-    missing_columns = required_columns - set(mapping_df.columns)
+    if file_path.suffix.lower() == '.mrc':
+        with file_path.open('rb') as f:
+            return list(MARCReader(f, to_unicode=True, force_utf8=True))
 
-    if missing_columns:
-        raise ValueError(
-            "Field mapping is missing required column(s): "
-            f"{', '.join(sorted(missing_columns))}"
+    if file_path.suffix.lower() == '.xml':
+        with file_path.open('rb') as f:
+            return parse_xml_to_array(f)
+
+    raise ValueError(f"Unsupported MARC file type: {file_path.suffix}")
+
+
+# --- DataFrame Helpers ---
+
+def sort_fields(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Sort DataFrame columns based on mapping order.
+
+    Deduplicates the mapping field list while preserving order, inserts
+    non-subject agent fields after `frequency`, and appends unmapped columns
+    to the end in their original order.
+
+    Args:
+        df: DataFrame whose columns should be sorted.
+
+    Returns:
+        A DataFrame with reordered columns.
+    """
+    agent_suffixes = (
+        '_person',
+        '_corporate',
+        '_conference',
+        '_family',
+        '_untyped',
+    )
+
+    ordered_fields = list(
+        dict.fromkeys(MARC_FIELD_MAPPING['field'])
+    )
+
+    agent_cols = [
+        col for col in df.columns
+        if (
+            col.endswith(agent_suffixes)
+            and 'subject' not in col
+            and col not in ordered_fields
         )
-
-    normalized = mapping_df.copy()
-
-    if 'prefix' not in normalized.columns:
-        normalized['prefix'] = ''
-
-    normalized = normalized[
-        ['field', 'machine_name', 'prefix']
-    ].copy()
-
-    for column in normalized.columns:
-        normalized[column] = (
-            normalized[column]
-            .fillna('')
-            .astype(str)
-            .str.strip()
-        )
-
-    normalized = normalized[
-        normalized['field'].ne('')
-        & normalized['machine_name'].ne('')
     ]
 
-    return normalized
-
-
-def load_reverse_mappings() -> pd.DataFrame:
-    """Combine and deduplicate all available field mappings.
-
-    Returns:
-        Mapping DataFrame ordered by the project's mapping-table precedence.
-    """
-    mapping_tables = [
-        normalize_mapping_table(TEMPLATE_FIELD_MAPPING),
-        normalize_mapping_table(MANIFEST_FIELD_MAPPING),
-        normalize_mapping_table(MARC_FIELD_MAPPING),
+    ordered_without_agents = [
+        col for col in ordered_fields
+        if col not in agent_cols
     ]
-
-    mappings = pd.concat(
-        mapping_tables,
-        ignore_index=True,
-    )
-
-    return mappings.drop_duplicates(
-        subset=['field', 'machine_name', 'prefix'],
-        keep='first',
-    ).reset_index(drop=True)
-
-
-
-
-def normalize_prefix(prefix: str) -> str:
-    """Normalize a prefix for reliable comparison.
-
-    Args:
-        prefix: Prefix from a mapping row or exported value.
-
-    Returns:
-        Stripped prefix ending in a colon, or an empty string.
-    """
-    prefix = str(prefix or '').strip()
-
-    if not prefix:
-        return ''
-
-    return prefix if prefix.endswith(':') else f'{prefix}:'
-
-
-def parse_linked_agent_value(
-    value: str,
-) -> tuple[str, str, str, str] | None:
-    """Parse an exported linked-agent value.
-
-    Args:
-        value: Exported linked-agent value.
-
-    Returns:
-        Tuple containing the complete prefix, relator code, agent type, and
-        unprefixed agent value. Returns None when the value does not match the
-        expected linked-agent structure.
-    """
-    match = LINKED_AGENT_PREFIX_PATTERN.fullmatch(value.strip())
-
-    if not match:
-        return None
-
-    relator_code = match.group('relator_code').strip()
-    agent_type = match.group('agent_type').strip()
-    agent_value = match.group('value').strip()
-    prefix = normalize_prefix(
-        f'relators:{relator_code}:{agent_type}'
-    )
-
-    return prefix, relator_code, agent_type, agent_value
-
-
-def find_linked_agent_field(
-    prefix: str,
-    mappings: pd.DataFrame,
-) -> str | None:
-    """Find the metadata-sheet field for an exact linked-agent prefix.
-
-    Args:
-        prefix: Concrete linked-agent prefix parsed from the export value.
-        mappings: Combined field mapping table.
-
-    Returns:
-        Matching metadata-sheet field, if configured.
-    """
-    linked_agent_mappings = mappings.loc[
-        mappings['machine_name'].eq('field_linked_agent')
-    ].copy()
-
-    if linked_agent_mappings.empty:
-        return None
-
-    linked_agent_mappings['normalized_prefix'] = (
-        linked_agent_mappings['prefix']
-        .map(normalize_prefix)
-    )
-
-    match = linked_agent_mappings.loc[
-        linked_agent_mappings['normalized_prefix'].eq(prefix),
-        'field',
-    ]
-
-    if match.empty:
-        return None
-
-    return str(match.iloc[0])
-
-
-def generate_linked_agent_field(
-    relator_code: str,
-    agent_type: str,
-    logger: logging.Logger,
-) -> str:
-    """Generate a metadata field from a relator code and agent type."""
-    normalized_code = relator_code.strip().casefold()
-    relator_term = RELATOR_CODE_TO_TERM.get(normalized_code)
-
-    if relator_term:
-        normalized_term = re.sub(
-            r'\s+',
-            '_',
-            relator_term.strip().casefold(),
-        )
-        return f'{normalized_term}_{agent_type}'
-
-    fallback_field = f'{normalized_code}_{agent_type}'
-    logger.warning(
-        "No relator term was found for code '%s'. Using generated field '%s'.",
-        relator_code,
-        fallback_field,
-    )
-    return fallback_field
-
-
-def reverse_map_linked_agents(
-    raw_values: list[str],
-    mappings: pd.DataFrame,
-    output: dict[str, list[str]],
-    logger: logging.Logger,
-) -> None:
-    """Route linked-agent values to metadata-sheet fields."""
-    for raw_value in raw_values:
-        parsed = parse_linked_agent_value(raw_value)
-
-        if parsed is None:
-            logger.warning(
-                "Linked-agent value could not be routed: %s",
-                raw_value,
-            )
-            continue
-
-        prefix, relator_code, agent_type, agent_value = parsed
-        target_field = find_linked_agent_field(prefix, mappings)
-
-        if target_field is None:
-            target_field = generate_linked_agent_field(
-                relator_code,
-                agent_type,
-                logger,
-            )
-            logger.info(
-                "Generated metadata field '%s' for prefix '%s'.",
-                target_field,
-                prefix,
-            )
-
-        append_output_values(
-            output,
-            target_field,
-            [agent_value],
-        )
-
-
-# --- Value Helpers ---
-
-def split_values(value: Any) -> list[str]:
-    """Split a repeatable export value on pipe or semicolon delimiters.
-
-    Args:
-        value: Raw spreadsheet cell value.
-
-    Returns:
-        Ordered nonblank values.
-    """
-    if value is None or pd.isna(value):
-        return []
-
-    text = str(value).strip()
-
-    if not text:
-        return []
-
-    return [
-        part.strip()
-        for part in re.split(r'\s*[|;]\s*', text)
-        if part.strip()
-    ]
-
-
-def remove_prefix(
-    value: str,
-    prefix: str,
-) -> str | None:
-    """Remove a required prefix from the beginning of a value.
-
-    Args:
-        value: Exported field value.
-        prefix: Prefix associated with the metadata-sheet field.
-
-    Returns:
-        Value without the prefix. Returns None when a prefix is configured but
-        the value does not use it.
-    """
-    if not prefix:
-        return value
-
-    if not value.startswith(prefix):
-        return None
-
-    return value.removeprefix(prefix).strip()
-
-
-def deduplicate_values(values: list[str]) -> list[str]:
-    """Deduplicate values while preserving first-seen order."""
-    return list(dict.fromkeys(value for value in values if value))
-
-
-def serialize_values(values: list[str]) -> str:
-    """Serialize values using the metadata-sheet separator."""
-    return DEFAULT_SEPARATOR.join(deduplicate_values(values))
-
-
-def append_output_values(
-    output: dict[str, list[str]],
-    field: str,
-    values: list[str],
-) -> None:
-    """Append values to one metadata-sheet field."""
-    if not values:
-        return
-
-    output.setdefault(field, [])
-    output[field].extend(values)
-
-
-# --- Conversion ---
-
-
-def reverse_map_record(
-    row: pd.Series,
-    mappings: pd.DataFrame,
-    logger: logging.Logger,
-) -> dict[str, str]:
-    """Convert one Workbench export row to metadata-sheet fields.
-
-    Note prefixes are retained. Linked-agent prefixes determine the output
-    metadata field. Prefixes on all other mapped values are removed.
-    """
-    output: dict[str, list[str]] = {}
-
-    for machine_field, field_mappings in mappings.groupby(
-        'machine_name',
-        sort=False,
-    ):
-        if machine_field not in row.index:
-            continue
-
-        raw_values = split_values(row[machine_field])
-        if not raw_values:
-            continue
-
-        if machine_field == 'field_linked_agent':
-            reverse_map_linked_agents(
-                raw_values,
-                mappings,
-                output,
-                logger,
-            )
-            continue
-
-        claimed_indexes: set[int] = set()
-        unprefixed_fields: list[str] = []
-
-        for mapping in field_mappings.itertuples(index=False):
-            source_field = mapping.field
-            prefix = normalize_prefix(mapping.prefix)
-
-            if not prefix:
-                unprefixed_fields.append(source_field)
-                continue
-
-            matched_values: list[str] = []
-
-            for index, raw_value in enumerate(raw_values):
-                if not raw_value.startswith(prefix):
-                    continue
-
-                claimed_indexes.add(index)
-
-                cleaned_value = (
-                    raw_value.strip()
-                    if machine_field == 'note'
-                    else raw_value.removeprefix(prefix).strip()
-                )
-
-                if cleaned_value:
-                    matched_values.append(cleaned_value)
-
-            append_output_values(
-                output,
-                source_field,
-                matched_values,
-            )
-
-        remaining_values = [
-            value
-            for index, value in enumerate(raw_values)
-            if index not in claimed_indexes
-        ]
-
-        if remaining_values and unprefixed_fields:
-            target_field = unprefixed_fields[0]
-
-            if len(unprefixed_fields) > 1:
-                logger.warning(
-                    "Machine field '%s' has multiple unprefixed mappings "
-                    "(%s). Remaining values were assigned to '%s'.",
-                    machine_field,
-                    ', '.join(unprefixed_fields),
-                    target_field,
-                )
-
-            append_output_values(
-                output,
-                target_field,
-                remaining_values,
-            )
-
-        elif remaining_values:
-            logger.warning(
-                "Machine field '%s' contained %d unassigned value(s): %s",
-                machine_field,
-                len(remaining_values),
-                ' | '.join(remaining_values),
-            )
-
-    return {
-        field: serialize_values(values)
-        for field, values in output.items()
-    }
-
-
-def convert_export_to_metadata(
-    export_df: pd.DataFrame,
-    logger: logging.Logger | None = None,
-) -> pd.DataFrame:
-    """Convert a Workbench export DataFrame to a metadata-sheet DataFrame.
-
-    Args:
-        export_df: Workbench export records.
-        logger: Optional process logger.
-
-    Returns:
-        Human-readable metadata DataFrame containing only mapped fields.
-    """
-    logger = logger or logging.getLogger(LOGGER_NAME)
-    mappings = load_reverse_mappings()
-
-    mapped_machine_fields = set(mappings['machine_name'])
-    retained_machine_fields = [
-        column
-        for column in export_df.columns
-        if column in mapped_machine_fields
-    ]
-    dropped_columns = [
-        column
-        for column in export_df.columns
-        if column not in mapped_machine_fields
-    ]
-
-    logger.info(
-        "Found %d mapped export column(s).",
-        len(retained_machine_fields),
-    )
-
-    if dropped_columns:
-        logger.info(
-            "Dropping %d unmapped export column(s): %s",
-            len(dropped_columns),
-            ', '.join(dropped_columns),
-        )
-
-    if not retained_machine_fields:
-        raise ValueError(
-            "The export sheet does not contain any columns represented in "
-            "the field mappings."
-        )
-
-    records = []
-
-    for row_number, (_, row) in enumerate(
-        export_df.iterrows(),
-        start=2,
-    ):
-        try:
-            records.append(
-                reverse_map_record(
-                    row=row,
-                    mappings=mappings,
-                    logger=logger,
-                )
-            )
-        except Exception:
-            logger.exception(
-                "Failed to reverse-map export row %d.",
-                row_number,
-            )
-            raise
-
-    metadata_df = pd.DataFrame.from_records(records)
-
-    # Preserve the field order defined by the combined mapping tables.
-    mapped_field_order = list(dict.fromkeys(mappings['field']))
-    output_columns = [
-        field
-        for field in mapped_field_order
-        if field in metadata_df.columns
-    ]
-
-    metadata_df = metadata_df.reindex(
-        columns=output_columns,
-        fill_value='',
-    )
-
-    return metadata_df.fillna('')
-
-
-# --- File Processing ---
-
-def make_metadata_sheet(
-    export_sheet: str | Path,
-    output_dir: str | Path,
-    logger: logging.Logger | None = None,
-) -> Path:
-    """Create a metadata sheet from a Workbench export file.
-
-    This is the callable entry point for other modules.
-
-    Args:
-        export_sheet: Workbench export CSV or Excel file.
-        output_dir: Directory where the metadata sheet should be written.
-        logger: Optional process logger.
-
-    Returns:
-        Path to the generated metadata-sheet CSV.
-    """
-    export_path = Path(export_sheet)
-    output_dir = create_directory(output_dir)
-
-    if not export_path.exists():
-        raise FileNotFoundError(
-            f"Workbench export sheet not found: {export_path}"
-        )
-
-    logger = logger or logging.getLogger(LOGGER_NAME)
-    logger.info("Reading Workbench export sheet: %s", export_path)
-
-    export_df = create_df(export_path)
-
-    logger.info(
-        "Loaded %d record(s) and %d column(s) from the export sheet.",
-        len(export_df),
-        len(export_df.columns),
-    )
-
-    metadata_df = convert_export_to_metadata(
-        export_df,
-        logger=logger,
-    )
-
-    output_path = output_dir / f'{export_path.stem}_metadata.csv'
-    df_to_csv(metadata_df, output_path)
-
-    logger.info(
-        "Metadata sheet saved with %d record(s) and %d column(s): %s",
-        len(metadata_df),
-        len(metadata_df.columns),
-        output_path,
-    )
-
-    return output_path
-
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
-def main() -> None:
-    """Run the Workbench-export-to-metadata conversion workflow."""
-    logger = None
-    log_path = None
 
     try:
-        config = parse_arguments()
+        insert_index = ordered_without_agents.index('frequency') + 1
+    except ValueError:
+        try:
+            insert_index = ordered_without_agents.index('subject_topic')
+        except ValueError:
+            insert_index = len(ordered_without_agents)
+
+    ordered_fields_with_agents = (
+        ordered_without_agents[:insert_index]
+        + agent_cols
+        + ordered_without_agents[insert_index:]
+    )
+
+    mapped_cols = [
+        col for col in ordered_fields_with_agents
+        if col in df.columns
+    ]
+
+    remaining_cols = [
+        col for col in df.columns
+        if col not in mapped_cols
+    ]
+
+    return df[mapped_cols + remaining_cols]
+
+
+def summarize_values(
+    values: list,
+    max_items: int = 20,
+    separator: str = ', '
+) -> str:
+    """Summarize a list of values for logging.
+
+    Converts values to strings, joins the first ``max_items`` values, and
+    appends a count of additional values when applicable.
+
+    Args:
+        values: Values to summarize.
+        max_items: Maximum number of values to display.
+        separator: Separator used between displayed values.
+
+    Returns:
+        A summarized string representation of the values.
+    """
+    values = [str(value) for value in values if value is not None]
+
+    display_values = values[:max_items]
+    extra_count = len(values) - len(display_values)
+
+    message = separator.join(display_values)
+
+    if extra_count > 0:
+        message += f" ... (+{extra_count} more)"
+
+    return message
+
+
+def load_manifest(
+    config: AppConfig,
+) -> pd.DataFrame:
+    """
+    Load a manifest DataFrame from Google Sheets or a local file.
+
+    If a Google Sheet ID is provided, the manifest is loaded from Google
+    Sheets. Otherwise, if a local manifest sheet path is provided, the
+    manifest is loaded from the local file. If neither is provided, an
+    empty DataFrame is returned.
+
+    Args:
+        config: Application configuration object.
+    Returns:
+        A manifest DataFrame, or an empty DataFrame if no source is provided.
+    """
+    logger = logging.getLogger(LOGGER_NAME)
+    if config.manifest_id:
+        logger.info(
+            "Using manifest from Google Sheet ID: %s",
+            config.manifest_id
+        )
+
+        return read_google_sheet(
+            config.manifest_id,
+            sheet_name=config.manifest_sheet,
+            credentials_file=config.credentials_file
+        )
+
+    if config.manifest_sheet:
+        logger.info(
+            "Using manifest sheet from local file: %s",
+            config.manifest_sheet
+        )
+
+        return create_df(config.manifest_sheet)
+
+    logger.info("No manifest provided.")
+
+    return pd.DataFrame()
+
+
+def merge_manifest_metadata(
+    manifest_df: pd.DataFrame,
+    metadata_df: pd.DataFrame,
+    logger: logging.Logger
+) -> pd.DataFrame:
+    """Merge manifest and metadata DataFrames using MMS ID fields.
+
+    Merges metadata rows to manifest rows using either the 
+    'field_record_source_id' or 'mmsid' column in the manifest, matched against 
+    'record_identifier' in the metadata sheet. 
+
+    Args:
+        manifest_df: DataFrame containing manifest data.
+        metadata_df: DataFrame containing extracted MARC metadata.
+        logger: Logger for reporting join results.
+
+    Returns:
+        A merged DataFrame with manifest data preserved.
+    """
+    try:
+        manifest_df = manifest_df.copy()
+        metadata_df = metadata_df.copy()
+
+        if 'id' in manifest_df.columns:
+            manifest_df.rename(columns={'id': 'identifier'}, inplace=True)
+
+        if 'record_identifier' not in metadata_df.columns:
+            msg = "Metadata is missing required join column: 'record_identifier'"
+            logger.error(msg)
+            print(msg)
+            raise KeyError(msg)
+
+        # Determine Join Columns
+        if 'field_record_source_id' in manifest_df.columns:
+            manifest_join_col = 'field_record_source_id'
+            manifest_cols = ['field_record_source_id']
+            if 'node_id' in manifest_df.columns:
+                manifest_cols.append('node_id')
+        elif 'mmsid' in manifest_df.columns:
+            manifest_join_col = 'mmsid'
+            if 'identifier' in manifest_df.columns:
+                manifest_cols = ['identifier']
+            else:
+                msg = "Manifest contains 'mmsid' but is missing 'identifier'."
+                logger.error(msg)
+                raise KeyError(msg)
+        else:
+            msg = (
+                "Manifest is missing required join column. "
+                "Expected either 'field_record_source_id' or 'mmsid'."
+            )
+            logger.error(msg)
+            raise KeyError(msg)
+
+        if 'title' in manifest_df.columns:
+            manifest_cols.append('title')
+
+        logger.info(
+            "Joining manifest '%s' to 'record_identifier'.",
+            manifest_join_col
+        )
+
+        # Normalize Keys and Slice DataFrames
+        manifest_join_series = normalize_for_join(
+            manifest_df[manifest_join_col]
+        ).astype(str)
+        manifest_df = manifest_df.loc[:, manifest_cols].copy()
+        manifest_df['__manifest_join_key__'] = manifest_join_series
+        
+        metadata_df['__metadata_join_key__'] = normalize_for_join(
+            metadata_df['record_identifier']
+        ).astype(str)
+
+        # Validate Metadata Uniqueness
+        metadata_dupes = metadata_df[
+            metadata_df['__metadata_join_key__'].notna() &
+            metadata_df['__metadata_join_key__'].duplicated(keep=False)
+        ]
+        if not metadata_dupes.empty:
+            sample = metadata_dupes['__metadata_join_key__'].dropna()
+            sample_dupes = sample.astype(str).unique()[:10]
+            msg = f"Duplicate identifiers in metadata: {', '.join(sample_dupes)}"
+            logger.error(msg)
+            print(msg)
+            raise ValueError(msg)
+
+        manifest_log_col = manifest_cols[0]
+
+        # REPORTING CONDITION A: Metadata records that did not match the manifest
+        unmatched_mask = ~metadata_df['__metadata_join_key__'].isin(
+            manifest_df['__manifest_join_key__']
+        )
+        unmatched_metadata_df = metadata_df[unmatched_mask]
+
+        if not unmatched_metadata_df.empty:
+            logger.warning(
+                "%d metadata rows not found in manifest.",
+                len(unmatched_metadata_df)
+            )
+            
+            unmatched_ids = (
+                unmatched_metadata_df['record_identifier']
+                .dropna()
+                .astype(str)
+                .tolist()
+            )
+
+            logger.warning(
+                "Unmatched metadata record_identifiers: %s",
+                summarize_values(unmatched_ids)
+            )
+
+        # Perform the Left Merge
+        merged = pd.merge(
+            manifest_df,
+            metadata_df,
+            how='left',
+            left_on='__manifest_join_key__',
+            right_on='__metadata_join_key__',
+            suffixes=('_manifest', ''),
+            validate='many_to_one'
+        )
+
+        # Consolidate title columns if a name collision occurred
+        if 'title' in merged.columns and 'title_manifest' in merged.columns:
+            merged['title'] = merged['title'].fillna(merged['title_manifest'])
+            merged.drop(columns=['title_manifest'], inplace=True)
+
+        # REPORTING CONDITION B: Manifest rows missing metadata
+        unmatched_manifest = merged[
+            merged['__metadata_join_key__'].isna() &
+            merged['__manifest_join_key__'].notna()
+        ].copy()
+
+        if not unmatched_manifest.empty:
+            logger.warning(
+                "%d manifest rows failed to match metadata.",
+                len(unmatched_manifest)
+            )
+            logger.warning(
+                "Unmatched manifest identifiers (expected MARC data): %s",
+                summarize_values(
+                    unmatched_manifest[manifest_log_col]
+                    .dropna()
+                    .astype(str)
+                    .tolist()
+                )
+            )
+
+        # Clean up internal keys and position primary ID
+        merged.drop(
+            columns=['__metadata_join_key__', '__manifest_join_key__'],
+            errors='ignore',
+            inplace=True
+        )
+
+        if 'identifier' in merged.columns:
+            remaining_cols = [
+                col for col in merged.columns if col != 'identifier'
+            ]
+            merged = merged[['identifier'] + remaining_cols]
+
+        return merged
+
+    except Exception:
+        msg = (
+            "An unexpected error occurred while merging the manifest and "
+            "metadata sheet."
+        )
+        logger.exception(msg)
+        print(msg)
+        raise
+
+
+# --- Main Workflow ---
+
+def process_files(
+    transformer: MARCTransformer,
+    manifest_df: pd.DataFrame,
+    config: AppConfig,
+) -> int:
+    """
+    Process MARC files in a directory and save CSV output.
+
+    Reads all `.mrc` and `.xml` files from the input directory, converts each
+    MARC record to MODS XML, processes the MODS XML, and saves the output to a
+    CSV file. Processing errors are captured in a shared log CSV.
+
+    Args:
+        transformer: Initialized MARC transformer used to convert records.
+        manifest_df: Loaded manifest DataFrame.
+        config: Application configuration containing input and output paths.
+
+    Returns:
+        Total number of exceptions encountered during processing, including 
+        file-level, record-level, and unexpected runtime exceptions.
+    """
+    all_records = []
+    transformations = []
+    issues = []
+    exceptions = 0
+    logger = logging.getLogger(LOGGER_NAME)
+    
+    def save_batch(records_list: list, filename: str) -> None:
+        """Helper to handle sorting, merging, and CSV writing."""
+        if not records_list:
+            return
+        df = sort_fields(pd.DataFrame(records_list))
+        if not manifest_df.empty:
+            df = merge_manifest_metadata(manifest_df, df, logger)
+        df_to_csv(df, config.output_dir / filename)
+    
+    try:
+        files = [
+            file_path for file_path in config.batch_path.iterdir()
+            if (
+                file_path.is_file()
+                and file_path.suffix.lower() in {'.mrc', '.xml'}
+            )
+        ]
+
+        file_bar = tqdm(files, desc="Processing Files", unit='file')
+
+        for file_path in file_bar:
+            try:
+                file_records = []
+                marc_records = load_marc_records(file_path)
+                record_bar = tqdm(
+                    marc_records,
+                    desc=f"Records in {file_path.name}",
+                    leave=False,
+                    unit='record'
+                )
+
+                for i, record in enumerate(record_bar):
+                    try:
+                        marc_xml = transformer.convert_record_to_marcxml(record)
+                        mods_xml = transformer.transform_to_mods(marc_xml)
+                        result = process_mods(
+                            mods_xml
+                        )
+
+                        if config.save_xml:
+                            result.save_mods_xml(config.output_dir)
+
+                        if result.record:
+                            file_records.append(result.record)
+                            all_records.append(result.record)
+                        
+                        if result.transformations:
+                            transformations.extend(result.transformations)
+                        
+                        if result.issues:
+                            issues.extend(result.issues)
+
+                    except Exception:
+                        exceptions += 1
+                        logger.exception(
+                            "Failed to process record %s in %s.",
+                            i,
+                            file_path.name,
+                        )
+
+                if config.split and file_records:
+                    save_batch(file_records, f"{file_path.stem}_metadata.csv")
+            except Exception:
+                exceptions += 1
+                logger.exception(
+                    "An error occurred while processing %s.",
+                    file_path.name,
+                )
+        
+        if not config.split and all_records:
+            save_batch(all_records, f"{config.batch_path.name}_metadata.csv")
+
+        if issues or transformations:
+            write_reports(
+                config.log_dir,
+                config.timestamp,
+                'metadata',
+                transformations,
+                issues
+            )
+
+        msg = "MARC file processing complete!"
+
+        logger.info(msg)
+        print(msg)
+    except Exception as e:
+        exceptions += 1
+        msg = "An unexpected error occurred during processing."
+        logger.exception(msg)
+        print(f"{msg}: {e}")
+    
+    return exceptions
+
+
+def main() -> None:
+    """
+    Run the MARC-to-MODS processing workflow.
+    
+    Parses command-line arguments, validates required input, initializes 
+    logging and output directories, and processes all MARC files in the input 
+    directory. Displays completion or error messages depending on execution 
+    outcome.
+    """
+    logger = None
+    log_path = None
+    config = parse_arguments()
+    xslt_path = UTILITY_FILES_DIR / 'marc2mods.xsl'
+
+    try:
+        # Set up directories
         config.timestamp = datetime.now().strftime('%Y-%m-%d-%H%M%S')
-        config.output_dir = create_directory(config.output_dir)
-        config.log_dir = create_directory(config.output_dir / 'logs')
+        config.batch_path = create_directory(config.batch_path)
+        config.output_dir = create_directory(config.batch_path / 'metadata')
+        config.log_dir = create_directory(config.batch_path / 'logs')
+
+        # Set up logger
         config.log_path = (
             config.log_dir
-            / f'{config.timestamp}_make_metadata_sheet.log'
+            / f"{config.timestamp}_metadata_sheet_processing.log"
         )
         log_path = config.log_path
+        logger = setup_logger(LOGGER_NAME, config.log_path)
 
-        logger = setup_logger(
-            LOGGER_NAME,
-            config.log_path,
-        )
-
-        print(
-            "Converting Workbench export to a metadata sheet...",
-            flush=True,
-        )
-
-        config.output_path = make_metadata_sheet(
-            export_sheet=config.export_sheet,
-            output_dir=config.output_dir,
+        # Load taxonomies
+        load_taxonomies(
+            refresh=config.refresh_taxonomies,
             logger=logger,
         )
 
-        print(
-            f"\n{SUCCESS_SYMBOL} Metadata sheet saved: "
-            f"{config.output_path.as_posix()}"
+        # Process MARC files
+        transformer = MARCTransformer(xslt_path)
+        manifest_df = load_manifest(config)
+
+        exceptions = process_files(
+            transformer,
+            manifest_df,
+            config,
         )
-        print(f"Log saved to: {config.log_path.as_posix()}")
+    
+        if exceptions:
+            print(
+                f"{exceptions} exceptions occurred during processing. "
+                f"See logs: {log_path}"
+            )
 
-    except Exception as error:
-        message = f"Metadata sheet conversion failed: {error}"
-
+    except Exception as e:
         if logger:
-            logger.exception(message)
+            logger.exception("A critical error occurred.")
 
-        print(f"\n{ERROR_SYMBOL} {message}")
-
+        msg = (
+            f"A critical error occurred: {e}"
+        )
         if log_path:
-            print(f"See logs: {Path(log_path).as_posix()}")
-        else:
-            traceback.print_exc()
+            msg = f"{msg}\nSee logs: {log_path}"
 
-        sys.exit(1)
+        print(msg)
 
 
 if __name__ == '__main__':
