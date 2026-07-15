@@ -131,6 +131,7 @@ class AppConfig:
     ingest_task: str
     metadata_level: str
     publish: bool
+    remove_pages: bool
     manifest_sheet: str | None = None
     metadata_sheet: str | None = None
     refresh_taxonomies: bool = False
@@ -340,6 +341,11 @@ def parse_arguments() -> AppConfig:
         type=str,
         choices=['y', 'n'],
         help="Specify whether the ingest batch should be published.",
+    )
+    parser.add_argument(
+        '--remove_pages',
+        action='store_true',
+        help="Remove objects with a page model from ingest sheet.",
     )
     parser.add_argument(
         '--refresh_taxonomies',
@@ -1004,6 +1010,47 @@ def filter_publish_fields(records_df: pd.DataFrame) -> pd.DataFrame:
     ]
 
     return records_df[fields_to_keep].copy()
+
+
+def remove_pages(
+    ingest_sheet: pd.DataFrame,
+    logger: logging.Logger | None = None,
+) -> pd.DataFrame:
+    """Remove Page objects from an ingest sheet.
+
+    Page records may be identified by either the taxonomy term name ``Page``
+    or the term ID ``17``.
+
+    Args:
+        ingest_sheet: Islandora ingest sheet.
+        logger: Optional logger.
+
+    Returns:
+        Ingest sheet with all Page records removed.
+
+    Raises:
+        KeyError: If the ingest sheet does not contain ``field_model``.
+    """
+    normalized_models = (
+        ingest_sheet['field_model']
+        .astype(str)
+        .str.strip()
+        .str.casefold()
+    )
+
+    page_mask = normalized_models.isin({'page', '17'})
+    page_count = int(page_mask.sum())
+
+    if logger:
+        logger.info(
+            "Removed %d Page record(s) from the ingest sheet.",
+            page_count,
+        )
+
+    return (
+        ingest_sheet.loc[~page_mask]
+        .reset_index(drop=True)
+    )
 
 
 # --- Mapping Helpers ---
@@ -1981,6 +2028,9 @@ def process_files(
 
         if config.metadata_level == 'publish':
             ingest_sheet = filter_publish_fields(ingest_sheet)
+
+        if config.remove_pages:
+            ingest_sheet = remove_pages(ingest_sheet)
 
         if not unmatched_records.empty:
             unmatched_log_csv = (
