@@ -193,6 +193,11 @@ DOMAINS = {
     'historicpittsburgh_org',
 }
 
+IDENTIFIERS = {
+    'identifier',
+    'id',
+    'field_pid'
+}
 
 # ---------------------------------------------------------------------------
 # Mappings

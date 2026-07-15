@@ -70,6 +70,7 @@ from definitions import (
     FIELDS,
     FORMATTED_FIELDS,
     GOOGLE_CREDENTIALS_FILE,
+    IDENTIFIERS,
     LINKED_AGENT_TYPES,
     MANDATORY_FIELDS,
     MANIFEST_FIELD_MAPPING,
@@ -368,14 +369,6 @@ def parse_arguments() -> AppConfig:
             "Enter the path to the Workbench batch directory: "
         )
 
-    if (
-        args.ingest_task == 'create'
-        and not (args.export_id or args.export_sheet)
-    ):
-        args.export_id = prompt_for_input(
-            "Enter the Google Sheet ID for the export sheet: "
-        )
-
     if not args.metadata_id and not args.metadata_sheet:
         args.metadata_id = prompt_for_input(
             "Enter the Google Sheet ID for the metadata sheet: "
@@ -459,6 +452,7 @@ def load_input_sheets(config: AppConfig) -> tuple[pd.DataFrame, pd.DataFrame]:
         )
         metadata_df = create_df(config.metadata_sheet)
     else:
+        logger.info("No metadata sheet provided.")
         metadata_df = pd.DataFrame()
 
     return export_df, metadata_df
@@ -900,7 +894,7 @@ def initialize_record() -> dict:
 
 
 def split_and_clean(text: str) -> list[str]:
-    """Tokenize a string by pipe delimiters.
+    """Tokenize a string by pipe, semi-colon, and comma delimiters.
 
     Args:
         text: Raw input string.
@@ -912,7 +906,7 @@ def split_and_clean(text: str) -> list[str]:
         return []
 
     # Split on pipe or semicolon plus any surrounding whitespace
-    parts = re.split(r'\s*[|;]\s*', text)
+    parts = re.split(r'\s*[|;,]\s*', text)
 
     # Clean up individual parts and filter out empty strings
     return [
@@ -1901,7 +1895,10 @@ def process_record(
     # Setup record
     record = initialize_record()
 
-    pid = row.get('identifier') or row.get('field_pid')
+    # Find the first key that exists in the row's index
+    valid_key = next((k for k in IDENTIFIERS if k in row.index), None)
+
+    pid = row[valid_key] if valid_key else None
     pid = remove_whitespaces(str(pid)) if pd.notna(pid) else None
 
     if not pid:
