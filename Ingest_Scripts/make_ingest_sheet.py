@@ -15,7 +15,7 @@ Usage:
         --user_id abc123 \
         --ingest_task create \
         --batch_path /workbench/batches/example \
-        --export_sheet_id <export_sheet_id> \
+        --export_id <export_id> \
         --metadata_id <metadata_sheet_id>
 
     # Update existing objects using local spreadsheets
@@ -125,7 +125,7 @@ class AppConfig:
     user_id: str
     batch_path: str | Path
     batch_size: int
-    export_sheet_id: str | None
+    export_id: str | None
     metadata_id: str | None
     credentials_file: str
     ingest_task: str
@@ -300,15 +300,15 @@ def parse_arguments() -> AppConfig:
         help=f"Number of records per batch. Default: {DEFAULT_BATCH_SIZE}.",
     )
     parser.add_argument(
-        '-m',
-        '--export_sheet_id',
-        type=str,
-        help="Google Sheet ID for the export file.",
-    )
-    parser.add_argument(
+        '-e',
         '--export_sheet',
         type=str,
         help="Path to export sheet on local device.",
+    )
+    parser.add_argument(
+        '--export_id',
+        type=str,
+        help="Google Sheet ID for the export file.",
     )
     parser.add_argument(
         '-d',
@@ -370,9 +370,9 @@ def parse_arguments() -> AppConfig:
 
     if (
         args.ingest_task == 'create'
-        and not (args.export_sheet_id or args.export_sheet)
+        and not (args.export_id or args.export_sheet)
     ):
-        args.export_sheet_id = prompt_for_input(
+        args.export_id = prompt_for_input(
             "Enter the Google Sheet ID for the export sheet: "
         )
 
@@ -396,9 +396,9 @@ def parse_arguments() -> AppConfig:
     if args.batch_size < 1:
         raise ValueError("--batch_size must be a positive integer.")
 
-    if args.export_sheet_id and args.export_sheet:
+    if args.export_id and args.export_sheet:
         raise ValueError(
-            "Provide either --export_sheet_id or --export_sheet, not both."
+            "Provide either --export_id or --export_sheet, not both."
         )
 
     if args.metadata_id and args.metadata_sheet:
@@ -422,13 +422,13 @@ def load_input_sheets(config: AppConfig) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     logger = logging.getLogger(LOGGER_NAME)
 
-    if config.export_sheet_id:
+    if config.export_id:
         logger.info(
             "Using export sheet from Google ID: %s",
-            config.export_sheet_id,
+            config.export_id,
         )
         export_df = read_google_sheet(
-            config.export_sheet_id,
+            config.export_id,
             sheet_name=config.export_sheet,
             credentials_file=config.credentials_file,
         )
@@ -554,7 +554,7 @@ def merge_sheets(
         metadata_df.rename(columns={'id': 'identifier'}, inplace=True)
 
     # Create normalized join keys
-    export_df['__export_sheet_id_join__'] = normalize_for_join(
+    export_df['__export_id_join__'] = normalize_for_join(
         export_df['id']
     )
     metadata_df['__metadata_id_join__'] = normalize_for_join(
@@ -563,7 +563,7 @@ def merge_sheets(
 
     # Check for duplicate normalized IDs in export sheet
     export_dupes = (
-        export_df['__export_sheet_id_join__']
+        export_df['__export_id_join__']
         .dropna()
         .value_counts()
     )
@@ -599,7 +599,7 @@ def merge_sheets(
     common_cols = set(export_df.columns).intersection(set(metadata_df.columns))
     common_cols.discard('id')
     common_cols.discard('identifier')
-    common_cols.discard('__export_sheet_id_join__')
+    common_cols.discard('__export_id_join__')
     common_cols.discard('__metadata_id_join__')
 
     # Merge export and metadata sheet
@@ -607,7 +607,7 @@ def merge_sheets(
         export_df,
         metadata_df,
         how='left',
-        left_on='__export_sheet_id_join__',
+        left_on='__export_id_join__',
         right_on='__metadata_id_join__',
         suffixes=('_export', '_metadata'),
         validate='one_to_one',
@@ -616,7 +616,7 @@ def merge_sheets(
 
     # Identify and report any records in metadata sheet but not export sheet
     in_export = metadata_df['__metadata_id_join__'].isin(
-        export_df['__export_sheet_id_join__']
+        export_df['__export_id_join__']
     )
     nonempty = metadata_df['__metadata_id_join__'].notna()
     unmatched = metadata_df[nonempty & ~in_export].copy()
@@ -655,7 +655,7 @@ def merge_sheets(
 
     # Clean up helper columns and export sheet 'id' column
     ingest_sheet.drop(
-        columns=['id', '__export_sheet_id_join__', '__metadata_id_join__'],
+        columns=['id', '__export_id_join__', '__metadata_id_join__'],
         errors='ignore',
         inplace=True,
     )
