@@ -219,11 +219,20 @@ ISSUANCE_MAPPING = {
     'serial': 'serial',
 }
 
+# Metadata sheet to ingest sheet mapping
 LINKED_AGENT_TYPES = {
     'conference': 'conference', 
     'corporate': 'corporate_body', 
     'family': 'family',
     'person': 'person'
+}
+
+# Ingest sheet to metadata sheet mapping
+METADATA_AGENT_TYPES = {
+    'person': 'person',
+    'family': 'family',
+    'corporate_body': 'corporate',
+    'conference': 'conference',
 }
 
 MODEL_MAPPING = {

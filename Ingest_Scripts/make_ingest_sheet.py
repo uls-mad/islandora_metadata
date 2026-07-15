@@ -894,7 +894,7 @@ def initialize_record() -> dict:
 
 
 def split_and_clean(text: str) -> list[str]:
-    """Tokenize a string by pipe, semi-colon, and comma delimiters.
+    """Tokenize a string by pipe and semi-colon delimiters.
 
     Args:
         text: Raw input string.
@@ -906,7 +906,7 @@ def split_and_clean(text: str) -> list[str]:
         return []
 
     # Split on pipe or semicolon plus any surrounding whitespace
-    parts = re.split(r'\s*[|;,]\s*', text)
+    parts = re.split(r'\s*[|;]\s*', text)
 
     # Clean up individual parts and filter out empty strings
     return [
