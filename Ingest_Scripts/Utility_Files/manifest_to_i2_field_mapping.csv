@@ -6,11 +6,11 @@ title,field_full_title,"Text (plain)",,
 file,file,"Text (plain)",,
 transcript,,Text (plain),FALSE,
 thumbnail,,Text (plain),FALSE,
-field_model,field_model,"Entity reference","Islandora Models",
-field_resource_type,field_resource_type,"Entity reference","Resource Types",
+field_model,field_model,"Entity reference","Islandora Models",islandora_models:
+field_resource_type,field_resource_type,"Entity reference","Resource Types",resource_types:
 field_member_of,field_member_of,"Entity reference",,
 field_domain_access,field_domain_access,"Entity reference",,
-field_depositor,field_depositor,"Entity reference","Contributing Institution",
+field_depositor,field_depositor,"Entity reference","Contributing Institution",contributing_institution:
 field_weight,field_weight,"Number (integer)",,
-published,published,"Number (ingeger)",,
+published,published,"Number (integer)",,
 parent_id,parent_id,"Text (plain)",,
