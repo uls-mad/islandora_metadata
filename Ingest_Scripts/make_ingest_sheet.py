@@ -463,199 +463,177 @@ def load_input_sheets(config: AppConfig) -> tuple[pd.DataFrame, pd.DataFrame]:
 def merge_sheets(
     export_df: pd.DataFrame,
     metadata_df: pd.DataFrame,
-    ingest_task: str,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Merge export and metadata DataFrames.
+    """Add Workbench node IDs to a metadata sheet.
+
+    The metadata sheet is treated as the authoritative source. The export
+    sheet contributes only the system-generated ``node_id``, matched using the
+    export's ``id`` column and either ``identifier`` or ``id`` in the metadata
+    sheet. The metadata sheet's original identifier column name is preserved.
 
     Args:
-        export_df: Export DataFrame containing file-level data.
-        metadata_df: Metadata DataFrame containing descriptive data.
-        ingest_task: Workbench ingest task, either 'create' or 'update'.
+        export_df: Workbench export containing ``id`` and ``node_id``.
+        metadata_df: Human-editable metadata sheet.
 
     Returns:
-        Tuple containing merged ingest sheet and unmatched metadata rows.
+        Tuple containing:
+            - the metadata sheet with matched ``node_id`` values added; and
+            - metadata rows that could not be matched to the export.
 
     Raises:
-        KeyError: If the export DataFrame is missing 'id'.
-        ValueError: If metadata is missing both 'identifier' and 'id', or if
-            duplicate normalized identifiers are detected.
+        KeyError: If the export is missing ``id`` or ``node_id``.
+        ValueError: If the metadata sheet is missing both ``identifier`` and
+            ``id``, or if either input contains duplicate normalized
+            identifiers.
     """
     logger = logging.getLogger(LOGGER_NAME)
 
-    required_columns = [
-        'id',
-        'field_model',
-        'field_resource_type',
-        'field_domain_access',
-        'field_depositor',
-        'field_member_of',
-        'published',
-    ]
-
-    if ingest_task == 'create':
-        required_columns.append('file')
-    else:
-        required_columns.append('node_id')
-
-    optional_columns = [
-        'parent_id',
-        'field_weight',
-        'transcript',
-        'thumbnail',
-    ]
-
-    # Drop export columns not in required or optional lists
-    allowed_cols = required_columns + optional_columns
-    export_df = export_df[
-        [col for col in export_df.columns if col in allowed_cols]
-    ].copy()
+    export_df = export_df.copy()
     metadata_df = metadata_df.copy()
 
-    # Ensure export contains required merge key
-    if 'id' not in export_df.columns:
-        msg = "Export sheet is missing the required column: 'id'"
-        logger.error(msg)
-        raise KeyError(msg)
-
     # Ensure all required columns exist in export sheet
-    for col in required_columns:
-        if col not in export_df.columns:
-            export_df.loc[:, col] = None
-            logger.info("Adding missing required column: %s", col)
+    required_export_columns = {
+        'id',
+        'node_id',
+    }
+    missing_export_columns = (
+        required_export_columns - set(export_df.columns)
+    )
+
+    if missing_export_columns:
+        columns = ', '.join(sorted(missing_export_columns))
+        message = (
+            "Export sheet is missing required column(s): "
+            f"{columns}"
+        )
+        logger.error(message)
+        raise KeyError(message)
+
+    # Get subset of export sheet with only ID columns
+    export_df = export_df[
+        ['id', 'node_id']
+    ].copy()
 
     # Identify the ID field in metadata sheet
-    id_field = 'identifier'
+    if 'identifier' in metadata_df.columns:
+        metadata_id_field = 'identifier'
+    elif 'id' in metadata_df.columns:
+        metadata_id_field = 'id'
+        logger.info(
+            "Preferred metadata join field 'identifier' was not found; "
+            "using fallback field 'id'."
+        )
+    else:
+        message = (
+            "Metadata sheet is missing the required join column "
+            "'identifier' (or fallback 'id')."
+        )
+        logger.error(message)
+        raise ValueError(message)
 
-    if id_field not in metadata_df.columns:
-        if 'id' in metadata_df.columns:
-            id_field = 'id'
-            logger.info(
-                "Preferred metadata sheet join field 'identifier' was not "
-                "found; using fallback field 'id'."
-            )
-        else:
-            msg = (
-                "Metadata sheet is missing the required join column "
-                "'identifier' (or fallback 'id')."
-            )
-            logger.error(msg)
-            raise ValueError(msg)
-
-    logger.info("Using '%s' as metadata join field.", id_field)
-
-    # Standardize metadata identifier column name for output
-    if id_field == 'id':
-        metadata_df.rename(columns={'id': 'identifier'}, inplace=True)
+    logger.info(
+        "Using '%s' as the metadata join field.",
+        metadata_id_field,
+    )
 
     # Create normalized join keys
     export_df['__export_id_join__'] = normalize_for_join(
         export_df['id']
     )
     metadata_df['__metadata_id_join__'] = normalize_for_join(
-        metadata_df['identifier']
+        metadata_df[metadata_id_field]
     )
 
     # Check for duplicate normalized IDs in export sheet
-    export_dupes = (
+    export_duplicates = (
         export_df['__export_id_join__']
         .dropna()
         .value_counts()
     )
-    export_dupes = export_dupes[export_dupes > 1]
+    export_duplicates = export_duplicates[
+        export_duplicates > 1
+    ]
 
-    if not export_dupes.empty:
-        sample_dupes = ', '.join(export_dupes.index[:10])
-        msg = (
-            "export contains duplicate normalized IDs. "
-            f"Examples: {sample_dupes}"
+    if not export_duplicates.empty:
+        examples = ', '.join(
+            map(str, export_duplicates.index[:10])
         )
-        logger.error(msg)
-        raise ValueError(msg)
+        message = (
+            "Export sheet contains duplicate normalized IDs. "
+            f"Examples: {examples}"
+        )
+        logger.error(message)
+        raise ValueError(message)
 
     # Check for duplicate normalized identifiers in metadata
-    metadata_dupes = (
+    metadata_duplicates = (
         metadata_df['__metadata_id_join__']
         .dropna()
         .value_counts()
     )
-    metadata_dupes = metadata_dupes[metadata_dupes > 1]
+    metadata_duplicates = metadata_duplicates[
+        metadata_duplicates > 1
+    ]
 
-    if not metadata_dupes.empty:
-        sample_dupes = ', '.join(metadata_dupes.index[:10])
-        msg = (
-            "Metadata contains duplicate normalized identifiers. "
-            f"Examples: {sample_dupes}"
+    if not metadata_duplicates.empty:
+        examples = ', '.join(
+            map(str, metadata_duplicates.index[:10])
         )
-        logger.error(msg)
-        raise ValueError(msg)
+        message = (
+            "Metadata sheet contains duplicate normalized identifiers. "
+            f"Examples: {examples}"
+        )
+        logger.error(message)
+        raise ValueError(message)
 
-    # Identify overlapping columns for post-merge validation
-    common_cols = set(export_df.columns).intersection(set(metadata_df.columns))
-    common_cols.discard('id')
-    common_cols.discard('identifier')
-    common_cols.discard('__export_id_join__')
-    common_cols.discard('__metadata_id_join__')
-
-    # Merge export and metadata sheet
-    ingest_sheet = pd.merge(
-        export_df,
-        metadata_df,
+    # Merge export and metadata sheets
+    ingest_sheet = metadata_df.merge(
+        export_df[
+            ['__export_id_join__', 'node_id']
+        ],
         how='left',
-        left_on='__export_id_join__',
-        right_on='__metadata_id_join__',
-        suffixes=('_export', '_metadata'),
+        left_on='__metadata_id_join__',
+        right_on='__export_id_join__',
         validate='one_to_one',
     )
-    logger.info("Merge completed successfully.")
 
-    # Identify and report any records in metadata sheet but not export sheet
-    in_export = metadata_df['__metadata_id_join__'].isin(
-        export_df['__export_id_join__']
+    matched_count = int(
+        ingest_sheet['node_id'].notna().sum()
     )
-    nonempty = metadata_df['__metadata_id_join__'].notna()
-    unmatched = metadata_df[nonempty & ~in_export].copy()
+    logger.info(
+        "Added node IDs to %d of %d metadata record(s).",
+        matched_count,
+        len(ingest_sheet),
+    )
+
+    # Identify and report any records in metadata sheet but not the export sheet
+    unmatched_mask = (
+        ingest_sheet['__metadata_id_join__'].notna()
+        & ingest_sheet['node_id'].isna()
+    )
+    unmatched = ingest_sheet.loc[
+        unmatched_mask
+    ].copy()
 
     if not unmatched.empty:
-        logger.warning("%d unmatched metadata rows found.", len(unmatched))
-
-    # Compare values in duplicate columns and resolve
-    for col in common_cols:
-        export_col = f'{col}_export'
-        metadata_col = f'{col}_metadata'
-
-        if (
-            export_col not in ingest_sheet.columns
-            or metadata_col not in ingest_sheet.columns
-        ):
-            continue
-
-        mismatch_count = (
-            ingest_sheet[export_col] != ingest_sheet[metadata_col]
-        ).sum()
-
-        if mismatch_count > 0:
-            logger.warning(
-                "Column '%s' has %d mismatching values.",
-                col,
-                mismatch_count,
-            )
-
-        # Keep metadata values and remove export duplicates
-        ingest_sheet[col] = ingest_sheet[metadata_col]
-        ingest_sheet.drop(
-            columns=[export_col, metadata_col],
-            inplace=True,
+        logger.warning(
+            "%d metadata row(s) could not be matched to the export.",
+            len(unmatched),
         )
 
     # Clean up helper columns and export sheet 'id' column
+    helper_columns = [
+        '__export_id_join__',
+        '__metadata_id_join__',
+    ]
+
     ingest_sheet.drop(
-        columns=['id', '__export_id_join__', '__metadata_id_join__'],
+        columns=helper_columns,
         errors='ignore',
         inplace=True,
     )
-
     unmatched.drop(
-        columns=['__metadata_id_join__'],
+        columns=helper_columns,
         errors='ignore',
         inplace=True,
     )
@@ -1215,6 +1193,29 @@ def get_mapped_field(
                 prefix=prefix,
                 repeatable=is_repeatable_field(field),
             )
+
+    # TODO: Support taxonomy and prefix matching by updating I2 field schema
+    match = FIELDS.loc[FIELDS['Field'] == field]
+
+    if not match.empty:
+        result.log_issue(
+            pid,
+            csv_field,
+            data,
+            "input field is an I2 field; ensure taxonomy term and prefix are correct",
+            (
+                "Input field is an I2 field; ensure taxonomy term and prefix "
+                "are correct."
+            ),
+        )
+
+        return FieldMapping(
+            field=field,
+            taxonomy=None,
+            prefix=None,
+            repeatable=is_repeatable_field(field),
+        )
+
 
     result.log_issue(
         pid,
