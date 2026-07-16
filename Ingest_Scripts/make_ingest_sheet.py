@@ -420,8 +420,7 @@ def load_input_sheets(config: AppConfig) -> tuple[pd.DataFrame, pd.DataFrame]:
             config.export_id,
         )
         export_df = read_google_sheet(
-            config.export_id,
-            sheet_name=config.export_sheet,
+            sheet_id=config.export_id,
             credentials_file=config.credentials_file,
         )
     elif config.export_sheet:
@@ -852,7 +851,7 @@ def prepare_config(
     user_id: str,
     ingest_task: str,
     media_files: list[str]
-) -> Optional[str]:
+) -> Path | None:
     """Read and customize the import config file for a specific batch.
 
     Args:
@@ -1934,7 +1933,7 @@ def process_model(
 
 def process_record(
     result: ProcessingResult,
-    row: dict,
+    row: pd.Series,
     index: int,
 ) -> dict | None:
     """Transform a raw CSV row into a structured metadata record.
