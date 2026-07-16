@@ -15,7 +15,6 @@ Usage:
         --user_id abc123 \
         --ingest_task create \
         --batch_path /workbench/batches/example \
-        --export_id <export_id> \
         --metadata_id <metadata_sheet_id>
 
     # Update existing objects using local spreadsheets
@@ -483,15 +482,15 @@ def merge_sheets(
     Raises:
         KeyError: If the export is missing ``id`` or ``node_id``.
         ValueError: If the metadata sheet is missing both ``identifier`` and
-            ``id``, or if either input contains duplicate normalized
-            identifiers.
+            ``id``, either input contains blank normalized identifiers, or
+            either input contains duplicate normalized identifiers.
     """
     logger = logging.getLogger(LOGGER_NAME)
 
     export_df = export_df.copy()
     metadata_df = metadata_df.copy()
 
-    # Ensure all required columns exist in export sheet
+    # Ensure all required columns exist in the export sheet
     required_export_columns = {
         'id',
         'node_id',
@@ -509,12 +508,12 @@ def merge_sheets(
         logger.error(message)
         raise KeyError(message)
 
-    # Get subset of export sheet with only ID columns
+    # Retain only the export fields needed for the merge
     export_df = export_df[
         ['id', 'node_id']
     ].copy()
 
-    # Identify the ID field in metadata sheet
+    # Identify the metadata identifier field
     if 'identifier' in metadata_df.columns:
         metadata_id_field = 'identifier'
     elif 'id' in metadata_df.columns:
@@ -544,10 +543,64 @@ def merge_sheets(
         metadata_df[metadata_id_field]
     )
 
-    # Check for duplicate normalized IDs in export sheet
+    # Reject identifiers that are null or become blank after normalization
+    export_blank_ids = (
+        export_df['__export_id_join__'].isna()
+        | export_df['__export_id_join__']
+        .astype('string')
+        .str.strip()
+        .eq('')
+    )
+
+    if export_blank_ids.any():
+        blank_count = int(export_blank_ids.sum())
+        row_numbers = (
+            export_df.index[export_blank_ids]
+            .to_series()
+            .add(2)
+            .astype(str)
+            .tolist()
+        )
+        examples = ', '.join(row_numbers[:10])
+
+        message = (
+            f"Export sheet contains {blank_count} blank normalized "
+            f"identifier(s) in 'id'. Example spreadsheet row(s): "
+            f"{examples}."
+        )
+        logger.error(message)
+        raise ValueError(message)
+
+    metadata_blank_ids = (
+        metadata_df['__metadata_id_join__'].isna()
+        | metadata_df['__metadata_id_join__']
+        .astype('string')
+        .str.strip()
+        .eq('')
+    )
+
+    if metadata_blank_ids.any():
+        blank_count = int(metadata_blank_ids.sum())
+        row_numbers = (
+            metadata_df.index[metadata_blank_ids]
+            .to_series()
+            .add(2)
+            .astype(str)
+            .tolist()
+        )
+        examples = ', '.join(row_numbers[:10])
+
+        message = (
+            f"Metadata sheet contains {blank_count} blank normalized "
+            f"identifier(s) in '{metadata_id_field}'. Example spreadsheet "
+            f"row(s): {examples}."
+        )
+        logger.error(message)
+        raise ValueError(message)
+
+    # Check for duplicate normalized IDs in the export sheet
     export_duplicates = (
         export_df['__export_id_join__']
-        .dropna()
         .value_counts()
     )
     export_duplicates = export_duplicates[
@@ -565,10 +618,9 @@ def merge_sheets(
         logger.error(message)
         raise ValueError(message)
 
-    # Check for duplicate normalized identifiers in metadata
+    # Check for duplicate normalized identifiers in the metadata sheet
     metadata_duplicates = (
         metadata_df['__metadata_id_join__']
-        .dropna()
         .value_counts()
     )
     metadata_duplicates = metadata_duplicates[
@@ -586,7 +638,15 @@ def merge_sheets(
         logger.error(message)
         raise ValueError(message)
 
-    # Merge export and metadata sheets
+    # Remove node_id column from metadata DataFrame, since the Workbench export 
+    # sheet is authoritative for node IDs
+    metadata_df.drop(
+        columns=['node_id'],
+        errors='ignore',
+        inplace=True,
+    )
+
+    # Add the export's node_id to the corresponding metadata row
     ingest_sheet = metadata_df.merge(
         export_df[
             ['__export_id_join__', 'node_id']
@@ -598,18 +658,17 @@ def merge_sheets(
     )
 
     matched_count = int(
-        ingest_sheet['node_id'].notna().sum()
+        ingest_sheet['__export_id_join__'].notna().sum()
     )
     logger.info(
-        "Added node IDs to %d of %d metadata record(s).",
+        "Matched %d of %d metadata record(s) to the export.",
         matched_count,
         len(ingest_sheet),
     )
 
-    # Identify and report any records in metadata sheet but not the export sheet
+    # Identify metadata rows whose identifiers did not match the export
     unmatched_mask = (
-        ingest_sheet['__metadata_id_join__'].notna()
-        & ingest_sheet['node_id'].isna()
+        ingest_sheet['__export_id_join__'].isna()
     )
     unmatched = ingest_sheet.loc[
         unmatched_mask
@@ -1170,8 +1229,14 @@ def get_mapped_field(
         prefix = (
             None
             if pd.isna(row['prefix'])
-            else row['prefix']
+            else row['prefix'].strip()
         )
+
+        # Check if prefix contains capital letters and, thus, is a display label
+        # requiring a trailing space
+        if prefix:
+            has_capitals = any(char.isupper() for char in prefix)
+            prefix = f"{prefix} " if has_capitals else prefix
 
         return FieldMapping(
             field=field,
@@ -1215,7 +1280,6 @@ def get_mapped_field(
             prefix=None,
             repeatable=is_repeatable_field(csv_field),
         )
-
 
     result.log_issue(
         pid,
@@ -1270,19 +1334,6 @@ def add_value(
 
     value = remove_whitespaces(value)
     values = record.get(field, [])
-
-    if csv_field and (not prefix or prefix.startswith('rlt')):
-        field_row = TEMPLATE_FIELD_MAPPING[
-            TEMPLATE_FIELD_MAPPING['field'] == csv_field
-        ]
-
-        if not field_row.empty:
-            mapped_prefix = field_row.iloc[0]['prefix']
-
-            if prefix:
-                prefix = prefix.replace('rlt', mapped_prefix)
-            else:
-                prefix = mapped_prefix
 
     if prefix:
         value = f'{prefix}{value}'
@@ -1762,7 +1813,10 @@ def validate_record(
         missing_value = len(record[field]) < 1
 
         if missing_value:
-            if field == 'id' and 'node_id' in record:
+            if (
+                field == 'id'
+                and record.get('node_id')
+            ):
                 continue
 
             result.log_issue(
@@ -1798,7 +1852,7 @@ def get_parent_domain(
     try:
         # Locate parent row and extract the membership column
         match = ingest_sheet.loc[
-            ingest_sheet['identifier'] == parent_id,
+            ingest_sheet[pid] == parent_id,
             'field_domain_access',
         ]
 
@@ -1849,7 +1903,7 @@ def process_model(
     if model_mapping is None:
         result.log_issue(
             pid,
-            'field_member_of',
+            'field_model',
             value,
             "could not find term in model taxonomy",
         )
@@ -2009,6 +2063,8 @@ def process_files(
     logger = logging.getLogger(LOGGER_NAME)
 
     try:
+
+
         # Merge export and metadata sheets
         if not export_df.empty and not metadata_df.empty:
             ingest_sheet, unmatched_records = merge_sheets(
@@ -2019,6 +2075,32 @@ def process_files(
             ingest_sheet = metadata_df
             unmatched_records = pd.DataFrame()
 
+        # Confirm that ingest sheet contains node_ids for update task
+        if config.ingest_task == 'update':
+            if 'node_id' not in ingest_sheet.columns:
+                message = (
+                    "Ingest sheet missing required 'node_id' column for update "
+                    "task."
+                )
+                logger.error(message)
+                raise ValueError(message)
+
+            blank_node_ids = (
+                ingest_sheet['node_id']
+                .fillna('')
+                .astype(str)
+                .str.strip()
+                .eq('')
+            )
+
+            if blank_node_ids.any():
+                message = (
+                    f"Update ingest contains {int(blank_node_ids.sum())} "
+                    "record(s) without a node_id."
+                )
+                logger.error(message)
+                raise ValueError(message)
+
         # Add publication field
         publish_value = '1' if config.publish else '0'
         ingest_sheet['published'] = publish_value
@@ -2026,8 +2108,9 @@ def process_files(
         if config.metadata_level == 'publish':
             ingest_sheet = filter_publish_fields(ingest_sheet)
 
-        if config.remove_pages:
-            ingest_sheet = remove_pages(ingest_sheet)
+        # Remove Page objects
+        elif config.remove_pages:
+            ingest_sheet = remove_pages(ingest_sheet, logger)
 
         if not unmatched_records.empty:
             unmatched_log_csv = (
@@ -2200,6 +2283,9 @@ def main() -> None:
         msg = "All records were processed successfully."
         logger.info("%s", msg)
         print(f"\n{SUCCESS_SYMBOL} {msg}")
+    elif not success:
+        logger.error("Processing did not complete successfully.")
+        sys.exit(1)
 
 
 if __name__ == '__main__':
