@@ -1164,18 +1164,22 @@ def process_field(
 
     # Get type attribute value
     type_attribute = None
+
     if tag == 'originInfo':
         type_attribute = element.attrib.get('eventType')
-    elif tag not in TYPE_IGNORED_MODS_FIELDS:
-        type_attribute = element.attrib.get('type')
-    elif element.attrib.get('type'):
-        logger.info(
-            (
-                "Record %s: Ignoring type attribute '%s' for element %s "
-                "with value '%s'"
-            ), 
-            result.record_id, element.attrib.get('type'), xpath, text
-        )
+    else:
+        type_attr = element.attrib.get('type')
+        if type_attr:
+            if tag not in TYPE_IGNORED_MODS_FIELDS:
+                type_attribute = type_attr
+            elif tag == "genre" and type_attr == "musical composition":
+                type_attribute = type_attr
+            else:
+                logger.info(
+                    "Record %s: Ignoring type attribute '%s' for element %s "
+                    "with value '%s'",
+                    result.record_id, type_attr, xpath, text
+                )
 
     # Get data from field
     data = []
