@@ -60,7 +60,7 @@ coordinates,field_coordinates,Geolocation,,
 coordinates_text,field_coordinates_text,Text (plain),,
 projection,field_projection,Text (plain),,
 scale,field_scale,Text (plain),,
-depositor,field_depositor,Entity reference,Contributing Institution,contributing_institution:
+field_depositor,field_depositor,Entity reference,Contributing Institution,contributing_institution:
 source_identifier,field_local_identifier,Text (plain),,
 source_collection,field_source_collection,Entity reference,Source Collection Title,source_collection:
 source_collection_id,field_source_collection_id,Text (plain),Source Collection Identifier,
