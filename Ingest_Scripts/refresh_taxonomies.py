@@ -45,7 +45,6 @@ LOGGER_NAME = 'refresh_taxonomies'
 # Functions
 # ---------------------------------------------------------------------------
 
-# --- Argument Parsing ---
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments.
@@ -70,10 +69,6 @@ def parse_arguments() -> argparse.Namespace:
 
     return parser.parse_args()
 
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 
 def main() -> None:
     """Refresh the taxonomy cache and optionally synchronize Google Sheets."""
