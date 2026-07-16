@@ -60,7 +60,6 @@ from utilities import (
 # ---------------------------------------------------------------------------
 
 LOGGER_NAME = LogRegistry.MERGE_BATCHES
-DEFAULT_ID_COLUMN = 'id'
 
 
 # ---------------------------------------------------------------------------
@@ -106,8 +105,11 @@ def parse_arguments() -> argparse.Namespace:
         '-i',
         '--id_col',
         type=str,
-        default=DEFAULT_ID_COLUMN,
-        help=f"Identifier column used for merging. Default: {DEFAULT_ID_COLUMN}.",
+        default=None,
+        help=(
+            "Identifier column used for merging. If omitted, the script "
+            "looks for 'identifier' and then 'id'."
+        ),
     )
     parser.add_argument(
         '-c',
@@ -220,6 +222,80 @@ def resolve_sheet_ids(
 
 # --- DataFrame Helpers ---
 
+def resolve_id_column(
+    dataframes: list[pd.DataFrame],
+    id_col: str | None = None,
+) -> str:
+    """Resolve the identifier column shared by all DataFrames.
+
+    Args:
+        dataframes: DataFrames that will be merged.
+        id_col: Explicit identifier column supplied by the caller.
+
+    Returns:
+        Identifier column to use for validation and merging.
+
+    Raises:
+        ValueError: If no DataFrames are provided, the requested identifier
+            column is missing, or neither ``identifier`` nor ``id`` is shared
+            by all DataFrames.
+    """
+    if not dataframes:
+        raise ValueError("No DataFrames were provided for identifier lookup.")
+
+    def get_dataframe_label(
+        dataframe: pd.DataFrame,
+        index: int,
+    ) -> str:
+        """Return a useful label for an input DataFrame."""
+        return str(
+            dataframe.attrs.get(
+                'sheet_name',
+                f'DataFrame {index + 1}',
+            )
+        )
+
+    if id_col:
+        missing_sources = [
+            get_dataframe_label(dataframe, index)
+            for index, dataframe in enumerate(dataframes)
+            if id_col not in dataframe.columns
+        ]
+
+        if missing_sources:
+            raise ValueError(
+                f"Identifier column '{id_col}' was not found in: "
+                f"{', '.join(missing_sources)}."
+            )
+
+        return id_col
+
+    for candidate in ('identifier', 'id'):
+        if all(
+            candidate in dataframe.columns
+            for dataframe in dataframes
+        ):
+            return candidate
+
+    available_columns = [
+        (
+            get_dataframe_label(dataframe, index),
+            list(dataframe.columns),
+        )
+        for index, dataframe in enumerate(dataframes)
+    ]
+    details = '; '.join(
+        f"{label}: {', '.join(columns)}"
+        for label, columns in available_columns
+    )
+
+    raise ValueError(
+        "No shared identifier column was found. Expected either "
+        "'identifier' or 'id' in every sheet. "
+        f"Available columns: {details}"
+    )
+
+
 def validate_id_column(
     df: pd.DataFrame,
     id_col: str,
@@ -229,7 +305,8 @@ def validate_id_column(
 
     Args:
         df: DataFrame to validate.
-        id_col: Identifier column used for merging.
+        id_col: Explicit identifier column. If omitted, the script checks
+            for ``identifier`` and then ``id``.
         source_label: Human-readable source label for errors.
 
     Returns:
@@ -269,7 +346,7 @@ def validate_id_column(
 
 def merge_dataframes_by_id(
     dataframes: list[pd.DataFrame],
-    id_col: str = DEFAULT_ID_COLUMN,
+    id_col: str,
     overwrite_existing: bool = False,
     logger: logging.Logger | None = None,
 ) -> pd.DataFrame:
@@ -540,20 +617,21 @@ def load_google_sheets(
     sheet_ids: list[str],
     sheet_name: str | None,
     credentials_file: str | Path,
-    id_col: str,
+    id_col: str | None,
     logger: logging.Logger,
-) -> list[pd.DataFrame]:
-    """Load and validate Google Sheets as DataFrames.
+) -> tuple[list[pd.DataFrame], str]:
+    """Load Google Sheets and resolve their shared identifier column.
 
     Args:
         sheet_ids: Google Sheet IDs to read.
         sheet_name: Optional tab name.
         credentials_file: Path to Google service account credentials JSON.
-        id_col: Identifier column used for merging.
+        id_col: Explicit identifier column, if provided.
         logger: Logger for process details.
 
     Returns:
-        Validated Google Sheet DataFrames.
+        Tuple containing validated DataFrames and the resolved identifier
+        column.
     """
     dataframes = []
 
@@ -571,12 +649,34 @@ def load_google_sheets(
             credentials_file=credentials_file,
             logger=logger,
         )
-
-        source_label = f"Google Sheet {sheet_id}"
-        df = validate_id_column(df, id_col, source_label)
+        df.attrs['sheet_name'] = f"Google Sheet {sheet_id}"
         dataframes.append(df)
 
-    return dataframes
+    resolved_id_col = resolve_id_column(
+        dataframes,
+        id_col=id_col,
+    )
+
+    logger.info(
+        "Using '%s' as the identifier column.",
+        resolved_id_col,
+    )
+
+    validated_dataframes = [
+        validate_id_column(
+            dataframe,
+            resolved_id_col,
+            str(
+                dataframe.attrs.get(
+                    'sheet_name',
+                    f'DataFrame {index + 1}',
+                )
+            ),
+        )
+        for index, dataframe in enumerate(dataframes)
+    ]
+
+    return validated_dataframes, resolved_id_col
 
 
 # --- Main Workflow ---
@@ -586,7 +686,7 @@ def merge_batches(
     sheet_ids: list[str] | None = None,
     sheet_ids_file: str | Path | None = None,
     sheet_name: str | None = None,
-    id_col: str = DEFAULT_ID_COLUMN,
+    id_col: str | None = None,
     credentials_file: str | Path = GOOGLE_CREDENTIALS_FILE,
     overwrite_existing: bool = False,
 ) -> Path:
@@ -622,10 +722,20 @@ def merge_batches(
         resolved_ids = resolve_sheet_ids(sheet_ids, sheet_ids_file)
 
         logger.info("Merging %d Google Sheets.", len(resolved_ids))
-        logger.info("Identifier column: %s", id_col)
+        if id_col:
+            logger.info(
+                "Requested identifier column: %s",
+                id_col,
+            )
+        else:
+            logger.info(
+                "No identifier column was supplied; checking for "
+                "'identifier' or 'id'."
+            )
+
         logger.info("Overwrite existing values: %s", overwrite_existing)
 
-        dataframes = load_google_sheets(
+        dataframes, resolved_id_col = load_google_sheets(
             resolved_ids,
             sheet_name,
             credentials_file,
@@ -635,8 +745,9 @@ def merge_batches(
 
         merged = merge_dataframes_by_id(
             dataframes,
-            id_col=id_col,
+            id_col=resolved_id_col,
             overwrite_existing=overwrite_existing,
+            logger=logger,
         )
 
         output_path = output_dir / f'{batch_dir}_merged_batches_{timestamp}.csv'
@@ -684,3 +795,4 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+    
