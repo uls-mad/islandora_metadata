@@ -36,7 +36,7 @@ RELATED_ITEM_FIELD_MAPPING = {
     'constituent': 'related_title_constituent',
     'host': 'related_title_part_of',
     'isReferencedBy': 'related_title_referenced_by',
-    'original': 'related_title_version_of',
+    'original': 'related_title_original',
     'otherFormat': 'related_title_other_format',
     'otherVersion': 'related_title_other_version',
     'preceding': 'related_title_preceding',

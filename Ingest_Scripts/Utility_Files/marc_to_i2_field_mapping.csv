@@ -1,5 +1,5 @@
 xpath,field,machine_name,taxonomy,required,prefix,notes
-record_identifier,record_identifier,field_local_identifier,,,,
+record_identifier,record_identifier,field_record_source_id,,,,
 title,title,field_full_title,,,,
 originInfo/edition,edition,field_edition,,,,
 originInfo/dateCreated,date,field_edtf_date,,,,
@@ -65,7 +65,7 @@ related_title_constituent,related_title_constituent,field_related_title_constitu
 related_title_preceding,preceding_title,field_related_title_preceding,,,,
 related_title_succeeding,succeeding_title,field_related_title_succeeding,,,,
 related_title_other_format,related_title_other_format,field_related_title_other_format,,,,
-related_title_version_of,related_title_version_of,field_related_title_version_of,,,,
+related_title_original,related_title_original,field_related_title_original,,,,
 related_title_other_version,related_title_other_version,field_related_title_other_versio,,,,
 related_title_referenced_by,related_title_referenced_by,field_related_title_referenced,,,,
 related_title,related_title,field_related_title,,,,
