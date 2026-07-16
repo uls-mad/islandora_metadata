@@ -1,31 +1,25 @@
 #!/usr/bin/env python3
 
-"""Generate Islandora metadata sheets from manifests and source metadata.
+"""Convert a Islandora (Workbench) export sheet to a metadata sheet.
 
-This script combines manifest data with descriptive metadata from Google Sheets
-or local spreadsheet files to produce a standardized Islandora metadata sheet.
-It supports identifier-based merging, metadata template expansion, duplicate
-resolution, and validation of merge results while generating detailed logs for
-unmatched and deduplicated records.
+The script reverses the field-oriented transformations used when generating an
+Islandora Workbench ingest sheet. It:
+
+- maps Islandora machine-field columns back to metadata sheet field names;
+- removes prefixes from values except for fields mapped from ``note``;
+- changes pipe-delimited values to semicolon-and-space delimiters;
+- uses prefixes to route values that share one Islandora field;
+- drops export columns that are not represented in the mapping tables; and
+- writes the resulting metadata sheet to CSV.
 
 Usage:
-    # Merge using Google Sheets
-    python3 make_metadata_sheet.py \
-        --batch_path /workbench/batches/example \
-        --manifest_id <manifest_sheet_id> \
-        --metadata_id <metadata_sheet_id>
+    # Run interactively
+    python3 make_metadata_sheet.py
 
-    # Merge using local spreadsheets
+    # Provide the export and output paths
     python3 make_metadata_sheet.py \
-        --batch_path /workbench/batches/example \
-        --manifest_sheet manifest.xlsx \
-        --metadata_sheet metadata.xlsx
-
-    # Merge using one or more metadata templates
-    python3 make_metadata_sheet.py \
-        --batch_path /workbench/batches/example \
-        --manifest_id <manifest_sheet_id> \
-        --content_type photograph interview
+        --export_sheet /path/to/export.csv \
+        --batch_path /path/to/batch/metadata
 """
 
 # ---------------------------------------------------------------------------
@@ -35,810 +29,863 @@ Usage:
 # Standard library imports
 import argparse
 import logging
+import re
+import sys
 import traceback
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 # Third-party imports
 import pandas as pd
+from tqdm import tqdm
 
 # Local imports
-from definitions import CONTENT_TYPES
+from definitions import (
+    MANIFEST_FIELD_MAPPING,
+    MARC_FIELD_MAPPING,
+    METADATA_AGENT_TYPES,
+    RELATOR_CODES,
+    TEMPLATE_FIELD_MAPPING,
+)
 from utilities import (
     ERROR_SYMBOL,
+    SUCCESS_SYMBOL,
+    WARNING_SYMBOL,
     LogRegistry,
     create_df,
     create_directory,
     df_to_csv,
-    normalize_for_join,
     prompt_for_input,
-    read_google_sheet,
     setup_logger,
 )
 
 
 # ---------------------------------------------------------------------------
-# Globals
+# Constants
 # ---------------------------------------------------------------------------
 
 LOGGER_NAME = LogRegistry.MAKE_METADATA_SHEET
+DEFAULT_SEPARATOR = '; '
 
-METADATA_TEMPLATE_MAPPING = {
-    'av': '1bmTuRiuZT1W_lHtgZv1_CMDHoC6j9JDCtjtwUdcIKc4',
-    'interview': '1aLOM_8tUmzbYzjCoj00ESzt1N_o6HslJ-oSudrdMzG8',
-    'notated_music': '16pKwfkQGDkj1Xl_3WlmigVbRCWK88bi4_4iMlhrxq04',
-    'serial': '1Hh6Wkzwead5yyQW7ZJQSBH2zmm6u-IK2at4yzUcs-Ao',
-    'map': '1dVu3Aeo-ee4omRgfmT62pNb5N-lXzGJa0L47I9alvlk',
-    'photograph': '1v1gb1ca7FF-n-4J627unxrfRZN94msPAwEn4irLZm-E',
-    'manuscript': '1mvrZOTUyYaZRl53lcNSETu5FWZEl8KXsV7dKMyolBDI',
-    'image': '17yrJNN6XdDyoehdg768dVh9gyMjNjgdq09yDSAIzaG0',
-    'book': '1objzzKww9dzAz7rurrlCFCS7gF16litL67y6h_KZgow',
-    'musical_recording': '1wW-HwSquQPr8PLWT4aYuXXxMBdgzi0cB9Mh6pl3UIRE',
-    'japanese_prints': '19uKsSiNhh5QvnW6Od3iJD5J7Dihx7l-ZkXqFhIFfQbQ',
-    'marc': '1R-t5_p97aUVAU6d20mz00uB-52_Ud4S4-V2t-lANfnQ',
-}
+LINKED_AGENT_PREFIX_PATTERN = re.compile(
+    r'^relators:'
+    r'(?P<relator_code>[^:]+):'
+    r'(?P<agent_type>person|family|corporate_body|conference):'
+    r'(?P<value>.*)$'
+)
+
+
+# ---------------------------------------------------------------------------
+# Classes
+# ---------------------------------------------------------------------------
+
+@dataclass
+class AppConfig:
+    """Application configuration values.
+
+    Attributes:
+        export_sheet: Workbench export CSV or Excel file.
+        batch_path: Path to a directory for Workbench batches.
+        timestamp: Timestamp used in the processing log filename.
+        output_path: Final metadata sheet CSV path.
+        log_dir: Directory containing the processing log.
+        log_path: Processing log path.
+    """
+
+    export_sheet: str | Path
+    batch_path: str | Path
+    timestamp: str | None = None
+    output_path: Path | None = None
+    log_dir: Path | None = None
+    log_path: Path | None = None
+
+    def __post_init__(self) -> None:
+        """Normalize path-like values."""
+        self.export_sheet = Path(self.export_sheet)
+        self.batch_path = Path(self.batch_path)
 
 
 # ---------------------------------------------------------------------------
 # Functions
 # ---------------------------------------------------------------------------
 
-# --- Input Resolution and Validation ---
-
-def resolve_metadata_ids(
-    metadata_id: str | None = None,
-    content_type: list[str] | None = None
-) -> list[str]:
-    """Resolve explicit metadata IDs and content-type template IDs.
-
-    Args:
-        metadata_id: Google Sheet ID for a specific metadata file.
-        content_type: Content type values used to identify metadata template
-            Google Sheet IDs.
-
-    Returns:
-        Metadata Google Sheet IDs to fetch.
-    """
-    metadata_ids = []
-
-    if metadata_id:
-        metadata_ids.append(metadata_id)
-
-    if content_type:
-        for ct in content_type:
-            template_id = METADATA_TEMPLATE_MAPPING.get(ct)
-
-            if template_id and template_id not in metadata_ids:
-                metadata_ids.append(template_id)
-
-    return metadata_ids
-
-
-def validate_inputs(
-    manifest_id: str | None = None,
-    manifest_sheet: str | Path | None = None,
-    metadata_id: str | None = None,
-    metadata_sheet: str | Path | None = None,
-    content_type: list[str] | None = None
-) -> None:
-    """Validate mutually exclusive input options.
-
-    Args:
-        manifest_id: Google Sheet ID for the manifest file.
-        manifest_sheet: Path to manifest on local device.
-        metadata_id: Google Sheet ID for a specific metadata file.
-        metadata_sheet: Path to metadata sheet on local device.
-        content_type: Content type values used to identify metadata template
-            Google Sheet IDs.
-
-    Raises:
-        ValueError: If mutually exclusive arguments are used together or if an
-            invalid content type is provided.
-    """
-    if manifest_id and manifest_sheet:
-        raise ValueError(
-            "Provide either --manifest_id or --manifest_sheet, not both."
-        )
-
-    if metadata_id and metadata_sheet:
-        raise ValueError(
-            "Provide either --metadata_id or --metadata_sheet, not both."
-        )
-
-    if content_type:
-        invalid = [
-            ct for ct in content_type
-            if ct not in CONTENT_TYPES
-        ]
-
-        if invalid:
-            raise ValueError(
-                f"Invalid content type(s): {', '.join(invalid)}"
-            )
-
-
 # --- Argument Parsing ---
 
-def parse_arguments() -> argparse.Namespace:
-    """Parse command-line arguments and prompt for missing values.
+def parse_arguments() -> AppConfig:
+    """Parse command-line arguments and prompt for missing paths.
 
     Returns:
-        Parsed arguments with required fields set by CLI or prompt.
+        Application configuration object.
     """
     parser = argparse.ArgumentParser(
-        description="Merge manifest and metadata Google Sheets."
+        description=(
+            "Convert a Workbench export sheet to a metadata sheet."
+        )
     )
     parser.add_argument(
         '-b',
         '--batch_path',
         type=str,
-        help="Path to a batch directory for Workbench ingests."
+        help="Path to a batch directory for Workbench ingests.",
     )
     parser.add_argument(
-        '-m',
-        '--manifest_id',
+        '-e',
+        '--export_sheet',
         type=str,
-        help="Google Sheet ID for the manifest file."
+        help="Path to the Workbench export CSV or Excel file.",
     )
-    parser.add_argument(
-        '--manifest_sheet',
-        type=str,
-        help="Path to manifest on local device."
-    )
-    parser.add_argument(
-        '-d',
-        '--metadata_id',
-        type=str,
-        help="Google Sheet ID for a specific metadata file."
-    )
-    parser.add_argument(
-        '--metadata_sheet',
-        type=str,
-        help="Path to metadata sheet on local device."
-    )
-    parser.add_argument(
-        '-t',
-        '--content_type',
-        nargs='+',
-        help=f"Allowed: {', '.join(sorted(CONTENT_TYPES))}"
-    )
-    parser.add_argument(
-        '-c',
-        '--credentials_file',
-        type=str,
-        default='/workbench/etc/google_ulswfown_service_account.json',
-        help="Path to the Google service account credentials JSON."
-    )
+
     args = parser.parse_args()
+
+    if not args.export_sheet:
+        args.export_sheet = prompt_for_input(
+            "Enter the path to the Workbench export sheet: "
+        )
 
     if not args.batch_path:
         args.batch_path = prompt_for_input(
-            "Enter the path to the Workbench batch directory: "
+            "Enter the directory for the metadata sheet: "
         )
 
-    if not args.manifest_id and not args.manifest_sheet:
-        args.manifest_id = prompt_for_input(
-            "Enter the Google Sheet ID for the manifest: "
-        )
-
-    if (
-        not args.metadata_id 
-        and not args.metadata_sheet 
-        and not args.content_type
-    ):
-        args.metadata_id = prompt_for_input(
-            "Enter the Google Sheet ID for the metadata: "
-        )
-
-    validate_inputs(
-        manifest_id=args.manifest_id,
-        manifest_sheet=args.manifest_sheet,
-        metadata_id=args.metadata_id,
-        metadata_sheet=args.metadata_sheet,
-        content_type=args.content_type,
-    )
-
-    args.metadata_ids = resolve_metadata_ids(
-        metadata_id=args.metadata_id,
-        content_type=args.content_type,
-    )
-
-    return args
+    return AppConfig(**vars(args))
 
 
-# --- Column Ordering ---
+# --- Mapping Helpers ---
 
-def get_merged_column_order(dfs: list[pd.DataFrame]) -> list[str]:
-    """Build a master column list preserving relative column order.
+def normalize_mapping_table(mapping_df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize given field-mapping table for reverse conversion.
 
     Args:
-        dfs: DataFrames whose headers need to be merged.
+        mapping_df: Mapping table containing source and machine field names.
 
     Returns:
-        Unique column names ordered according to their relative positions across
-        the input DataFrames.
+        Mapping rows with standardized fields required by this script.
     """
-    master_order = []
+    required_columns = {
+        'field',
+        'machine_name',
+    }
 
-    for df in dfs:
-        for col in df.columns:
-            if col in master_order:
-                continue
+    missing_columns = required_columns - set(mapping_df.columns)
 
-            col_list = list(df.columns)
-            idx = col_list.index(col)
-
-            if idx == 0:
-                master_order.insert(0, col)
-                continue
-
-            prev_col = col_list[idx - 1]
-
-            if prev_col in master_order:
-                prev_idx = master_order.index(prev_col)
-                master_order.insert(prev_idx + 1, col)
-            else:
-                master_order.append(col)
-
-    return master_order
-
-
-# --- Sheet Merging ---
-
-def merge_sheets(
-    manifest_df: pd.DataFrame,
-    metadata_df: pd.DataFrame,
-    logger: logging.Logger
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Merge manifest and metadata DataFrames.
-
-    This function supports two workflows:
-
-    1. ID-Based Merge:
-        If metadata identifiers are present, perform a left join between the
-        manifest 'id' field and the metadata identifier field, either
-        'identifier' or fallback 'id'.
-
-    2. Direct Append:
-        If the metadata identifier column exists but contains no data, append
-        metadata columns to manifest rows by position.
-
-    Args:
-        manifest_df: Manifest DataFrame. Must include an 'id' column.
-        metadata_df: Metadata DataFrame. Must include 'identifier' or fallback
-            'id' as a join field.
-        logger: Logger for recording process steps, warnings, and errors.
-
-    Returns:
-        Tuple containing:
-            - merged DataFrame after merging or appending.
-            - unmatched metadata rows with identifiers not found in manifest.
-
-    Raises:
-        KeyError: If the manifest DataFrame is missing 'id'.
-        ValueError: If metadata is missing both 'identifier' and 'id', or if
-            duplicate normalized identifiers are detected.
-    """
-    try:
-        # Confirm manifest contains required ID column
-        if 'id' not in manifest_df.columns:
-            msg = "Manifest is missing the required column: 'id'"
-            logger.error(msg)
-            raise KeyError(msg)
-
-        # Keep ID columns in manifest
-        manifest_cols = ['id']
-
-        if 'node_id' in manifest_df.columns:
-            manifest_cols.append('node_id')
-            logger.info("Found 'node_id' in manifest; including in output.")
-        else:
-            logger.info(
-                "'node_id' not found in manifest; proceeding with 'id' only."
-            )
-
-        # Prepare DataFrames
-        manifest_df = manifest_df[manifest_cols].copy()
-        metadata_df = metadata_df.copy()
-
-        # Identify the ID field in metadata sheet
-        id_field = 'identifier'
-
-        if id_field not in metadata_df.columns:
-            if 'id' in metadata_df.columns:
-                id_field = 'id'
-                logger.warning(
-                    "Preferred metadata join field 'identifier' was not found; "
-                    "using fallback field 'id'."
-                )
-            else:
-                msg = (
-                    "Metadata is missing the required join column "
-                    "'identifier' (or fallback 'id')."
-                )
-                logger.error(msg)
-                raise ValueError(msg)
-
-        logger.info("Using '%s' as metadata join field.", id_field)
-
-        # Create normalized join keys
-        manifest_df['__metadata_id_join__'] = normalize_for_join(
-            manifest_df['id']
-        )
-        metadata_df['__manifest_id_join__'] = normalize_for_join(
-            metadata_df[id_field]
+    if missing_columns:
+        raise ValueError(
+            "Field mapping is missing required column(s): "
+            f"{', '.join(sorted(missing_columns))}"
         )
 
-        # Handle case if all identifiers are empty: append columns
-        if not metadata_df['__manifest_id_join__'].notna().any():
-            logger.info(
-                "Metadata identifiers are empty; appending columns by position."
-            )
+    normalized = mapping_df.copy()
 
-            # Drop metadata identifier columns before append so that the
-            # manifest identifier becomes the output identifier.
-            append_metadata_df = metadata_df.drop(
-                columns=['identifier', 'id', '__manifest_id_join__'],
-                errors='ignore'
-            ).reset_index(drop=True)
+    if 'prefix' not in normalized.columns:
+        normalized['prefix'] = ''
 
-            merged = pd.concat(
-                [
-                    manifest_df[manifest_cols].reset_index(drop=True),
-                    append_metadata_df,
-                ],
-                axis=1
-            )
+    normalized = normalized[
+        ['field', 'machine_name', 'prefix']
+    ].copy()
 
-            # Standardize output identifier column name
-            merged.rename(columns={'id': 'identifier'}, inplace=True)
-
-            merged.drop(
-                columns=['__metadata_id_join__'],
-                errors='ignore',
-                inplace=True
-            )
-
-            return merged, pd.DataFrame()
-
-        # Check for duplicate normalized IDs in manifest
-        manifest_dupes = (
-            manifest_df['__metadata_id_join__']
-            .dropna()
-            .value_counts()
-        )
-        manifest_dupes = manifest_dupes[manifest_dupes > 1]
-
-        if not manifest_dupes.empty:
-            sample_dupes = ', '.join(manifest_dupes.index[:10])
-            msg = (
-                "Manifest contains duplicate normalized IDs. "
-                f"Examples: {sample_dupes}"
-            )
-            logger.error(msg)
-            raise ValueError(msg)
-
-        # Check for duplicate normalized identifiers in metadata sheet
-        metadata_dupes = (
-            metadata_df['__manifest_id_join__']
-            .dropna()
-            .value_counts()
-        )
-        metadata_dupes = metadata_dupes[metadata_dupes > 1]
-
-        if not metadata_dupes.empty:
-            sample_dupes = ', '.join(metadata_dupes.index[:10])
-            msg = (
-                "Metadata contains duplicate normalized identifiers. "
-                f"Examples: {sample_dupes}"
-            )
-            logger.error(msg)
-            raise ValueError(msg)
-
-        # Standardize metadata identifier column name for output
-        if id_field == 'id':
-            metadata_df.rename(columns={'id': 'identifier'}, inplace=True)
-
-        # Merge manifest and metadata sheet
-        merged = pd.merge(
-            manifest_df,
-            metadata_df,
-            how='left',
-            left_on='__metadata_id_join__',
-            right_on='__manifest_id_join__',
-            suffixes=('', '_metadata'),
-            validate='one_to_one'
-        )
-        logger.info("Merge completed successfully.")
-
-        # Drop 'id' and keep 'identifier' for final output 
-        merged.drop(columns=['id'], errors='ignore', inplace=True)
-
-        # Identify and report any records in metadata sheet but not manifest
-        in_manifest = metadata_df['__manifest_id_join__'].isin(
-            manifest_df['__metadata_id_join__']
-        )
-        nonempty = metadata_df['__manifest_id_join__'].notna()
-        unmatched = metadata_df[nonempty & ~in_manifest].copy()
-
-        if not unmatched.empty:
-            logger.warning("%d unmatched rows found.", len(unmatched))
-
-        # Standardize unmatched identifier column name
-        if 'id' in unmatched.columns and 'identifier' not in unmatched.columns:
-            unmatched.rename(columns={'id': 'identifier'}, inplace=True)
-
-        # Clean up helper columns
-        merged.drop(
-            columns=['__metadata_id_join__', '__manifest_id_join__'],
-            errors='ignore',
-            inplace=True
+    for column in normalized.columns:
+        normalized[column] = (
+            normalized[column]
+            .fillna('')
+            .astype(str)
+            .str.strip()
         )
 
-        unmatched.drop(
-            columns=['__manifest_id_join__'],
-            errors='ignore',
-            inplace=True
-        )
-
-        return merged, unmatched
-
-    except Exception:
-        logger.exception(
-            "An unexpected error occurred while merging sheets."
-        )
-        raise
-
-
-# --- Metadata Cleanup ---
-
-def deduplicate_metadata_rows(
-    df: pd.DataFrame,
-    logger: logging.Logger
-) -> pd.DataFrame:
-    """Deduplicate metadata rows by identifier or id.
-
-    If duplicate metadata identifiers are found, keep the row with the most
-    populated fields and log the rows that were dropped.
-
-    Args:
-        df: Metadata DataFrame to deduplicate.
-        logger: Logger for recording process details.
-
-    Returns:
-        Deduplicated metadata DataFrame.
-    """
-    df = df.copy()
-    id_col = None
-
-    if 'identifier' in df.columns:
-        id_col = 'identifier'
-    elif 'id' in df.columns:
-        id_col = 'id'
-
-    if id_col is None:
-        return df
-
-    df[id_col] = df[id_col].astype(str).str.strip()
-
-    df['__nonempty_count__'] = (
-        df.astype(str)
-        .apply(lambda col: col.str.strip().ne(''))
-        .sum(axis=1)
-    )
-
-    duplicate_ids = df[id_col].value_counts()
-    duplicate_ids = duplicate_ids[duplicate_ids > 1]
-
-    if not duplicate_ids.empty:
-        logger.warning(
-            "Duplicate metadata %s values found: %s",
-            id_col,
-            ', '.join(str(value) for value in duplicate_ids.index[:20])
-        )
-
-        for duplicate_id in duplicate_ids.index:
-            duplicate_rows = df[df[id_col] == duplicate_id].copy()
-            duplicate_rows = duplicate_rows.sort_values(
-                '__nonempty_count__',
-                ascending=False
-            )
-
-            kept_index = duplicate_rows.index[0]
-            dropped_indexes = duplicate_rows.index[1:]
-
-            logger.warning(
-                "Keeping metadata row %s for duplicate %s '%s'.",
-                kept_index,
-                id_col,
-                duplicate_id
-            )
-
-            for dropped_index in dropped_indexes:
-                logger.warning(
-                    "Dropping duplicate metadata row %s for %s '%s'.",
-                    dropped_index,
-                    id_col,
-                    duplicate_id
-                )
-
-        df = (
-            df.sort_values('__nonempty_count__', ascending=False)
-            .drop_duplicates(subset=[id_col], keep='first')
-        )
-
-    df.drop(columns=['__nonempty_count__'], errors='ignore', inplace=True)
-    df = df.sort_index().reset_index(drop=True)
-
-    return df
-
-
-# --- Template Columns ---
-
-def add_missing_template_columns(
-    metadata_df: pd.DataFrame,
-    template_dfs: list[pd.DataFrame],
-    logger: logging.Logger
-) -> pd.DataFrame:
-    """Add missing template columns to a metadata DataFrame.
-
-    Args:
-        metadata_df: Metadata DataFrame to update.
-        template_dfs: Metadata template DataFrames whose columns should be
-            represented in the output.
-        logger: Logger for recording process details.
-
-    Returns:
-        Metadata DataFrame with missing template columns added.
-    """
-    metadata_df = metadata_df.copy()
-
-    if not template_dfs:
-        return metadata_df
-
-    # Determine template column order across all template sheets
-    template_cols = get_merged_column_order(template_dfs)
-
-    # Identify missing columns
-    missing_cols = [
-        col for col in template_cols
-        if col not in metadata_df.columns
+    normalized = normalized[
+        normalized['field'].ne('')
+        & normalized['machine_name'].ne('')
     ]
 
-    # Add missing columns as blank values
-    for col in missing_cols:
-        metadata_df[col] = ''
-
-    if missing_cols:
-        logger.info(
-            "Added %d missing template column(s) to metadata sheet: %s",
-            len(missing_cols),
-            ', '.join(missing_cols)
-        )
-    else:
-        logger.info(
-            "No missing template columns needed to be added to metadata sheet."
-        )
-
-    # Preserve original metadata column order, followed by newly added columns
-    ordered_cols = list(metadata_df.columns)
-
-    return metadata_df[ordered_cols]
+    return normalized
 
 
-# --- Main Workflow ---
+def load_reverse_mappings() -> pd.DataFrame:
+    """Combine and deduplicate all available field mappings.
 
-def make_metadata_sheet(
-    batch_path: str | Path,
-    manifest_id: str | None = None,
-    manifest_sheet: str | Path | None = None,
-    metadata_id: str | None = None,
-    metadata_sheet: str | Path | None = None,
-    content_type: list[str] | None = None,
-    credentials_file: str = '/workbench/etc/google_ulswfown_service_account.json'
-) -> dict[str, Path | None]:
-    """Execute the metadata and manifest sheet merging workflow.
-
-    Args:
-        batch_path: Path to a batch directory for Workbench ingests.
-        manifest_id: Google Sheet ID for the manifest file.
-        manifest_sheet: Path to manifest on local device.
-        metadata_id: Google Sheet ID for a specific metadata file.
-        metadata_sheet: Path to metadata sheet on local device.
-        content_type: Content type values used to identify metadata template
-            Google Sheet IDs.
-        credentials_file: Path to Google service account credentials JSON.
+    Mapping-table order establishes precedence. Exact duplicate mappings are
+    removed, but mappings with different prefixes are retained because the
+    prefixes may be required to route exported values.
 
     Returns:
-        Output paths for the metadata CSV, log file, and unmatched CSV if
-        created.
+        Combined reverse mapping table.
+    """
+    mapping_tables = [
+        normalize_mapping_table(TEMPLATE_FIELD_MAPPING),
+        normalize_mapping_table(MANIFEST_FIELD_MAPPING),
+        normalize_mapping_table(MARC_FIELD_MAPPING),
+    ]
+
+    mappings = pd.concat(
+        mapping_tables,
+        ignore_index=True,
+    )
+
+    return mappings.drop_duplicates(
+        subset=[
+            'field',
+            'machine_name',
+            'prefix',
+        ],
+        keep='first',
+    ).reset_index(drop=True)
+
+
+def normalize_prefix(prefix: str) -> str:
+    """Normalize a prefix for reliable comparison.
+
+    Args:
+        prefix: Prefix from a mapping row or exported value.
+
+    Returns:
+        Stripped prefix ending in a colon, or an empty string.
+    """
+    prefix = str(prefix or '').strip()
+
+    if not prefix:
+        return ''
+
+    return prefix if prefix.endswith(':') else f'{prefix}:'
+
+
+def parse_linked_agent_value(
+    value: str,
+) -> tuple[str, str, str, str] | None:
+    """Parse an exported linked-agent value.
+
+    Args:
+        value: Exported linked-agent value.
+
+    Returns:
+        Tuple containing the complete prefix, relator code, agent type, and
+        unprefixed agent value. Returns None when the value does not match the
+        expected linked-agent structure.
+    """
+    match = LINKED_AGENT_PREFIX_PATTERN.fullmatch(value.strip())
+
+    if not match:
+        return None
+
+    relator_code = match.group('relator_code').strip()
+    agent_type = match.group('agent_type').strip()
+    agent_value = match.group('value').strip()
+    prefix = normalize_prefix(
+        f'relators:{relator_code}:{agent_type}'
+    )
+
+    return prefix, relator_code, agent_type, agent_value
+
+
+def find_linked_agent_field(
+    prefix: str,
+    mappings: pd.DataFrame,
+) -> str | None:
+    """Find the metadata sheet field for an exact linked-agent prefix.
+
+    Args:
+        prefix: Concrete linked-agent prefix parsed from the export value.
+        mappings: Combined field mapping table.
+
+    Returns:
+        Matching metadata sheet field, if configured.
+    """
+    linked_agent_mappings = mappings.loc[
+        mappings['machine_name'].eq('field_linked_agent')
+    ].copy()
+
+    if linked_agent_mappings.empty:
+        return None
+
+    linked_agent_mappings['normalized_prefix'] = (
+        linked_agent_mappings['prefix']
+        .map(normalize_prefix)
+    )
+
+    match = linked_agent_mappings.loc[
+        linked_agent_mappings['normalized_prefix'].eq(prefix),
+        'field',
+    ]
+
+    if match.empty:
+        return None
+
+    return str(match.iloc[0])
+
+
+def generate_linked_agent_field(
+    relator_code: str,
+    agent_type: str,
+    logger: logging.Logger,
+) -> str:
+    """Generates a metadata field name by combining a relator term and agent type.
+
+    Args:
+        relator_code: The raw MARC relator code (e.g., 'cre', 'art') to lookup.
+        agent_type: The raw agent type (e.g., 'person', 'corporate_body').
+        logger: A logger instance used to emit a warning if the relator code does
+            not map to a known term.
+
+    Returns:
+        The generated field name combining either the resolved relator term or
+        the fallback code with the resolved agent type (e.g., 'artist_person'
+        or 'art_person').
 
     Raises:
-        ValueError: If required input combinations are missing.
-        Exception: If a critical runtime error occurs.
+        AttributeError: If `relator_code` is not present in the global
+            `RELATOR_CODES` dictionary, as calling `.get("term")` on `None`
+            will fail.
     """
-    logger = None
-    log_path = None
-    unmatched_path = None
+    normalized_code = relator_code.strip().casefold()
+    relator_entry = RELATOR_CODES.get(normalized_code)
+    relator_term = relator_entry.get("term") if relator_entry else None
 
-    try:
-        if not batch_path:
-            raise ValueError(
-                "Provide the path to the Workbench batch directory."
+    metadata_agent_type = METADATA_AGENT_TYPES.get(
+        agent_type,
+        agent_type,
+    )
+
+    if relator_term:
+        normalized_term = re.sub(
+            r'\s+',
+            '_',
+            relator_term.strip().casefold(),
+        )
+        return f'{normalized_term}_{metadata_agent_type}'
+
+    fallback_field = (
+        f'{normalized_code}_{metadata_agent_type}'
+    )
+
+    logger.warning(
+        "No relator term was found for code '%s'. Using generated field '%s'.",
+        relator_code,
+        fallback_field,
+    )
+
+    return fallback_field
+
+
+def reverse_map_linked_agents(
+    raw_values: list[str],
+    mappings: pd.DataFrame,
+    output: dict[str, list[str]],
+    logger: logging.Logger,
+) -> None:
+    """Route linked-agent values to metadata sheet fields."""
+    for raw_value in raw_values:
+        parsed = parse_linked_agent_value(raw_value)
+
+        if parsed is None:
+            logger.warning(
+                "Linked-agent value could not be routed: %s",
+                raw_value,
+            )
+            continue
+
+        prefix, relator_code, agent_type, agent_value = parsed
+        target_field = find_linked_agent_field(prefix, mappings)
+
+        if target_field is None:
+            target_field = generate_linked_agent_field(
+                relator_code,
+                agent_type,
+                logger,
+            )
+            logger.info(
+                "Generated metadata field '%s' for prefix '%s'.",
+                target_field,
+                prefix,
             )
 
-        if not manifest_id and not manifest_sheet:
-            raise ValueError(
-                "Provide either manifest_id or manifest_sheet."
-            )
-        
-        if not metadata_id and not metadata_sheet and not content_type:
-            raise ValueError(
-                "Provide either metadata_id, metadata_sheet, or content_type."
-            )
-
-        validate_inputs(
-            manifest_id=manifest_id,
-            manifest_sheet=manifest_sheet,
-            metadata_id=metadata_id,
-            metadata_sheet=metadata_sheet,
-            content_type=content_type,
+        append_output_values(
+            output,
+            target_field,
+            [agent_value],
         )
 
-        metadata_ids = resolve_metadata_ids(
-            metadata_id=metadata_id,
-            content_type=content_type,
+
+# --- Value Helpers ---
+
+def split_values(value: Any) -> list[str]:
+    """Split a repeatable export value on a pipe delimiter.
+
+    Args:
+        value: Raw spreadsheet cell value.
+
+    Returns:
+        Ordered nonblank values.
+    """
+    if value is None or pd.isna(value):
+        return []
+
+    text = str(value).strip()
+
+    if not text:
+        return []
+
+    return [
+        part.strip()
+        for part in re.split(r'\s*[|]\s*', text)
+        if part.strip()
+    ]
+
+
+def remove_prefix(
+    value: str,
+    prefix: str,
+) -> str | None:
+    """Remove a required prefix from the beginning of a value.
+
+    Args:
+        value: Exported field value.
+        prefix: Prefix associated with the metadata sheet field.
+
+    Returns:
+        Value without the prefix. Returns None when a prefix is configured but
+        the value does not use it.
+    """
+    if not prefix:
+        return value
+
+    if not value.startswith(prefix):
+        return None
+
+    return value.removeprefix(prefix).strip()
+
+
+def deduplicate_values(values: list[str]) -> list[str]:
+    """Deduplicate values while preserving first-seen order.
+
+    Args:
+        values: A list of raw string values to deduplicate.
+
+    Returns:
+        A list of unique, non-empty string values in their original relative order.
+    """
+    return list(dict.fromkeys(value for value in values if value))
+
+
+def serialize_values(values: list[str]) -> str:
+    """Serialize values using the metadata sheet separator.
+
+    Args:
+        values: A list of raw string values to deduplicate and serialize.
+
+    Returns:
+        A single string containing the ordered, unique, non-empty values
+        concatenated with the default separator.
+    """
+    return DEFAULT_SEPARATOR.join(deduplicate_values(values))
+
+
+def append_output_values(
+    output: dict[str, list[str]],
+    field: str,
+    values: list[str],
+) -> None:
+    """Appends values to a specific field in a metadata sheet dictionary.
+
+    Args:
+        output: The target dictionary tracking field-to-value mappings, where
+            each field maps to a list of its associated strings.
+        field: The name of the metadata field to modify.
+        values: The list of string values to append to the field.
+
+    Returns:
+        None. Modifies the `output` dictionary in-place.
+    """
+    if not values:
+        return
+
+    output.setdefault(field, [])
+    output[field].extend(values)
+
+
+# --- Conversion ---
+
+def reverse_map_record(
+    row: pd.Series,
+    mappings: pd.DataFrame,
+    logger: logging.Logger,
+) -> dict[str, str]:
+    """Convert one Workbench export row to metadata sheet fields.
+
+    Values are routed using the mapping from ``machine_name`` to ``field``.
+    When several metadata sheet fields share one machine field, prefixes are
+    used to distinguish values when possible.
+
+    Note prefixes are retained. Linked-agent prefixes determine the output
+    metadata field. Prefixes on other mapped values are removed.
+
+    When unprefixed values have multiple possible mappings, values are assigned
+    to ``title`` if it is one of the candidates. Otherwise, they are preserved
+    under the original export field name.
+
+    Args:
+        row: Workbench export record.
+        mappings: Combined reverse field mapping table.
+        logger: Process logger.
+
+    Returns:
+        metadata sheet fields and their serialized values.
+    """
+    output: dict[str, list[str]] = {}
+
+    # Process each I2 field
+    for machine_field, field_mappings in mappings.groupby(
+        'machine_name',
+        sort=False,
+    ):
+        if machine_field not in row.index:
+            continue
+
+        raw_values = split_values(row[machine_field])
+
+        if not raw_values:
+            continue
+
+        # Handle special case of linked agent field prefixes
+        if machine_field == 'field_linked_agent':
+            reverse_map_linked_agents(
+                raw_values,
+                mappings,
+                output,
+                logger,
+            )
+            continue
+
+        mapped_fields = list(
+            dict.fromkeys(field_mappings['field'])
         )
 
-        # Set up output files
-        batch_path = Path(batch_path)
-        batch_dir = batch_path.name
-        timestamp = datetime.now().strftime('%Y-%m-%d-%H%M%S')
-        file_prefix = f'{batch_dir}_{timestamp}'
+        # Handle cases where I2 field maps to only one metadata sheet field
+        if len(mapped_fields) == 1:
+            target_field = mapped_fields[0]
 
-        # Read Manifest
-        log_dir = create_directory(batch_path / 'logs')
-        log_path = log_dir / f'{file_prefix}_metadata_sheet_processing.log'
-        logger = setup_logger(LOGGER_NAME, log_path)
+            prefixes = [
+                normalize_prefix(prefix)
+                for prefix in field_mappings['prefix']
+                if normalize_prefix(prefix)
+            ]
 
-        if manifest_id:
-            logger.info("Reading manifest Google Sheet: %s", manifest_id)
+            cleaned_values: list[str] = []
 
-            try:
-                manifest_df = read_google_sheet(
-                    manifest_id,
-                    credentials_file=credentials_file,
-                    logger=logger
+            for raw_value in raw_values:
+                cleaned_value = raw_value.strip()
+
+                # Maintain note prefixes as public display labels
+                if machine_field != 'field_note':
+                    matching_prefix = next(
+                        (
+                            prefix
+                            for prefix in prefixes
+                            if raw_value.startswith(prefix)
+                        ),
+                        None,
+                    )
+
+                    if matching_prefix:
+                        cleaned_value = raw_value.removeprefix(
+                            matching_prefix
+                        ).strip()
+
+                if cleaned_value:
+                    cleaned_values.append(cleaned_value)
+
+            append_output_values(
+                output,
+                target_field,
+                cleaned_values,
+            )
+            continue
+
+        # Handle cases where I2 field maps to several metadata fields
+        # Track values routed
+        # by a prefix so they are not assigned more than once.
+        claimed_indexes: set[int] = set()
+        unprefixed_fields: list[str] = []
+
+        for mapping in field_mappings.itertuples(index=False):
+            source_field = mapping.field
+            prefix = normalize_prefix(mapping.prefix)
+
+            if not prefix:
+                unprefixed_fields.append(source_field)
+                continue
+
+            matched_values: list[str] = []
+
+            for index, raw_value in enumerate(raw_values):
+                if index in claimed_indexes:
+                    continue
+
+                if not raw_value.startswith(prefix):
+                    continue
+
+                claimed_indexes.add(index)
+
+                cleaned_value = (
+                    raw_value.strip()
+                    if machine_field == 'field_note'
+                    else raw_value.removeprefix(prefix).strip()
                 )
-            except Exception:
-                logger.exception(
-                    "Failed while reading manifest sheet: %s",
-                    manifest_id
-                )
-                raise
+
+                if cleaned_value:
+                    matched_values.append(cleaned_value)
+
+            append_output_values(
+                output,
+                source_field,
+                matched_values,
+            )
+
+        # Values that were not identified by a prefix still need a destination.
+        remaining_values = [
+            value
+            for index, value in enumerate(raw_values)
+            if index not in claimed_indexes
+        ]
+
+        if not remaining_values:
+            continue
+
+        if len(unprefixed_fields) == 1:
+            target_field = unprefixed_fields[0]
+
+        elif 'title' in mapped_fields:
+            target_field = 'title'
+
         else:
-            logger.info("Reading manifest CSV: %s", manifest_sheet)
-            manifest_df = create_df(manifest_sheet)
-
-        # Read Metadata
-        if metadata_sheet:
-            logger.info("Reading metadata CSV: %s", metadata_sheet)
-            metadata_df = create_df(metadata_sheet)
-            metadata_df = deduplicate_metadata_rows(metadata_df, logger)
-
-            if metadata_ids:
-                template_dfs = []
-
-                for sheet_id in metadata_ids:
-                    df = read_google_sheet(
-                        sheet_id,
-                        credentials_file=credentials_file,
-                        logger=logger
-                    )
-
-                    if not df.columns.empty:
-                        template_dfs.append(df)
-
-                metadata_df = add_missing_template_columns(
-                    metadata_df,
-                    template_dfs,
-                    logger
-                )
-
-        # Get columns from relevant metadata sheet(s)
-        elif metadata_ids:
-            all_metadata_dfs = []
-
-            for sheet_id in metadata_ids:
-                logger.info("Fetching metadata from: %s", sheet_id)
-
-                df = read_google_sheet(
-                    sheet_id,
-                    credentials_file=credentials_file,
-                    logger=logger
-                )
-
-                if not df.columns.empty:
-                    all_metadata_dfs.append(df)
-                else:
-                    logger.warning(
-                        "Sheet %s has no columns; skipping.",
-                        sheet_id
-                    )
-
-            if not all_metadata_dfs:
-                raise ValueError(
-                    "No metadata structure found in any provided sheets."
-                )
-
-            # Combine data and reorder columns to the master column order
-            master_cols = get_merged_column_order(all_metadata_dfs)
-            full_metadata_df = pd.concat(
-                all_metadata_dfs,
-                ignore_index=True
-            )
-            metadata_df = full_metadata_df[master_cols]
-
-        # Merge manifest and metadata sheets
-        logger.info("Merging sheets...")
-        merged, unmatched = merge_sheets(manifest_df, metadata_df, logger)
-
-        # Export merged results
-        output_dir = create_directory(batch_path / 'metadata')
-        output_path = output_dir / f'{file_prefix}_metadata.csv'
-
-        logger.info("Saving merged sheet to %s", output_path)
-        df_to_csv(merged, output_path)
-        print(f"Metadata sheet saved to {output_path}")
-
-        # Log unmatched rows from metadata sheet
-        if not unmatched.empty:
-            unmatched_path = log_dir / f'{file_prefix}_unmatched.csv'
+            # Preserve ambiguous values under the original export field rather
+            # than assigning them to an incorrect metadata sheet field.
+            target_field = machine_field
 
             logger.warning(
-                "Unmatched rows found, writing to %s",
-                unmatched_path
+                (
+                    "Machine field '%s' maps to multiple metadata fields "
+                    "(%s), but the following value(s) could not be routed by "
+                    "prefix. They were preserved under '%s': %s"
+                ),
+                machine_field,
+                ', '.join(mapped_fields),
+                machine_field,
+                ' | '.join(remaining_values),
             )
-            df_to_csv(unmatched, unmatched_path)
-            print(f"Unmatched rows found. Log saved to {unmatched_path}")
 
-        logger.info("Process complete.")
+        append_output_values(
+            output,
+            target_field,
+            remaining_values,
+        )
 
-        return {
-            'output_path': output_path,
-            'log_path': log_path,
-            'unmatched_path': unmatched_path,
-        }
+    # Convert accumulated value lists to metadata sheet cell values.
+    return {
+        field: serialize_values(values)
+        for field, values in output.items()
+    }
 
-    except Exception:
-        msg = "A critical system error occurred during execution."
+
+def convert_export_to_metadata(
+    export_df: pd.DataFrame,
+    logger: logging.Logger | None = None,
+) -> pd.DataFrame:
+    """Convert a Workbench export DataFrame to a metadata sheet DataFrame.
+
+    Args:
+        export_df: Workbench export records.
+        logger: Optional process logger.
+
+    Returns:
+        Human-readable metadata DataFrame containing only mapped fields.
+    """
+    logger = logger or logging.getLogger(LOGGER_NAME)
+    mappings = load_reverse_mappings()
+
+    mapped_machine_fields = set(mappings['machine_name'])
+    retained_machine_fields = [
+        column
+        for column in export_df.columns
+        if column in mapped_machine_fields
+    ]
+    dropped_columns = [
+        column
+        for column in export_df.columns
+        if column not in mapped_machine_fields
+    ]
+
+    logger.info(
+        "Found %d mapped export column(s).",
+        len(retained_machine_fields),
+    )
+
+    if dropped_columns:
+        logger.info(
+            "Dropping %d unmapped export column(s): %s",
+            len(dropped_columns),
+            ', '.join(dropped_columns),
+        )
+
+    if not retained_machine_fields:
+        raise ValueError(
+            "The export sheet does not contain any columns represented in "
+            "the field mappings."
+        )
+
+    records = []
+
+    row_iterator = tqdm(
+        export_df.iterrows(),
+        total=len(export_df),
+        desc="Converting records",
+        unit="record",
+    )
+
+    for row_number, (_, row) in enumerate(
+        row_iterator,
+        start=2,
+    ):
+        try:
+            records.append(
+                reverse_map_record(
+                    row=row,
+                    mappings=mappings,
+                    logger=logger,
+                )
+            )
+        except Exception:
+            logger.exception(
+                "Failed to reverse-map export row %d.",
+                row_number,
+            )
+            raise
+
+    metadata_df = pd.DataFrame.from_records(records)
+
+    # Preserve the field order defined by the combined mapping tables.
+    mapped_field_order = list(dict.fromkeys(mappings['field']))
+    output_columns = [
+        field
+        for field in mapped_field_order
+        if field in metadata_df.columns
+    ]
+
+    metadata_df = metadata_df.reindex(
+        columns=output_columns,
+        fill_value='',
+    )
+
+    return metadata_df.fillna('')
+
+
+# --- File Processing ---
+
+def make_metadata_sheet(
+    export_sheet: str | Path,
+    batch_path: str | Path,
+    logger: logging.Logger | None = None,
+) -> Path:
+    """Create a metadata sheet from a Workbench export file.
+
+    This is the callable entry point for other modules.
+
+    Args:
+        export_sheet: Workbench export CSV or Excel file.
+        batch_path: Directory where the metadata sheet should be written.
+        logger: Optional process logger.
+
+    Returns:
+        Path to the generated metadata sheet CSV.
+    """
+    export_path = Path(export_sheet)
+    batch_path = create_directory(batch_path)
+
+    if not export_path.exists():
+        raise FileNotFoundError(
+            f"Workbench export sheet not found: {export_path}"
+        )
+
+    logger = logger or logging.getLogger(LOGGER_NAME)
+    logger.info("Reading Workbench export sheet: %s", export_path)
+
+    export_df = create_df(export_path)
+
+    logger.info(
+        "Loaded %d record(s) and %d column(s) from the export sheet.",
+        len(export_df),
+        len(export_df.columns),
+    )
+
+    metadata_df = convert_export_to_metadata(
+        export_df,
+        logger=logger,
+    )
+
+    output_path = batch_path / f'{export_path.stem}_metadata.csv'
+    df_to_csv(metadata_df, output_path)
+
+    logger.info(
+        "Metadata sheet saved with %d record(s) and %d column(s): %s",
+        len(metadata_df),
+        len(metadata_df.columns),
+        output_path,
+    )
+
+    return output_path
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    """Run the Workbench-export-to-metadata conversion workflow."""
+    logger = None
+    log_path = None
+
+    try:
+        config = parse_arguments()
+        config.timestamp = datetime.now().strftime('%Y-%m-%d-%H%M%S')
+        config.batch_path = create_directory(config.batch_path)
+        config.output_path = create_directory(config.batch_path / 'metadata')
+        config.log_dir = create_directory(config.batch_path / 'logs')
+        config.log_path = (
+            config.log_dir
+            / f'{config.timestamp}_make_metadata_sheet.log'
+        )
+        log_path = config.log_path
+
+        logger = setup_logger(
+            LOGGER_NAME,
+            config.log_path,
+        )
+
+        config.output_path = make_metadata_sheet(
+            export_sheet=config.export_sheet,
+            batch_path=config.batch_path,
+            logger=logger,
+        )
+
+        print(
+            f"\n{SUCCESS_SYMBOL} Metadata sheet saved: "
+            f"{config.output_path.as_posix()}"
+        )
+        print(f"Log saved to: {config.log_path.as_posix()}")
+
+    except Exception as error:
+        message = f"Metadata sheet conversion failed: {error}"
 
         if logger:
-            logger.exception(msg)
+            logger.exception(message)
 
-        print(f"\n{ERROR_SYMBOL} {msg}")
+        print(f"\n{ERROR_SYMBOL} {message}")
 
         if log_path:
-            print(f"See logs: {log_path}")
+            print(f"See logs: {Path(log_path).as_posix()}")
         else:
             traceback.print_exc()
 
-        raise
-
-
-def main() -> None:
-    """Run the script from the command line."""
-    args = parse_arguments()
-
-    make_metadata_sheet(
-        batch_path=args.batch_path,
-        manifest_id=args.manifest_id,
-        manifest_sheet=args.manifest_sheet,
-        metadata_id=args.metadata_id,
-        metadata_sheet=args.metadata_sheet,
-        content_type=args.content_type,
-        credentials_file=args.credentials_file
-    )
+        sys.exit(1)
 
 
 if __name__ == '__main__':
