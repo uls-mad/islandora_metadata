@@ -2013,8 +2013,7 @@ def process_files(
         if not export_df.empty and not metadata_df.empty:
             ingest_sheet, unmatched_records = merge_sheets(
                 export_df,
-                metadata_df,
-                config.ingest_task,
+                metadata_df
             )
         else:
             ingest_sheet = metadata_df
