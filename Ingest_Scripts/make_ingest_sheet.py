@@ -1195,7 +1195,7 @@ def get_mapped_field(
             )
 
     # TODO: Support taxonomy and prefix matching by updating I2 field schema
-    match = FIELDS.loc[FIELDS['Field'] == field]
+    match = FIELDS.loc[FIELDS['Field'] == csv_field]
 
     if not match.empty:
         result.log_issue(
@@ -1213,7 +1213,7 @@ def get_mapped_field(
             field=field,
             taxonomy=None,
             prefix=None,
-            repeatable=is_repeatable_field(field),
+            repeatable=is_repeatable_field(csv_field),
         )
 
 
