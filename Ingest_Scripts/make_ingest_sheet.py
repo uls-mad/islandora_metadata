@@ -1331,14 +1331,31 @@ def add_value(
         )
         return None
 
-    value = remove_whitespaces(value)
-    values = record.get(field, [])
+    if field in FORMATTED_FIELDS:
+        value = remove_whitespaces(text=value, allow_newlines=True) 
+    else:
+        value = remove_whitespaces(value)
+
+    if not value:
+        return value
 
     if prefix:
         value = f'{prefix}{value}'
 
-    if value and value not in values:
-        values.append(value)
+    values = record.get(field, [])
+
+    if field == 'field_linked_agent':
+        # Prevent duplicates with prefix (names may repeat with different roles)
+        if value not in values:
+            values.append(value)
+    else:
+        # Prevent duplicates with and without prefix
+        unprefixed_value = value
+        if (
+            value not in values
+            and unprefixed_value not in values
+        ):
+            values.append(value)
 
     record[field] = values
 
