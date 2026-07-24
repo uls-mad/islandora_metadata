@@ -193,6 +193,29 @@ Depending on the script, reports may include:
 
 This audit trail facilitates understanding **what changed**, **why it changed**, and **which records require manual review**.
 
+## Google Workspace Integration
+
+The toolkit integrates with Google Workspace to support collaborative metadata workflows.
+
+Depending on the script, it can:
+
+- Use a Google service account for authenticated access
+- Read metadata directly from Google Sheets
+- Update Google Sheets
+- Synchronize taxonomy snapshot
+
+## Taxonomy Snapshots
+
+To support reliable validation without requiring a live connection to Islandora, the toolkit maintains local JSON snapshots of Islandora taxonomies.
+
+These snapshots are used to:
+
+- Validate taxonomy terms during ingest preparation
+- Generate taxonomy remediation projects
+- Reduce repeated API requests to Drupal
+
+Snapshots are refreshed on demand using `refresh_taxonomies.py` after taxonomy changes are made in Islandora.
+
 ---
 
 # Requirements
@@ -213,6 +236,19 @@ This audit trail facilitates understanding **what changed**, **why it changed**,
 - google-auth
 - google-auth-oauthlib
 - google-auth-httplib2
+
+---
+
+## Design Philosophy
+
+The toolkit is designed around several guiding principles:
+
+- Preserve source metadata whenever possible.
+- Make metadata transformations explicit and traceable.
+- Validate early to prevent ingest failures.
+- Produce detailed logs for auditing and troubleshooting.
+- Separate configuration and mappings from processing logic.
+- Automate repetitive tasks while preserving opportunities for human review.
 
 ---
 
