@@ -1,128 +1,277 @@
 # Islandora 2 Ingest Workflow Scripts
 
-## Contents
-- [Overview](#overview)
-- [Files Found Here](#files-found-here)
-    - [`i7_to_i2_template.py`](#i7_to_i2_templatepy)
-    - [`make_metadata_sheet.py`](#make_metadata_sheetpy)
-    - [`make_ingest_sheet.py`](#make_ingest_sheetpy)
-    - [`setup_taxonomy_project.py`](#setup_taxonomy_projectpy)
-    - [`setup_taxonomy_ingest.py`](#setup_taxonomy_ingestpy)
-    - [`batch_manager.py`](#batch_managerpy)
-    - [`progress_tracker.py`](#progress_trackerpy)
-    - [`definitions.py`](#definitionspy)
-    - [`utilities.py`](#utilitiespy)
-- [Requirements](#requirements)
-    - [Software](#software)
-    - [Configuration Templates](#configuration-templates)
-    - [Metadata Schemas, Mappings, and Vocabularies](#metadata-schemas-mappings-and-vocabularies)
-- [License](#license)
+This project is a Python-based toolkit for preparing, processing, validating, and ingesting metadata into Islandora 2 using Islandora Workbench. The scripts automates the workflow from source metadata to Workbench ingest spreadsheets. 
+
+Although developed for the University of Pittsburgh Library System, the overall workflow is applicable to many Islandora implementations.
 
 ---
 
-## Overview  
-This repository provides a specialized toolkit for the ingestion of digitized archival materials into Islandora 2.0 at the University of Pittsburgh. 
+## Overview
 
-## Files Found Here
+The scripts support a robust metadata preparation workflow for Islandora 2, including:
 
-### [`i7_to_i2_template.py`](./i7_to_i2_template.py)
-This script uses a CSV crosswalk (`Utility_Files/i7_to_i2_metadata_template_mapping.csv`) to convert legacy (Islandora 7) metadata template fields into the Islandora 2.0 schema based on the content type(s) of the batch.
+- Converting legacy Islandora 7 metadata templates to Islandora 2 metadata spreadsheets ("sheets") &rarr; `i7_to_i2_template.py`
+- Transforming MARC bibliographic records into Islandora 2 metadata sheets &rarr; `make_marc_metadata_sheet.py`
+- Creating Islandora Workbench ingest sheets and configuration files &rarr; `make_ingest_sheet.py`, `setup_taxonomy_ingest.py`
+- Merging metadata sheets for multiple batches to reduce the number of ingests required `merge_batches.py`
+- Creating metadata sheets from Islandora Workbench exports for remediation projects &rarr; `make_metadata_sheet.py`
+- Generating taxonomy remediation projects &rarr; `setup_taxnomy_project,py`
+- Refreshing taxonomy snapshots &rarr; `refresh_taxonomies`
 
-#### Key features:
-- **Content Type Filtering**: Supports specific mapping logic for types (e.g., AV, images, books, manuscripts, notated music, serials). Multiple types can be passed at once (e.g., `image photograph`).
-- **Controlled Vocabulary Mapping**: Uses processors to convert human-readable labels for `copyright_status`, `language`, and `type_of_resource` into standardized codes defined in `definitions.py`.
-- **Hybrid Interface**: Automatically detects if `tkinter` is available to provide a GUI folder picker; otherwise, it falls back to terminal-based prompts.
+These scripts automate metadata extraction, transformation, validation, and ingest preparation to streamline workflows, improve metadata quality, and provide detailed logging for troubleshooting and auditing.
 
-### [`make_metadata_sheet.py`](./make_metadata_sheet.py)
-This script connects to the Google Sheets API to merge manifests (filenames and node IDs) with descriptive metadata.
+---
 
-#### Key components:
-- **ID-Based Merge**: Performs a left-join between the manifest `id` and metadata `identifier`.
-- **Direct Append Mode**: If no identifiers are found in the metadata, it automatically switches to a direct column-wise append.
-- **Logging**: Generates an `unmatched.csv` log for metadata rows that do not have a corresponding file in the manifest.
+# Workflows
 
-### [`make_ingest_sheet.py`](./make_ingest_sheet.py)
-This script merges the manifest with transformed metadata and performs rigorous validation to ensure the data is ready for Workbench ingest.
+## Standard Metadata Workflow
 
-#### Key components:
-- **Multi-threaded Processing**: Uses a background worker thread to process records, allowing the main thread to provide real-time progress updates and handle user cancellations.
-- **Strict Validation**: Enforces controlled vocabularies and EDTF date standards, valid formatting for coordinates, and data type compliance. It also ensures children in Compound Objects or Paged Content inherit the correct `domain_access` from their parents.
-- **Create vs. Update**: Supports both new ingests (`create`) and metadata-only revisions (`update`).
+```text
+Metadata Template
+      │
+      ▼
+Metadata Sheet
+      │
+      ▼
+make_ingest_sheet.py
+      │
+      ▼
+Islandora Workbench Ingest CSV
+Islandora Workbench Ingest Configuration
+Processing Logs
+      │
+      ▼
+Islandora Workbench Ingest
+```
 
-### [`setup_taxonomy_project.py`](./setup_taxonomy_project.py)
-This script extacts unrecognized terms in taxonomy-controlled fields (flagged by `make_ingest_sheet.py`) and initializes a spreadsheet for reviewing, identifying, and reconciling terms that can extend taxonomies. 
+## Converting Islandora 7 Metadata Sheet
 
-#### Key components:
-- **Deduplication Logic:** Aggregates identical errors across records.
-- **Project Initiation:** Generates a template with `field`, `value`, `exception`, `count`, `term_name` and `uri` columns, designed for tracking and vocabulary reconciliation in OpenRefine.
-- **Workflow Isolation:** Stores outputs in a `/remediation` sub-folder to prevent cluttering the primary ingest metadata.
+```text
+Legacy Metadata Sheet (Islandora 7)
+        │
+        ▼
+i7_to_i2_template.py
+        │
+        ▼
+Metadata Sheet (Islandora 2)
+Processing Logs
+```
 
-### [`setup_taxonomy_ingest.py`](./setup_taxonomy_ingest.py)
-This script imports a completed taxonomy remediation project (CSV) (once the `term_name` and `uri` columns have been filled) and generates taxonomy CSVs and configuration files for Workbench ingests.
+## Creating Metadata Sheets from MARC
 
-#### Key components:
-- **URI Resolution**: Determines authority sources (AAT, LCSH, NAF, VIAF) based on URI patterns.
-- **Config Generation**: Automatically populates YAML templates with batch paths and environment credentials.
+```text
+MARC Manifest Template (with Alma MMSIDs)
+      │
+      ▼
+Alma Bibliographic Records Export
+      │
+      ▼
+MARC Records
+      │
+      ▼
+make_marc_metadata_sheet.py
+      │
+      ▼
+Metadata Sheet
+Processing Logs
+```
 
-### [`batch_manager.py`](./batch_manager.py)
-Handles batch processing for digital object workflows by setting up directories and managing PID tracking for media imports.  
+## Taxonomy Maintenance Workflow
 
-#### Key components:
-This script automates the creation of the local workspace required for a successful Workbench ingest.
+```text
+Metadata Exception Report
+(from make_ingest_sheet.py)
+      │
+      ▼
+setup_taxonomy_project.py
+      │
+      ▼
+Manual Review / Remediation / Reconciliation
+      │
+      ▼
+setup_taxonomy_ingest.py
+      │
+      ▼
+Islandora Workbench Ingest CSV
+Islandora Workbench Ingest Configuration
+      │
+      ▼
+Islandora Workbench Ingest
+      │
+      ▼
+refresh_taxonomies.py
+      │
+      ▼
+Updated taxonomy snapshots (GitHub Repository, Documentation & Templates in Google Drive)
+```
 
-Key Components:
-- **Standardized Batch Hierarchy**: Automatically generates a uniform set of subdirectories (including /configs, /import, /logs, and /media). 
-- **Dynamic YAML Configuration**: Customizes configuration file templates by injecting batch-specific metadata, such as unique batch prefixes, user IDs, and local file paths.
+---
 
-### [`progress_tracker.py`](./progress_tracker.py)
-This script manages real-time status updates during data processing.
+# Repository Structure
 
-Key component:
-- **`ProgressTracker` class**: Tracks metrics such as total_records_processed across an entire session, providing a final summary of work completed once all files have been validated or transformed.
+## Core Workflow
 
-### [`definitions.py`](./definitions.py)
-This script serves as the central configuration hub for the entire toolkit, containing global constants, field lists, and processor mappings.
+These scripts perform the primary metadata processing workflow.
 
-#### Key Components:
-- **Field Lists**: Defines categories of metadata fields (e.g., `REQUIRED_FIELDS`, `TITLE_FIELDS`) that require specialized handling during data processing.
-- **Mappings**: Provides lookups that translate legacy terminology into modern standards.
-- **External Reference Loading**: Dynamically imports and processes external CSV files. This allows schema and taxonomies to be updated outside of Python code.
+| Script | Description |
+|----------|-------------|
+| `make_ingest_sheet.py` | Validate metadata and generate Islandora Workbench ingest batches. |
+| `make_marc_metadata_sheet.py` | Transform MARC records into Islandora metadata sheets. |
+| `i7_to_i2_template.py` | Convert Islandora 7 metadata sheets into the Islandora 2 schema. |
+| `merge_batches.py` | Merge multiple metadata sheets. |
 
-### [`utilities.py`](./utilities.py)
-Provides cross-script helper functions for file handling and data standardization.
+---
 
-#### Key components:
-- **Google Workspace Integration**: Functions for authenticated connection to the Google Sheets and Drive APIs, enabling automated metadata harvesting from remote sheets.
-- **Lossless Data Ingestion**: The create_df function, which enforces string-only data loading for CSV and Excel files. This prevents common archival data corruption, such as the loss of leading zeros in identifiers or the unintended conversion of date strings.
-- **Adaptive User Interface**: Logic to detect the execution environment (via tkinter) and provide either a graphical folder-selection dialog or a standard CLI prompt, ensuring the scripts work both on local workstations and remote servers.
-- **Standardized Reporting & Logging**: Tools that manage background activity logs and generate standardized reports (e.g., transformation and exception logs), ensuring metadata modifications and flags are documented and easy to review.
-- **Interactive Input Handling**: Robust prompting logic with built-in validation to ensure required script arguments are collected correctly during manual execution.
+## Taxonomy Utilities
 
-## Requirements
-### Software
-- Python 3.10+
-- pandas: For data transformation and analysis.
-- pathlib: For OS-agnostic path management.
-- python-dotenv: For managing sensitive import credentials.
-- edtf: For extended date-time format validation.
+These scripts support taxonomy remediation and management.
 
-### Configuration Templates
-These files provide the structure for dynamically generated Workbench configurations.
-- **[Utility_Files/create_taxonomy_template.yml](./Utility_Files/create_taxonomy_template.yml)**: Configuration file template for taxonomy term ingests via Workbench; used by `setup_taxonomy_ingest.main()` 
-- **[Utility_Files/default_create_config.yml](./Utility_Files/default_create_config.yml)**: Configuration file template for batch ingests via Workbench; used by `batch_manager.prepare_config()`.
+| Script | Description |
+|----------|-------------|
+| `setup_taxonomy_project.py` | Generate taxonomy remediation projects from metadata exception logs. |
+| `setup_taxonomy_ingest.py` | Generate taxonomy ingest batches from completed remediation projects. |
+| `refresh_taxonomies.py` | Refresh the local Islandora taxonomy cache and snapshots in [Utility_Files](Utility_Files) and in documention in Google Drive on demand. |
+| `taxonomies_cache.py` | Fetch, normalize, cache, and load Islandora taxonomy data. |
+| `taxnomy_manager.py` | Manage loading, refreshing, and caching Islandora taxonomies. |
 
-### Metadata Schemas, Mappings, and Vocabularies
-These files, found in the [Utility Files](./Utility_Files) directory, define how data is transformed from source to target. They are imported in `definitions.py`, converted into `pandas.DataFrame` objects, and stored as constants to be used by other scripts, as detailed below.
+---
 
-| File | Constant | Used By | Primary Use Case |
-| :--- | :--- | :--- | :--- |
-| [i2_field_schema.csv](./Utility_Files/i2_field_schema.csv) | `FIELDS` | `make_ingest_sheet.initialize_record()`,  `make_ingest_sheet.validate_record()`| Core field definitions and technical constraints for I2. |
-| [manifest_to_i2_field_mapping.csv](./Utility_Files/manifest_to_i2_field_mapping.csv) | `MANIFEST_FIELD_MAPPING`  | `make_ingest_sheet.get_mapped_field()` | Maps batch manifest fields to I2 machine names. |
-| [template_to_i2_field_mapping.csv](./Utility_Files/template_to_i2_field_mapping.csv) | `TEMPLATE_FIELD_MAPPING` | `make_ingest_sheet.get_mapped_field()`, `make_ingest_sheet.add_value()` |  Maps I2 Metadata Template fields to I2 machine names. |
-| [i7_to_i2_metadata_template_mapping.csv](./Utility_Files/i7_to_i2_metadata_template_mapping.csv) | `I7_TO_I2_MAPPING` | `i7_to_i2_template.main()` |  Maps legacy Islandora 7 template fields to Islandora 2 template fields. |
-| [language_mapping.csv](./Utility_Files/language_mapping.csv) | `LANGUAGE_MAPPING` | `i7_to_i2_template.process_language()` | MARC Code List for Languages, used to convert 3-letter codes into terms. |
-| [taxonomies.csv](./Utility_Files/taxonomies.csv) | `TAXONOMIES` | `make_ingest_sheet.validate_record()` |  Snapshot of existing taxonomy terms in the repository, used to validate vocabulary terms. |
+## Metadata Processing Modules
 
+These modules provide the metadata processing logic, primarily for `make_marc_metadata_sheet.py` but may also be used by other scripts.
 
-## License
+| Module | Description |
+|----------|-------------|
+| `process_mods.py` | Extract metadata from MODS XML. |
+| `process_related_item.py` | Process MODS relatedItem elements. |
+| `process_dates.py` | Validate and convert MARC to EDTF dates. |
+
+---
+
+## Shared Infrastructure
+
+These helper modules are shared across the toolkit.
+
+| Module | Description |
+|----------|-------------|
+| `definitions.py` | Shared constants, mappings, field definitions, schemas, and controlled vocabularies. |
+| `utilities.py` | Common helper functions for Google Sheets, DataFrames, logging, filesystem operations, reports, and validation. |
+
+---
+
+# Features
+
+## Metadata Validation
+
+The toolkit validates metadata against:
+
+- Islandora field schema (data type, obligation, cardinality)
+- Taxonomies in Drupal/Islandora
+- Collection and domain membership
+- Controlled vocabularies (e.g., MARC value lists, Art & Architecture Thesaurus)
+- Name authority files (LCNAF, VIAF)
+- Extended Date Time Format (EDTF)
+- Geographic coordinate formats (decimal and sexagesimal)
+
+## Logging and Reporting
+
+Every workflow produces detailed audit information.
+
+Depending on the script, reports may include:
+
+- Runtime logs
+- Metadata exceptions   
+      - Unknown fields   
+      - Missing required fields   
+      - Invalid/unknown taxonomy terms   
+      - Invalid EDTF dates   
+      - Invalid value formats   
+- Metadata transformations
+- Unmatched records
+- Batch summaries
+- Processing statistics
+
+This audit trail facilitates understanding **what changed**, **why it changed**, and **which records require manual review**.
+
+---
+
+# Requirements
+
+## Python
+
+- Python 3.11+
+
+## Packages
+
+- pandas
+- lxml
+- pymarc
+- edtf
+- requests
+- openpyxl
+- google-api-python-client
+- google-auth
+- google-auth-oauthlib
+- google-auth-httplib2
+
+---
+
+# Configuration
+
+Several scripts support multiple metadata input file types:
+
+- Google Sheets
+- Local CSV files
+- Local Excel files
+
+Google Sheets access requires a Google service account credentials JSON file.
+
+Most scripts prompt for missing inputs if command-line arguments are omitted.
+
+---
+
+# Utility Files
+
+The toolkit relies on several configuration files in [Utility_Files](Utility_Files), including:
+
+- Field mappings
+- Controlled vocabulary lists 
+- Taxonomy data
+- Islandora field definitions
+- Workbench configuration templates
+- MARC-to-MODS stylesheets
+
+These files are centralized in `definitions.py` and shared across the project.
+
+---
+
+# Coding Conventions
+
+The project follows an internal style:
+
+- PEP 8 formatting
+- Google-style docstrings
+- Built-in generic type hints (`list`, `dict`, `tuple`, etc.)
+- Single quotes for identifiers, dictionary keys, field names, and internal constants
+- Double quotes for user-facing text
+- Structured logging using a shared logger
+- Dataclasses for runtime configuration and processing results
+- Shared reference values and data collections in `definitions.py`
+- Shared helper functions located in `utilities.py`
+
+---
+
+# Future Improvements
+
+Potential future enhancements include:
+
+- Unit and integration test suite
+- Customizable, YAML-based configuration for running scripts instead of command-line argument, hard-coded constants, and mapping files
+- Parallel metadata processing
+- Additional repository migration utilities
+
+---
+
+# License
 This project is available under the MIT License.
+
